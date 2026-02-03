@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/modules/01-applications.yaml
+  - include:
+      file: db/changelog/modules/02-payments.yaml
+  - include:
+      file: db/changelog/modules/03-policies.yaml
+  - include:
+      file: db/changelog/modules/04-certificates.yaml
+  - include:
+      file: db/changelog/modules/05-audit.yaml

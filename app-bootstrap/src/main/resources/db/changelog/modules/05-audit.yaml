@@ -1,0 +1,33 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240203-5
+      author: junie
+      changes:
+        - createTable:
+            tableName: audit_logs
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: actor
+                  type: VARCHAR(255)
+              - column:
+                  name: action
+                  type: VARCHAR(255)
+              - column:
+                  name: entity_type
+                  type: VARCHAR(255)
+              - column:
+                  name: entity_id
+                  type: BIGINT
+              - column:
+                  name: detail
+                  type: TEXT
+              - column:
+                  name: timestamp
+                  type: TIMESTAMP

@@ -1,0 +1,37 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240203-4
+      author: junie
+      changes:
+        - createTable:
+            tableName: certificates
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: policy_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: dmvic_reference
+                  type: VARCHAR(255)
+                  constraints:
+                    unique: true
+              - column:
+                  name: type
+                  type: VARCHAR(50)
+              - column:
+                  name: start_date
+                  type: DATE
+              - column:
+                  name: expiry_date
+                  type: DATE
+              - column:
+                  name: issued_at
+                  type: TIMESTAMP

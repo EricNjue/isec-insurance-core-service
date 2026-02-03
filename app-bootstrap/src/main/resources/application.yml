@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: motor-insurance-platform
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/isec_insurance_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  flyway:
+    enabled: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:admin}
+    password: ${RABBITMQ_PASS:admin}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/isec-insurance}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+aws:
+  s3:
+    bucket-name: ${S3_BUCKET:isec-insurance-docs}
+    region: ${AWS_REGION:eu-west-1}
+
+logging:
+  level:
+    com.isec.platform: INFO
+    org.springframework.security: INFO
