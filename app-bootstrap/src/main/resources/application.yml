@@ -36,8 +36,8 @@ management:
 
 aws:
   s3:
-    bucket-name: ${S3_BUCKET:isec-insurance-docs}
-    region: ${AWS_REGION:eu-west-1}
+    bucket-name: ${S3_BUCKET:isecdocuments}
+    region: ${AWS_REGION:eu-east-1}
 
 logging:
   level:

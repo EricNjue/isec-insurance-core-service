@@ -27,6 +27,7 @@ public class ProfileController {
         UserProfile profile = UserProfile.builder()
                 .userId(jwt.getSubject())
                 .email(jwt.getClaimAsString("email"))
+                .fullName(jwt.getClaimAsString("name"))
                 .roles(roles)
                 .build();
         return ResponseEntity.ok(profile);
@@ -37,6 +38,7 @@ public class ProfileController {
     public static class UserProfile {
         private String userId;
         private String email;
+        private String fullName;
         private List<String> roles;
     }
 }
