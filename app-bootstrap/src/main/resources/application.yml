@@ -7,7 +7,7 @@ spring:
     password: ${DB_PASSWORD:postgres}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: false
   liquibase:
     enabled: true

@@ -16,20 +16,22 @@ public class ApplicationDocument {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "application_id", nullable = false)
     private Long applicationId;
 
-    @Column(nullable = false)
+    @Column(name = "document_type", nullable = false)
     private String documentType; // LOGBOOK, NATIONAL_ID, KRA_PIN, VALUATION_REPORT
 
-    @Column(nullable = false)
+    @Column(name = "s3_key", nullable = false)
     private String s3Key;
 
-    @Column(length = 2048)
+    @Column(name = "last_presigned_url", length = 2048)
     private String lastPresignedUrl;
 
+    @Column(name = "url_expiry_at")
     private LocalDateTime urlExpiryAt;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @PrePersist

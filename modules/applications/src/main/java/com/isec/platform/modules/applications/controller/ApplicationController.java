@@ -8,6 +8,7 @@ import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.documents.service.ApplicationDocumentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/applications")
 @RequiredArgsConstructor
+@Slf4j
 public class ApplicationController {
 
     private final ApplicationRepository applicationRepository;
@@ -30,6 +32,8 @@ public class ApplicationController {
     public ResponseEntity<ApplicationResponse> createApplication(
             @Valid @RequestBody ApplicationRequest request,
             @AuthenticationPrincipal Jwt jwt) {
+        
+        log.info("Creating application for user: {} with reg number: {}", jwt.getSubject(), request.getRegistrationNumber());
         
         Application application = Application.builder()
                 .userId(jwt.getSubject())
@@ -42,15 +46,20 @@ public class ApplicationController {
                 .build();
 
         Application saved = applicationRepository.save(application);
+        log.info("Application created successfully with ID: {}", saved.getId());
         return ResponseEntity.ok(mapToResponse(saved));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
     public ResponseEntity<ApplicationResponse> getApplication(@PathVariable Long id) {
+        log.debug("Fetching application with ID: {}", id);
         return applicationRepository.findById(id)
                 .map(app -> ResponseEntity.ok(mapToResponse(app)))
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> {
+                    log.warn("Application not found with ID: {}", id);
+                    return ResponseEntity.notFound().build();
+                });
     }
 
     @GetMapping

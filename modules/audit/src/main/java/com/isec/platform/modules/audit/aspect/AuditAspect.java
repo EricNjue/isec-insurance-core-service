@@ -3,6 +3,7 @@ package com.isec.platform.modules.audit.aspect;
 import com.isec.platform.modules.audit.domain.AuditLog;
 import com.isec.platform.modules.audit.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Aspect
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class AuditAspect {
 
     private final AuditLogRepository auditLogRepository;
@@ -21,13 +23,16 @@ public class AuditAspect {
         String actor = SecurityContextHolder.getContext().getAuthentication() != null ? 
                 SecurityContextHolder.getContext().getAuthentication().getName() : "SYSTEM";
         
-        AuditLog log = AuditLog.builder()
+        log.debug("Auditing action: {} by actor: {}", joinPoint.getSignature().getName(), actor);
+        
+        AuditLog auditLog = AuditLog.builder()
                 .actor(actor)
                 .action(joinPoint.getSignature().getName())
                 .entityType(result != null ? result.getClass().getSimpleName() : "UNKNOWN")
                 .detail("Method executed: " + joinPoint.getSignature().toShortString())
                 .build();
         
-        auditLogRepository.save(log);
+        AuditLog saved = auditLogRepository.save(auditLog);
+        log.debug("Audit log saved with ID: {}", saved.getId());
     }
 }
