@@ -1,6 +1,7 @@
 package com.isec.platform.modules.documents.controller;
 
 import com.isec.platform.modules.documents.dto.PresignedUrlResponse;
+import com.isec.platform.modules.documents.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,6 +14,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ApplicationDocumentController {
 
+    private final S3Service s3Service;
+
     @GetMapping("/presigned-url")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT')")
     public ResponseEntity<PresignedUrlResponse> getPresignedUrl(
@@ -20,9 +23,8 @@ public class ApplicationDocumentController {
             @RequestParam Long applicationId) {
         
         String key = "apps/" + applicationId + "/" + documentType.toLowerCase() + "-" + UUID.randomUUID() + ".pdf";
-        // Mocking S3 presigned URL generation
-        String mockUrl = "https://isec-insurance-docs.s3.eu-west-1.amazonaws.com/" + key + "?X-Amz-Algorithm=AWS4-HMAC-SHA256&...";
+        String presignedUrl = s3Service.generatePresignedUrl(key, "application/pdf");
         
-        return ResponseEntity.ok(new PresignedUrlResponse(mockUrl, key));
+        return ResponseEntity.ok(new PresignedUrlResponse(presignedUrl, key));
     }
 }
