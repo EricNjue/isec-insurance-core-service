@@ -1,13 +1,13 @@
 # Motor Insurance Platform - Modular Monolith
 
-## 1. Executive Summary
+## 1. Project Overview
 The Motor Insurance Platform is a production-grade, end-to-end MVP implementation for a Web-Based Motor Insurance Application & Certificate Issuance Platform. Built as a **Modular Monolith**, it is designed for fast delivery, regulatory compliance (DMVIC), and future scalability towards microservices.
 
 The platform enables users to obtain motor insurance quotes, upload necessary documentation, make payments via M-Pesa STK Push, and receive digital insurance certificates with specific business rules for monthly and annual covers.
 
 ---
 
-## 2. Architecture Overview
+## 2. Architecture Summary
 The system follows a **Modular Monolith** architecture style, ensuring strict domain boundaries while maintaining a single deployable unit.
 
 - **Architecture Style:** Modular Monolith
@@ -20,7 +20,7 @@ The system follows a **Modular Monolith** architecture style, ensuring strict do
 
 ---
 
-## 3. Technical Stack
+## 3. Tech Stack
 - **Core:** Java 17, Spring Boot 3.3
 - **Security:** Spring Security 6, Keycloak, JWT-based RBAC
 - **Persistence:** Spring Data JPA, Hibernate, PostgreSQL, Liquibase
@@ -30,53 +30,27 @@ The system follows a **Modular Monolith** architecture style, ensuring strict do
 
 ---
 
-## 4. Project Structure
+## 4. Module Breakdown
 The project is structured as a multi-module Maven repository to enforce boundaries and facilitate future microservices extraction.
 
-```text
-motor-insurance-platform
-│
-├── app-bootstrap         # Main entry point & global configuration
-├── common                # Shared security, exceptions, and utilities
-├── messaging             # RabbitMQ configuration and event definitions
-│
-├── modules/
-│   ├── identity          # IAM integration (Keycloak)
-│   ├── applications      # Vehicle & owner details management
-│   ├── rating            # Premium computation (Base, Levies, Charges)
-│   ├── documents         # S3 document management & metadata
-│   ├── payments          # M-Pesa STK Push & Partial Payment logic
-│   ├── policies          # Policy lifecycle management
-│   ├── certificates      # DMVIC issuance rules (Monthly vs Annual)
-│   ├── notifications     # Async email/SMS notifications
-│   ├── reporting         # CSV exports & date-range reports
-│   ├── audit             # Aspect-oriented audit logging
-│   └── integrations      # External API adapters (M-Pesa, DMVIC)
-│
-└── docker                # Dockerfile and environment configs
-```
+- `app-bootstrap`: Main entry point & global configuration.
+- `common`: Shared security, exceptions, and utilities.
+- `messaging`: RabbitMQ configuration and event definitions.
+- `modules/identity`: IAM integration (Keycloak) and User Profile.
+- `modules/applications`: Vehicle & owner details management and lifecycle.
+- `modules/rating`: Premium computation (Base, Levies, Charges).
+- `modules/documents`: S3 document management & metadata.
+- `modules/payments`: M-Pesa STK Push & Partial Payment logic.
+- `modules/policies`: Policy lifecycle management.
+- `modules/certificates`: DMVIC issuance rules (Monthly vs Annual).
+- `modules/notifications`: Async email/SMS notifications and reminders.
+- `modules/reporting`: CSV exports & date-range reports.
+- `modules/audit`: Aspect-oriented audit logging.
+- `modules/integrations`: External API adapters (M-Pesa, DMVIC).
 
 ---
 
-## 5. Key Business Logic & Rules
-
-### Premium Computation (Rating)
-- **Base Premium:** Based on vehicle value/type.
-- **Levies:** PCF (0.25%) and ITL (0.20%).
-- **Certificate Charge:** Fixed fee per certificate issued.
-
-### Partial Payments (M-Pesa)
-- Supports **partial payments** (max 4 entries per application).
-- Total amount must be settled before full annual certificate issuance.
-
-### Monthly Certificate Rules (35% Rule)
-- **Month 1 & 2:** Issued if at least 35% (Month 1) or 70% (Month 2) of the annual premium is paid.
-- **Month 3:** Locked until 100% of the annual premium is settled.
-- **Maturity Date:** Calculated as `Policy Start Date + 1 Year - 1 Day`.
-
----
-
-## 6. Security & IAM
+## 5. Authentication & Roles (Keycloak)
 Authentication and Authorization are handled via **Keycloak**.
 - **Roles:**
     - `ROLE_RETAIL_USER`: Create applications, view own policies.
@@ -86,21 +60,7 @@ Authentication and Authorization are handled via **Keycloak**.
 
 ---
 
-## 7. Messaging & Events (RabbitMQ)
-Asynchronous communication is handled via RabbitMQ to ensure high availability and decoupling.
-- **Events:** `ApplicationSubmittedEvent`, `PaymentReceivedEvent`, `CertificateIssuedEvent`, etc.
-- **Reliability:** Topic exchanges, durable queues, and Dead-Letter Queues (DLQs) for failed message handling.
-
----
-
-## 8. Operational Features
-- **Audit Trail:** Every state change and critical action is captured in an append-only `audit_logs` table (Actor, Action, Entity, Timestamp, Before/After snapshots).
-- **Idempotency:** Enforced for payment callbacks and external integrations to prevent duplicate processing.
-- **Observability:** Structured logging with correlation IDs; readiness and health probes included.
-
----
-
-## 9. Setup & Development
+## 6. Environment Setup
 ### Prerequisites
 - Java 17+
 - Maven 3.9+
@@ -109,29 +69,68 @@ Asynchronous communication is handled via RabbitMQ to ensure high availability a
 - PostgreSQL
 - Keycloak
 
-### Running the Application
-The `app-bootstrap` module is the main entry point for the platform.
+---
 
-1. **Clone the repository.**
-2. **Configure environment variables** (see `app-bootstrap/src/main/resources/application.yml`).
-   - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
-   - `RABBITMQ_HOST`, `RABBITMQ_USER`, `RABBITMQ_PASS`
-   - `KEYCLOAK_ISSUER_URI`
-3. **Run with Maven:**
-   The application main class is `com.isec.platform.InsurancePlatformApplication`.
-   ```bash
-   mvn clean install
-   mvn spring-boot:run -pl app-bootstrap
-   ```
-4. **Run with Docker:**
-   ```bash
-   docker build -t motor-insurance-platform .
-   docker run -p 8080:8080 motor-insurance-platform
-   ```
+## 7. Configuration (env vars)
+- `DB_URL`: JDBC URL for PostgreSQL.
+- `DB_USERNAME` / `DB_PASSWORD`: Database credentials.
+- `RABBITMQ_HOST` / `RABBITMQ_USER` / `RABBITMQ_PASS`: RabbitMQ connection details.
+- `KEYCLOAK_ISSUER_URI`: OIDC Discovery endpoint.
+- `S3_BUCKET` / `AWS_REGION`: AWS S3 configuration for document storage.
 
 ---
 
-## 10. Future Evolution
-1. **Infrastructure:** Transition from RabbitMQ to Amazon MQ or EventBridge for cloud-native events.
-2. **Microservices:** Extract `Payments` or `Certificates` as independent services by moving their respective Maven modules into separate repositories.
-3. **Analytics:** Implement a dedicated Read-Model or Data Warehouse for advanced reporting.
+## 8. API Usage Flow (Happy Path)
+1. **Get Profile**: `GET /api/v1/profile` to verify roles.
+2. **Create Application**: `POST /api/v1/applications` to start a draft.
+3. **Get Quote**: `POST /api/v1/rating/quote` to see premium breakdown.
+4. **Upload Documents**: `GET /api/v1/documents/presigned-url` -> Upload to S3 -> `POST /api/v1/documents/metadata`.
+5. **Pay**: `POST /api/v1/payments/stk-push` to initiate M-Pesa.
+6. **Issue Certificate**: `POST /api/v1/certificates/request` after payment callback.
+
+---
+
+## 9. Payment & Certificate Flow
+- User initiates STK Push.
+- System records payment as `PENDING`.
+- Safaricom sends callback; System updates balance and records receipt.
+- If payment reaches 35%, Month 1 certificate is unlocked.
+
+---
+
+## 10. Monthly Cover Rules
+- **Month 1 & 2:** Issued if at least 35% (Month 1) or 70% (Month 2) of the annual premium is paid.
+- **Month 3:** Locked until 100% of the annual premium is settled.
+- **Maturity Date:** Calculated as `Policy Start Date + 1 Year - 1 Day`.
+
+---
+
+## 11. Notifications & Reminders
+- Expiry reminders are sent at 30, 14, and 3 days before expiry.
+- Valuation reminder letters are generated as PDF and sent via email.
+
+---
+
+## 12. Reporting
+- Admin users can export YoY premiums and issuance history via `GET /api/v1/reports/export`.
+
+---
+
+## 13. Running Locally
+```bash
+mvn clean install
+mvn spring-boot:run -pl app-bootstrap
+```
+
+---
+
+## 14. Running in AWS
+The application is Dockerized and ready for deployment on ECS Fargate.
+```bash
+docker build -t motor-insurance-platform .
+```
+
+---
+
+## 15. Postman Collection Usage
+Import `isec-insurance-platform.postman_collection.json` into Postman. Update the `baseUrl` and `accessToken` variables to match your environment.
