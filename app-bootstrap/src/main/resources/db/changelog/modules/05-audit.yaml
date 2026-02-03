@@ -27,7 +27,7 @@ databaseChangeLog:
                   type: BIGINT
               - column:
                   name: detail
-                  type: TEXT
+                  type: VARCHAR(255)
               - column:
                   name: timestamp
                   type: TIMESTAMP

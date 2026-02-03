@@ -186,7 +186,29 @@
 			"name": "Documents",
 			"item": [
 				{
-					"name": "Get S3 Presigned URL",
+					"name": "Get Application Documents",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/documents/application/{{applicationId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"documents",
+								"application",
+								"{{applicationId}}"
+							]
+						},
+						"description": "Returns all mandatory documents for the application with their current presigned GET URLs."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Upload Presigned URL",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -211,7 +233,8 @@
 									"value": "{{applicationId}}"
 								}
 							]
-						}
+						},
+						"description": "Returns a PUT presigned URL for uploading a specific document type for an application."
 					},
 					"response": []
 				}

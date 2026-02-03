@@ -84,7 +84,7 @@ Authentication and Authorization are handled via **Keycloak**.
 1. **Get Profile**: `GET /api/v1/profile` to verify roles.
 2. **Create Application**: `POST /api/v1/applications` to start a draft.
 3. **Get Quote**: `POST /api/v1/rating/quote` to see premium breakdown.
-4. **Upload Documents**: `GET /api/v1/documents/presigned-url` -> Upload to S3 -> `POST /api/v1/documents/metadata`.
+4. **Upload Documents**: Use `GET /api/v1/documents/presigned-url` to get a PUT URL, upload your file, then use `GET /api/v1/documents/application/{id}` to see all your associated documents and their download URLs.
 5. **Pay**: `POST /api/v1/payments/stk-push` to initiate M-Pesa.
 6. **Issue Certificate**: `POST /api/v1/certificates/request` after payment callback.
 
@@ -120,6 +120,12 @@ Authentication and Authorization are handled via **Keycloak**.
 ```bash
 mvn clean install
 mvn spring-boot:run -pl app-bootstrap
+```
+
+### Local Startup (H2)
+For local development without a full PostgreSQL instance:
+```bash
+DB_URL=jdbc:h2:mem:testdb DB_USERNAME=sa DB_PASSWORD=sa ./mvnw spring-boot:run -pl app-bootstrap
 ```
 
 ---

@@ -21,5 +21,9 @@
             <groupId>com.isec</groupId>
             <artifactId>messaging</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>documents</artifactId>
+        </dependency>
     </dependencies>
 </project>

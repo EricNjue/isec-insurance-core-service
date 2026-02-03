@@ -5,6 +5,7 @@ import com.isec.platform.modules.applications.dto.ApplicationRequest;
 import com.isec.platform.modules.applications.dto.ApplicationResponse;
 import com.isec.platform.modules.applications.domain.ApplicationStatus;
 import com.isec.platform.modules.applications.repository.ApplicationRepository;
+import com.isec.platform.modules.documents.service.ApplicationDocumentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 public class ApplicationController {
 
     private final ApplicationRepository applicationRepository;
+    private final ApplicationDocumentService documentService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT')")
@@ -81,6 +83,7 @@ public class ApplicationController {
                 .vehicleValue(app.getVehicleValue())
                 .status(app.getStatus())
                 .createdAt(app.getCreatedAt())
+                .documents(documentService.getOrCreatePresignedUrls(app.getId()))
                 .build();
     }
 }
