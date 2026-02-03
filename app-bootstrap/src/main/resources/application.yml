@@ -23,7 +23,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/isec-insurance}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9050/realms/isec-insurance}
 
 management:
   endpoints:

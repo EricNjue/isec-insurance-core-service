@@ -7,6 +7,70 @@
 	},
 	"item": [
 		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Get Access Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.environment.set(\"accessToken\", jsonData.access_token);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "client_id",
+									"value": "{{clientId}}",
+									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "{{username}}",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "{{password}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+							"host": [
+								"{{keycloakUrl}}"
+							],
+							"path": [
+								"realms",
+								"{{realm}}",
+								"protocol",
+								"openid-connect",
+								"token"
+							]
+						},
+						"description": "Obtain an access token from Keycloak using the Resource Owner Password Credentials grant."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Identity",
 			"item": [
 				{
@@ -332,6 +396,26 @@
 		{
 			"key": "baseUrl",
 			"value": "http://localhost:8080"
+		},
+		{
+			"key": "keycloakUrl",
+			"value": "http://localhost:9050"
+		},
+		{
+			"key": "realm",
+			"value": "isec-insurance"
+		},
+		{
+			"key": "clientId",
+			"value": "motor-insurance-client"
+		},
+		{
+			"key": "username",
+			"value": "retail-user"
+		},
+		{
+			"key": "password",
+			"value": "password"
 		},
 		{
 			"key": "accessToken",

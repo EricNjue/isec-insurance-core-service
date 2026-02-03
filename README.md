@@ -133,4 +133,19 @@ docker build -t motor-insurance-platform .
 ---
 
 ## 15. Postman Collection Usage
-Import `isec-insurance-platform.postman_collection.json` into Postman. Update the `baseUrl` and `accessToken` variables to match your environment.
+Import `isec-insurance-platform.postman_collection.json` into Postman. 
+
+**Authentication Flow:**
+1. Open the **Authentication** folder.
+2. Run the **Get Access Token** request. This will use the Resource Owner Password Credentials grant to obtain a JWT from Keycloak.
+3. The access token is automatically saved to the `accessToken` environment variable via a test script.
+4. Subsequent requests in the collection are configured to use this `accessToken` via Bearer token authentication.
+
+**Environment Variables:**
+Update the following variables in the collection to match your setup:
+- `baseUrl`: The URL of the Spring Boot application (default: `http://localhost:8080`).
+- `keycloakUrl`: The base URL of your Keycloak instance (default: `http://localhost:9050`).
+- `realm`: The Keycloak realm (default: `isec-insurance`).
+- `clientId`: The OIDC client ID.
+- `username` / `password`: Test user credentials.
+- `applicationId` / `policyId`: IDs used for testing specific records.
