@@ -81,12 +81,13 @@ Authentication and Authorization are handled via **Keycloak**.
 ---
 
 ## 8. API Usage Flow (Happy Path)
-1. **Get Profile**: `GET /api/v1/profile` to verify roles.
-2. **Create Application**: `POST /api/v1/applications` to start a draft.
-3. **Get Quote**: `POST /api/v1/rating/quote` to see premium breakdown.
-4. **Upload Documents**: Use `GET /api/v1/documents/presigned-url` to get a PUT URL, upload your file, then use `GET /api/v1/documents/application/{id}` to see all your associated documents and their download URLs.
-5. **Pay**: `POST /api/v1/payments/stk-push` to initiate M-Pesa.
-6. **Issue Certificate**: `POST /api/v1/certificates/request` after payment callback.
+1. **Anonymous Quote**: `POST /api/v1/rating/anonymous-quote` (unauthenticated) to see potential premium. Store the returned `id`.
+2. **Get Profile**: `GET /api/v1/profile` after logging in.
+3. **Create Application**: `POST /api/v1/applications` to start a draft. You can provide `anonymousQuoteId` to pre-fill and link your quote.
+4. **Get Authenticated Quote**: `POST /api/v1/applications/quote` to see premium breakdown for an existing application.
+5. **Upload Documents**: Use `GET /api/v1/documents/presigned-url` to get a PUT URL, upload your file, then use `GET /api/v1/documents/application/{id}` to see all your associated documents and their download URLs.
+6. **Pay**: `POST /api/v1/payments/stk-push` to initiate M-Pesa.
+7. **Issue Certificate**: `POST /api/v1/certificates/request` after payment callback.
 
 ---
 
