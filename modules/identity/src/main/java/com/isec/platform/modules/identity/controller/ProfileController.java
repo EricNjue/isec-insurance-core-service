@@ -19,10 +19,15 @@ public class ProfileController {
 
     @GetMapping
     public ResponseEntity<UserProfile> getProfile(@AuthenticationPrincipal Jwt jwt) {
+        List<String> roles = List.of();
+        if (jwt.getClaimAsMap("realm_access") != null) {
+            roles = (List<String>) jwt.getClaimAsMap("realm_access").get("roles");
+        }
+
         UserProfile profile = UserProfile.builder()
                 .userId(jwt.getSubject())
                 .email(jwt.getClaimAsString("email"))
-                .roles(jwt.getClaimAsStringList("realm_access.roles"))
+                .roles(roles)
                 .build();
         return ResponseEntity.ok(profile);
     }

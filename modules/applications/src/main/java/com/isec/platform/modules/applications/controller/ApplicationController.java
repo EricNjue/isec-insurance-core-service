@@ -52,11 +52,17 @@ public class ApplicationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
     public ResponseEntity<List<ApplicationResponse>> listApplications(@AuthenticationPrincipal Jwt jwt) {
         List<Application> apps;
-        if (jwt.getClaimAsStringList("realm_access.roles") != null && 
-            jwt.getClaimAsStringList("realm_access.roles").contains("ADMIN")) {
+        boolean isAdmin = false;
+        if (jwt.getClaimAsMap("realm_access") != null) {
+            List<String> roles = (List<String>) jwt.getClaimAsMap("realm_access").get("roles");
+            if (roles != null && roles.contains("ADMIN")) {
+                isAdmin = true;
+            }
+        }
+
+        if (isAdmin) {
             apps = applicationRepository.findAll();
         } else {
             apps = applicationRepository.findByUserId(jwt.getSubject());
