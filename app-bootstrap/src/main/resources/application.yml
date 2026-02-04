@@ -60,10 +60,10 @@ logging:
 
 branding:
   company:
-    name: ${BRANDING_COMPANY_NAME:iSec Insurance Co. Ltd}
+    name: ${BRANDING_COMPANY_NAME:iSec Insurance Agency}
     address: ${BRANDING_COMPANY_ADDRESS:P.O. Box 12345-00100, Nairobi, Kenya}
-    contacts: ${BRANDING_COMPANY_CONTACTS:+254 700 000 000 | info@example.com}
-    website: ${BRANDING_COMPANY_WEBSITE:www.example.com}
+    contacts: ${BRANDING_COMPANY_CONTACTS:+254 113 821287 | info@isecinsuranceagency.com}
+    website: ${BRANDING_COMPANY_WEBSITE:www.isecinsuranceagency.com}
   logo-path: ${BRANDING_LOGO_PATH:classpath:/branding/isec_logo.png}
   signature-path: ${BRANDING_SIGNATURE_PATH:classpath:/branding/isec_signature.png}
 
