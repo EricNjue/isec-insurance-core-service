@@ -1,0 +1,38 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240204-1
+      author: junie
+      changes:
+        - createTable:
+            tableName: mpesa_request_logs
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: request_type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: request_payload
+                  type: TEXT
+              - column:
+                  name: response_payload
+                  type: TEXT
+              - column:
+                  name: checkout_request_id
+                  type: VARCHAR(255)
+              - column:
+                  name: merchant_request_id
+                  type: VARCHAR(255)
+              - column:
+                  name: response_code
+                  type: VARCHAR(50)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP

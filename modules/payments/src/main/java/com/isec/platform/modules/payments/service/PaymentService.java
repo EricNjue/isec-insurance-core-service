@@ -1,6 +1,10 @@
 package com.isec.platform.modules.payments.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.modules.certificates.service.CertificateService;
+import com.isec.platform.modules.integrations.mpesa.MpesaClient;
+import com.isec.platform.modules.integrations.mpesa.domain.MpesaRequestLog;
+import com.isec.platform.modules.integrations.mpesa.repository.MpesaRequestLogRepository;
 import com.isec.platform.modules.payments.domain.Payment;
 import com.isec.platform.modules.payments.dto.MpesaCallbackRequest;
 import com.isec.platform.modules.payments.repository.PaymentRepository;
@@ -24,6 +28,9 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PolicyService policyService;
     private final CertificateService certificateService;
+    private final MpesaClient mpesaClient;
+    private final MpesaRequestLogRepository mpesaRequestLogRepository;
+    private final ObjectMapper objectMapper;
     private static final int MAX_PARTIAL_PAYMENTS = 4;
 
     @Transactional
@@ -36,17 +43,23 @@ public class PaymentService {
             throw new IllegalStateException("Maximum partial payments (4) reached for this application.");
         }
 
-        String checkoutRequestId = "ws_CO_" + System.currentTimeMillis(); // todo:- Mocking for now, ideally shd be fetched from Safaricom API STK push response
+        MpesaClient.MpesaResponse response = mpesaClient.initiateStkPush(phoneNumber, amount, "APP-" + applicationId);
+        
+        if (!"0".equals(response.responseCode())) {
+            log.error("STK Push initiation failed: {}", response.responseDescription());
+            throw new RuntimeException("M-PESA STK Push failed: " + response.responseDescription());
+        }
+
         Payment payment = Payment.builder()
                 .applicationId(applicationId)
                 .amount(amount)
                 .phoneNumber(phoneNumber)
                 .status("PENDING")
-                .checkoutRequestId(checkoutRequestId)
+                .checkoutRequestId(response.checkoutRequestId())
                 .build();
 
         Payment saved = paymentRepository.save(payment);
-        log.info("Payment record created with ID: {} and status: PENDING and checkoutRequestId: {}", saved.getId(), checkoutRequestId);
+        log.info("Payment record created with ID: {} and status: PENDING and checkoutRequestId: {}", saved.getId(), response.checkoutRequestId());
         return saved;
     }
 
@@ -56,6 +69,7 @@ public class PaymentService {
         String checkoutRequestId = callback.getCheckoutRequestId();
 
         log.info("Processing callback for checkoutRequestId: {}", checkoutRequestId);
+        saveCallbackLog(request);
 
         Payment payment = paymentRepository.findByCheckoutRequestId(checkoutRequestId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found for checkoutRequestId: " + checkoutRequestId));
@@ -116,6 +130,22 @@ public class PaymentService {
             log.warn("Payment failed for checkoutRequestId: {}. Reason: {}", checkoutRequestId, callback.getResultDesc());
             payment.setStatus("FAILED");
             paymentRepository.save(payment);
+        }
+    }
+
+    private void saveCallbackLog(MpesaCallbackRequest request) {
+        try {
+            MpesaCallbackRequest.StkCallback callback = request.getBody().getStkCallback();
+            MpesaRequestLog logEntry = MpesaRequestLog.builder()
+                    .requestType("CALLBACK")
+                    .requestPayload(objectMapper.writeValueAsString(request))
+                    .checkoutRequestId(callback.getCheckoutRequestId())
+                    .merchantRequestId(callback.getMerchantRequestId())
+                    .responseCode(String.valueOf(callback.getResultCode()))
+                    .build();
+            mpesaRequestLogRepository.save(logEntry);
+        } catch (Exception e) {
+            log.error("Failed to save M-PESA callback log", e);
         }
     }
 }
