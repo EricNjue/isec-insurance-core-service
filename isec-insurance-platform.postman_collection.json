@@ -241,6 +241,18 @@
 				},
 				{
 					"name": "Get Upload Presigned URL",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.environment.set(\"presignedUploadUrl\", jsonData.presignedUrl);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -266,7 +278,34 @@
 								}
 							]
 						},
-						"description": "Returns a PUT presigned URL for uploading a specific document type for an application."
+ 					"description": "Returns a PUT presigned URL for uploading a specific document type for an application."
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Document to S3",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/pdf",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "file",
+							"file": {
+								"src": ""
+							}
+						},
+						"url": {
+							"raw": "{{presignedUploadUrl}}",
+							"host": [
+								"{{presignedUploadUrl}}"
+							]
+						},
+						"description": "Uses the presigned URL obtained from 'Get Upload Presigned URL' to upload the document directly to S3. Note: The URL is passed as a variable 'presignedUploadUrl' which you should set from the previous request's response."
 					},
 					"response": []
 				}
@@ -483,6 +522,10 @@
 		{
 			"key": "policyId",
 			"value": "1"
+		},
+		{
+			"key": "presignedUploadUrl",
+			"value": ""
 		}
 	]
 }
