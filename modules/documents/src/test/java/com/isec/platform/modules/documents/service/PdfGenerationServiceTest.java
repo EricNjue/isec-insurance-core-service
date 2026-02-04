@@ -16,6 +16,7 @@ class PdfGenerationServiceTest {
     PdfGenerationServiceTest() {
         pdfGenerationService = new PdfGenerationService(new DefaultResourceLoader());
         ReflectionTestUtils.setField(pdfGenerationService, "logoPath", "classpath:/branding/isec_logo.jpg");
+        ReflectionTestUtils.setField(pdfGenerationService, "signaturePath", "classpath:/branding/signature.png");
     }
 
     @Test

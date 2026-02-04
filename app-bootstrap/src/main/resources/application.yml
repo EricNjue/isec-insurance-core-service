@@ -65,3 +65,4 @@ branding:
     contacts: ${BRANDING_COMPANY_CONTACTS:+254 700 000 000 | info@example.com}
     website: ${BRANDING_COMPANY_WEBSITE:www.example.com}
   logo-path: ${BRANDING_LOGO_PATH:classpath:/branding/isec_logo.jpg}
+  signature-path: ${BRANDING_SIGNATURE_PATH:classpath:/branding/isec_signature.png}

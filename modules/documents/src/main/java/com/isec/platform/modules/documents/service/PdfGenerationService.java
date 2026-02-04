@@ -51,6 +51,8 @@ public class PdfGenerationService {
     private String companyWebsite;
     @Value("${branding.logo-path:classpath:/branding/logo.png}")
     private String logoPath;
+    @Value("${branding.signature-path:classpath:/branding/signature.png}")
+    private String signaturePath;
 
     public byte[] generateValuationLetter(Map<String, Object> data, List<AuthorizedValuer> valuers) {
         Document document = new Document(PageSize.A4);
@@ -140,7 +142,8 @@ public class PdfGenerationService {
 
             // Sign off
             document.add(new Paragraph("Yours faithfully,", FONT_NORMAL));
-            document.add(new Paragraph("\n\n"));
+            document.add(new Paragraph("\n"));
+            addSignatureIfAvailable(document);
             document.add(new Paragraph("__________________________", FONT_NORMAL));
             document.add(new Paragraph("UNDERWRITING DEPARTMENT", FONT_BOLD));
 
@@ -183,19 +186,27 @@ public class PdfGenerationService {
     }
 
     private void addLogoIfAvailable(Document document) {
+        addImageIfAvailable(document, logoPath, 120, 60, Element.ALIGN_LEFT);
+    }
+
+    private void addSignatureIfAvailable(Document document) {
+        addImageIfAvailable(document, signaturePath, 100, 50, Element.ALIGN_LEFT);
+    }
+
+    private void addImageIfAvailable(Document document, String path, float width, float height, int alignment) {
         try {
-            Resource resource = resourceLoader.getResource(logoPath);
+            Resource resource = resourceLoader.getResource(path);
             if (resource != null && resource.exists()) {
                 byte[] bytes = resource.getInputStream().readAllBytes();
-                Image logo = Image.getInstance(bytes);
-                logo.scaleToFit(120, 60);
-                logo.setAlignment(Element.ALIGN_LEFT);
-                document.add(logo);
+                Image img = Image.getInstance(bytes);
+                img.scaleToFit(width, height);
+                img.setAlignment(alignment);
+                document.add(img);
             } else {
-                log.debug("Logo resource not found at path: {}", logoPath);
+                log.debug("Image resource not found at path: {}", path);
             }
         } catch (IOException | DocumentException ex) {
-            log.warn("Could not load/add logo from {}: {}", logoPath, ex.getMessage());
+            log.warn("Could not load/add image from {}: {}", path, ex.getMessage());
         }
     }
 }
