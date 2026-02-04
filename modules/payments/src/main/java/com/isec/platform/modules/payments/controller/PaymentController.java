@@ -1,5 +1,6 @@
 package com.isec.platform.modules.payments.controller;
 
+import com.isec.platform.modules.payments.dto.MpesaCallbackRequest;
 import com.isec.platform.modules.payments.domain.Payment;
 import com.isec.platform.modules.payments.dto.StkPushRequest;
 import com.isec.platform.modules.payments.service.PaymentService;
@@ -28,8 +29,8 @@ public class PaymentController {
     }
 
     @PostMapping("/callback")
-    public ResponseEntity<Map<String, String>> mpesaCallback(@RequestBody String callbackPayload) {
-        // Implementation of callback logic (idempotent)
+    public ResponseEntity<Map<String, String>> mpesaCallback(@RequestBody MpesaCallbackRequest request) {
+        paymentService.handleCallback(request);
         return ResponseEntity.ok(Map.of("ResultCode", "0", "ResultDesc", "Success"));
     }
 }

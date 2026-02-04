@@ -27,6 +27,10 @@
         </dependency>
         <dependency>
             <groupId>com.isec</groupId>
+            <artifactId>policies</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
             <artifactId>rating</artifactId>
         </dependency>
     </dependencies>
