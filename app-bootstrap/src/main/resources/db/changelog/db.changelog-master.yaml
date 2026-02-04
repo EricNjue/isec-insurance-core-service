@@ -13,3 +13,5 @@ databaseChangeLog:
       file: db/changelog/modules/06-documents.yaml
   - include:
       file: db/changelog/modules/07-valuation-letters.yaml
+  - include:
+      file: db/changelog/modules/08-policy-updates.yaml

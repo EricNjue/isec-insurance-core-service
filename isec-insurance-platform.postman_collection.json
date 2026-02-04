@@ -703,6 +703,50 @@
 					"response": []
 				},
 				{
+					"name": "Get Latest Valuation Letter by Policy ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuation-letters/policy/{{policyId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuation-letters",
+								"policy",
+								"{{policyId}}"
+							]
+						},
+						"description": "Returns the most recent valuation letter associated with the given policy ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Latest Valuation Letter by Policy Number",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuation-letters/policy-number/{{policyNumber}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuation-letters",
+								"policy-number",
+								"{{policyNumber}}"
+							]
+						},
+						"description": "Returns the most recent valuation letter associated with the given policy number."
+					},
+					"response": []
+				},
+				{
 					"name": "List Active Valuers",
 					"request": {
 						"method": "GET",
@@ -747,6 +791,57 @@
 							]
 						},
 						"description": "Admin-only endpoint to add a new authorized motor valuer."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Authorized Valuer",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"companyName\": \"Auto Valuers Ltd Updated\",\n    \"contactPerson\": \"James Kamau\",\n    \"email\": \"james.updated@autovaluers.com\",\n    \"phoneNumbers\": \"0711223344\",\n    \"locations\": \"Nairobi\",\n    \"active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuers/{{valuerId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuers",
+								"{{valuerId}}"
+							]
+						},
+						"description": "Admin-only endpoint to update an existing authorized motor valuer."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Authorized Valuer",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuers/{{valuerId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuers",
+								"{{valuerId}}"
+							]
+						},
+						"description": "Admin-only endpoint to deactivate an authorized motor valuer."
 					},
 					"response": []
 				}
@@ -890,6 +985,14 @@
 		},
 		{
 			"key": "valuationLetterId",
+			"value": "1"
+		},
+		{
+			"key": "policyNumber",
+			"value": "POL-12345"
+		},
+		{
+			"key": "valuerId",
 			"value": "1"
 		},
 		{

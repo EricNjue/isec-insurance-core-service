@@ -2,6 +2,8 @@ package com.isec.platform.modules.documents.service;
 
 import com.isec.platform.modules.documents.domain.AuthorizedValuer;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -9,7 +11,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PdfGenerationServiceTest {
 
-    private final PdfGenerationService pdfGenerationService = new PdfGenerationService();
+    private final PdfGenerationService pdfGenerationService;
+
+    PdfGenerationServiceTest() {
+        pdfGenerationService = new PdfGenerationService(new DefaultResourceLoader());
+        ReflectionTestUtils.setField(pdfGenerationService, "logoPath", "classpath:/branding/isec_logo.jpg");
+        ReflectionTestUtils.setField(pdfGenerationService, "signaturePath", "classpath:/branding/signature.png");
+    }
 
     @Test
     void testGenerateValuationLetter() {

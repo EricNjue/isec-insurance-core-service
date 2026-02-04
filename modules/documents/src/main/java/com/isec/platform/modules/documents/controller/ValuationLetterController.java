@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -33,13 +34,16 @@ public class ValuationLetterController {
         ValuationLetter letter = valuationLetterService.generateIfNotExists(policyId,
                 req.getInsuredName(), req.getRegistrationNumber(), force);
 
+        String downloadUrl = valuationLetterService.generateDownloadUrl(letter);
+
         return ResponseEntity.ok(Map.of(
                 "id", letter.getId(),
                 "policyId", letter.getPolicyId(),
                 "policyNumber", letter.getPolicyNumber(),
                 "vehicleRegistrationNumber", letter.getVehicleRegistrationNumber(),
                 "status", letter.getStatus().name(),
-                "s3Key", letter.getPdfS3Key()
+                "s3Key", letter.getPdfS3Key(),
+                "presignedUrl", downloadUrl
         ));
     }
 
@@ -58,6 +62,22 @@ public class ValuationLetterController {
                 .orElseThrow(() -> new IllegalArgumentException("Valuation letter not found: " + id));
         String url = valuationLetterService.generateDownloadUrl(letter);
         return ResponseEntity.ok(Map.of("url", url));
+    }
+
+    @GetMapping("/valuation-letters/policy/{policyId}")
+    @PreAuthorize("hasAnyRole('RETAIL_USER','AGENT','ADMIN')")
+    public ResponseEntity<ValuationLetter> getLatestByPolicy(@PathVariable Long policyId) {
+        return valuationLetterRepository.findFirstByPolicyIdOrderByGeneratedAtDesc(policyId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/valuation-letters/policy-number/{policyNumber}")
+    @PreAuthorize("hasAnyRole('RETAIL_USER','AGENT','ADMIN')")
+    public ResponseEntity<ValuationLetter> getLatestByPolicyNumber(@PathVariable String policyNumber) {
+        return valuationLetterRepository.findFirstByPolicyNumberOrderByGeneratedAtDesc(policyNumber)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @Data
