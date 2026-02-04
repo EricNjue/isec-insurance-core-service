@@ -15,3 +15,5 @@ databaseChangeLog:
       file: db/changelog/modules/07-valuation-letters.yaml
   - include:
       file: db/changelog/modules/08-policy-updates.yaml
+  - include:
+      file: db/changelog/modules/09-mpesa-logs.yaml

@@ -60,9 +60,19 @@ logging:
 
 branding:
   company:
-    name: ${BRANDING_COMPANY_NAME:iSec Insurance Co. Ltd}
+    name: ${BRANDING_COMPANY_NAME:iSec Insurance Agency}
     address: ${BRANDING_COMPANY_ADDRESS:P.O. Box 12345-00100, Nairobi, Kenya}
-    contacts: ${BRANDING_COMPANY_CONTACTS:+254 700 000 000 | info@example.com}
-    website: ${BRANDING_COMPANY_WEBSITE:www.example.com}
+    contacts: ${BRANDING_COMPANY_CONTACTS:+254 113 821287 | info@isecinsuranceagency.com}
+    website: ${BRANDING_COMPANY_WEBSITE:www.isecinsuranceagency.com}
   logo-path: ${BRANDING_LOGO_PATH:classpath:/branding/isec_logo.png}
   signature-path: ${BRANDING_SIGNATURE_PATH:classpath:/branding/isec_signature.png}
+
+mpesa:
+  consumer-key: ${MPESA_CONSUMER_KEY}
+  consumer-secret: ${MPESA_CONSUMER_SECRET}
+  short-code: ${MPESA_SHORTCODE:174379}
+  passkey: ${MPESA_PASSKEY}
+  callback-url: ${MPESA_CALLBACK_URL}
+  oauth-url: ${MPESA_OAUTH_URL:https://sandbox.safaricom.co.ke/oauth/v1/generate}
+  stk-push-url: ${MPESA_STK_PUSH_URL:https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest}
+  stk-query-url: ${MPESA_STK_QUERY_URL:https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query}
