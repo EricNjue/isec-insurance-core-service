@@ -106,13 +106,104 @@ Authentication and Authorization are handled via **Keycloak**.
 
 ---
 
-## 11. Notifications & Reminders
-- Expiry reminders are sent at 30, 14, and 3 days before expiry.
-- Valuation reminder letters are generated as PDF and sent via email.
+## 11. Async Processing & Idempotency
+The platform utilizes an event-driven architecture with **RabbitMQ** for critical asynchronous workflows:
+- **Certificate Issuance:** Requests to DMVIC are processed asynchronously to handle external API latency and failures.
+- **Valuation Letters:** Letters are generated and stored in S3 asynchronously.
+- **Notifications:** SMS and Email notifications are triggered by lifecycle events.
+
+### Idempotency Strategy
+To ensure reliability and prevent duplicate side effects (like double-issuing certificates), we use:
+- **Idempotency Keys:** Every async request is assigned a unique key.
+- **Redis Tracking:** A Redis-backed `IdempotencyService` tracks processed keys with a configurable TTL (default 7 days).
+- **Status Tracking:** The `Certificate` entity maintains state (`PENDING`, `PROCESSING`, `ISSUED`, `FAILED`) to ensure we don't re-process completed requests.
 
 ---
 
-## 12. Reporting
+## 12. End-to-End Journey (Implementation Details)
+
+### 1. Request Initiation
+- When a payment is received and meets business rule thresholds, the `CertificateService` creates a `PENDING` certificate record and publishes a `CertificateRequestedEvent`.
+- Users can manually trigger valuation letters via `POST /api/v1/notifications/valuation-letter/{policyId}`.
+
+### 2. Async Certificate Issuance
+- `CertificateRequestConsumer` listens for requests.
+- It checks idempotency in Redis.
+- Updates status to `PROCESSING`.
+- Calls `DmvicClient` (mocked).
+- On success, updates status to `ISSUED`, saves the reference, and triggers a `NotificationSendEvent`.
+- On failure, updates status to `FAILED` and triggers a failure notification.
+
+### 3. Valuation Letter Flow
+- `ValuationLetterConsumer` listens for requests.
+- Generates a mock PDF, "stores" it in S3 (ApplicationDocument), and triggers a `NotificationSendEvent`.
+
+### 4. Notification Flow
+- `NotificationConsumer` handles all SMS/Email dispatch.
+- Uses idempotency to prevent spamming users on message replays.
+
+---
+
+## 13. How to Run Locally
+
+### Required Environment Variables
+- `RABBITMQ_HOST`: localhost
+- `RABBITMQ_USER`: admin
+- `RABBITMQ_PASS`: admin
+- `REDIS_HOST`: localhost
+- `REDIS_PORT`: 6379
+- `DB_URL`: jdbc:postgresql://localhost:5432/isec_insurance_db
+- `KEYCLOAK_ISSUER_URI`: http://localhost:9050/realms/isec-insurance
+
+### Starting Dependencies
+We recommend using Docker Compose for dependencies:
+```bash
+docker-compose up -d rabbitmq redis postgres keycloak
+```
+
+### Starting the Application
+```bash
+./mvnw clean install
+./mvnw spring-boot:run -pl app-bootstrap
+```
+
+---
+
+## 14. How to Test the Full E2E Flow
+
+### 1. Trigger a Certificate Request
+Perform a payment that satisfies the business rules (at least 35% of annual premium).
+```bash
+# Example via Postman or Curl
+POST /api/v1/payments/stk-push
+```
+
+### 2. Observe Async Processing
+Monitor the logs for:
+- `Creating pending MONTH_1 certificate for policy...`
+- `Received certificate request event...`
+- `DMVIC issued certificate with reference...`
+
+### 3. Verify Certificate Issuance
+Check the database or the API:
+```bash
+GET /api/v1/certificates/policy/{policyId}
+# Verify status is ISSUED and dmvicReference is present.
+```
+
+### 4. Verify Notifications
+Check logs for `[MOCK EMAIL]` or `[MOCK SMS]` entries confirming delivery.
+
+### 5. Verify Valuation Letter
+Trigger a valuation letter:
+```bash
+POST /api/v1/notifications/valuation-letter/{policyId}
+```
+Observe logs for `Generating valuation letter...` and subsequent notification logs.
+
+---
+
+## 15. Reporting
 - Admin users can export YoY premiums and issuance history via `GET /api/v1/reports/export`.
 
 ---

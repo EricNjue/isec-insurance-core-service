@@ -26,6 +26,13 @@ public class Certificate {
     @Enumerated(EnumType.STRING)
     private CertificateType type;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CertificateStatus status;
+
+    @Column(unique = true)
+    private String idempotencyKey;
+
     private LocalDate startDate;
     private LocalDate expiryDate;
     private LocalDateTime issuedAt;
