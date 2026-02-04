@@ -57,3 +57,11 @@ logging:
   level:
     com.isec.platform: INFO
     org.springframework.security: INFO
+
+branding:
+  company:
+    name: ${BRANDING_COMPANY_NAME:iSec Insurance Co. Ltd}
+    address: ${BRANDING_COMPANY_ADDRESS:P.O. Box 12345-00100, Nairobi, Kenya}
+    contacts: ${BRANDING_COMPANY_CONTACTS:+254 700 000 000 | info@example.com}
+    website: ${BRANDING_COMPANY_WEBSITE:www.example.com}
+  logo-path: ${BRANDING_LOGO_PATH:classpath:/branding/isec_logo.jpg}

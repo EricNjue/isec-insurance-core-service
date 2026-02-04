@@ -37,4 +37,7 @@ public class Policy {
 
     @Column(nullable = false)
     private Boolean isActive;
+
+    @Column(name = "valuation_letter_s3_key")
+    private String valuationLetterS3Key;
 }

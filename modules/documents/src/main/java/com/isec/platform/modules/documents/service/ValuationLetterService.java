@@ -35,10 +35,9 @@ public class ValuationLetterService {
     private String bucketName;
 
     @Transactional(readOnly = true)
-    public Optional<ValuationLetter> getTodayLetter(Long policyId) {
-        LocalDate today = LocalDate.now();
-        Optional<ValuationLetter> found = letterRepository.findFirstByPolicyIdAndGeneratedAtAfter(policyId, today.atStartOfDay());
-        found.ifPresent(l -> log.info("Found existing valuation letter for policyId={} generatedAt={}", policyId, l.getGeneratedAt()));
+    public Optional<ValuationLetter> getLatestLetter(Long policyId) {
+        Optional<ValuationLetter> found = letterRepository.findFirstByPolicyIdOrderByGeneratedAtDesc(policyId);
+        found.ifPresent(l -> log.info("Found latest valuation letter for policyId={} generatedAt={}", policyId, l.getGeneratedAt()));
         return found;
     }
 
@@ -47,9 +46,9 @@ public class ValuationLetterService {
         log.info("Generate valuation letter request received. policyId={}, insuredName={}, registrationNumber={}, force={}"
                 , policyId, insuredName, registrationNumber, force);
         if (!force) {
-            Optional<ValuationLetter> existing = getTodayLetter(policyId);
+            Optional<ValuationLetter> existing = getLatestLetter(policyId);
             if (existing.isPresent()) {
-                log.info("Returning existing valuation letter id={} for policyId={} (idempotent same-day)", existing.get().getId(), policyId);
+                log.info("Returning latest valuation letter id={} for policyId={} (idempotent)", existing.get().getId(), policyId);
                 return existing.get();
             }
         }
@@ -91,6 +90,12 @@ public class ValuationLetterService {
         letter.setPdfS3Key(key);
         ValuationLetter saved = letterRepository.save(letter);
         log.info("Valuation letter metadata persisted. id={} status={}", saved.getId(), saved.getStatus());
+
+        // Update Policy with latest S3 key
+        policy.setValuationLetterS3Key(key);
+        policyRepository.save(policy);
+        log.info("Policy {} updated with latest valuation letter S3 key: {}", policy.getPolicyNumber(), key);
+
         return saved;
     }
 

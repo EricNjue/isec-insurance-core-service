@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240204-policy-s3-key
+      author: junie
+      changes:
+        - addColumn:
+            tableName: policies
+            columns:
+              - column:
+                  name: valuation_letter_s3_key
+                  type: VARCHAR(500)

@@ -50,7 +50,8 @@ class ValuationLetterServiceTest {
     void testGenerateIfNotExists_ShouldReturnExisting_WhenNotForced() {
         Long policyId = 1L;
         ValuationLetter existing = new ValuationLetter();
-        when(letterRepository.findFirstByPolicyIdAndGeneratedAtAfter(eq(policyId), any())).thenReturn(Optional.of(existing));
+        existing.setId(50L);
+        when(letterRepository.findFirstByPolicyIdOrderByGeneratedAtDesc(eq(policyId))).thenReturn(Optional.of(existing));
 
         ValuationLetter result = valuationLetterService.generateIfNotExists(policyId, "John Doe", "KAA 001Z", false);
 
@@ -62,13 +63,18 @@ class ValuationLetterServiceTest {
     void testGenerateIfNotExists_ShouldCreateNew_WhenNotFound() {
         Long policyId = 1L;
         Policy policy = Policy.builder().id(policyId).policyNumber("POL-123").build();
-        when(letterRepository.findFirstByPolicyIdAndGeneratedAtAfter(eq(policyId), any())).thenReturn(Optional.empty());
+        when(letterRepository.findFirstByPolicyIdOrderByGeneratedAtDesc(eq(policyId))).thenReturn(Optional.empty());
         when(policyRepository.findById(policyId)).thenReturn(Optional.of(policy));
         when(valuerRepository.findByActiveTrue()).thenReturn(Collections.emptyList());
         when(pdfGenerationService.generateValuationLetter(anyMap(), anyList())).thenReturn(new byte[10]);
         
-        ValuationLetter letter = new ValuationLetter();
-        letter.setId(100L);
+        ValuationLetter letter = ValuationLetter.builder()
+                .id(100L)
+                .policyId(policyId)
+                .policyNumber("POL-123")
+                .status(ValuationLetter.ValuationLetterStatus.GENERATED)
+                .build();
+        
         when(letterRepository.save(any(ValuationLetter.class))).thenReturn(letter);
 
         ValuationLetter result = valuationLetterService.generateIfNotExists(policyId, "John Doe", "KAA 001Z", false);

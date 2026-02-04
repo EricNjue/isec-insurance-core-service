@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface ValuationLetterRepository extends JpaRepository<ValuationLetter, Long> {
     List<ValuationLetter> findByPolicyId(Long policyId);
     Optional<ValuationLetter> findFirstByPolicyIdAndGeneratedAtAfter(Long policyId, LocalDateTime generatedAt);
+    Optional<ValuationLetter> findFirstByPolicyIdOrderByGeneratedAtDesc(Long policyId);
+    Optional<ValuationLetter> findFirstByPolicyNumberOrderByGeneratedAtDesc(String policyNumber);
 }
