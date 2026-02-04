@@ -152,13 +152,13 @@
 			"name": "Rating",
 			"item": [
 				{
-					"name": "Calculate Quote",
+					"name": "Anonymous Quote",
 					"request": {
 						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"applicationId\": {{applicationId}},\n    \"baseRate\": 0.045\n}",
+							"raw": "{\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Vitz\",\n    \"yearOfManufacture\": 2018,\n    \"vehicleValue\": 1200000,\n    \"baseRate\": 0.04\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -166,7 +166,7 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/rating/quote",
+							"raw": "{{baseUrl}}/api/v1/rating/anonymous-quote",
 							"host": [
 								"{{baseUrl}}"
 							],
@@ -174,9 +174,41 @@
 								"api",
 								"v1",
 								"rating",
-								"quote"
+								"anonymous-quote"
 							]
-						}
+						},
+						"description": "Calculates a quote without requiring authentication or a pre-existing application. Returns an anonymousQuoteId stored in Redis."
+					},
+					"response": []
+				},
+				{
+					"name": "Calculate Premium",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/rating/calculate?vehicleValue=2000000&baseRate=0.045",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"rating",
+								"calculate"
+							],
+							"query": [
+								{
+									"key": "vehicleValue",
+									"value": "2000000"
+								},
+								{
+									"key": "baseRate",
+									"value": "0.045"
+								}
+							]
+						},
+						"description": "Authenticated endpoint to calculate premium breakdown based on provided values."
 					},
 					"response": []
 				}
@@ -186,7 +218,29 @@
 			"name": "Documents",
 			"item": [
 				{
-					"name": "Get S3 Presigned URL",
+					"name": "Get Application Documents",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/documents/application/{{applicationId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"documents",
+								"application",
+								"{{applicationId}}"
+							]
+						},
+						"description": "Returns all mandatory documents for the application with their current presigned GET URLs."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Upload Presigned URL",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -211,7 +265,8 @@
 									"value": "{{applicationId}}"
 								}
 							]
-						}
+						},
+						"description": "Returns a PUT presigned URL for uploading a specific document type for an application."
 					},
 					"response": []
 				}

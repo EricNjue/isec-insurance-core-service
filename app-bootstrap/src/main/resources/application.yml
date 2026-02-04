@@ -7,7 +7,7 @@ spring:
     password: ${DB_PASSWORD:postgres}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     show-sql: false
   liquibase:
     enabled: true
@@ -19,6 +19,10 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:admin}
     password: ${RABBITMQ_PASS:admin}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   security:
     oauth2:
       resourceserver:
@@ -38,6 +42,8 @@ aws:
   s3:
     bucket-name: ${S3_BUCKET:isecdocuments}
     region: ${AWS_REGION:eu-east-1}
+  access-key: ${AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY}
 
 logging:
   level:

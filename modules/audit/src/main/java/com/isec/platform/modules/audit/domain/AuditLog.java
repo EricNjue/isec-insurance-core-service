@@ -21,7 +21,6 @@ public class AuditLog {
     private String entityType;
     private Long entityId;
     
-    @Column(columnDefinition = "TEXT")
     private String detail;
     
     private LocalDateTime timestamp;

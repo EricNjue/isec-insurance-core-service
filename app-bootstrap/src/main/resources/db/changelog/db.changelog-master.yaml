@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/modules/04-certificates.yaml
   - include:
       file: db/changelog/modules/05-audit.yaml
+  - include:
+      file: db/changelog/modules/06-documents.yaml

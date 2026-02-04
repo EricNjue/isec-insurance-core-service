@@ -20,4 +20,6 @@ public class ApplicationRequest {
     @NotNull
     @Positive
     private BigDecimal vehicleValue;
+    
+    private String anonymousQuoteId;
 }
