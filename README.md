@@ -156,3 +156,4 @@ Update the following variables in the collection to match your setup:
 - `clientId`: The OIDC client ID.
 - `username` / `password`: Test user credentials.
 - `applicationId` / `policyId`: IDs used for testing specific records.
+- `presignedUploadUrl`: (Managed) Set automatically when running 'Get Upload Presigned URL'.
