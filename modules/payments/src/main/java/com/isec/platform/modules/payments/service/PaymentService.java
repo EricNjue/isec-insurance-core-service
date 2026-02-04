@@ -31,16 +31,17 @@ public class PaymentService {
     private final MpesaClient mpesaClient;
     private final MpesaRequestLogRepository mpesaRequestLogRepository;
     private final ObjectMapper objectMapper;
-    private static final int MAX_PARTIAL_PAYMENTS = 4;
 
     @Transactional
     public Payment initiateSTKPush(Long applicationId, BigDecimal amount, String phoneNumber) {
         log.info("Initiating STK Push for application: {}, amount: {}, phone: {}", applicationId, amount, phoneNumber);
 
-        List<Payment> existingPayments = paymentRepository.findByApplicationId(applicationId);
-        if (existingPayments.size() >= MAX_PARTIAL_PAYMENTS) {
-            log.error("Payment initiation failed for application {}: Max payments reached", applicationId);
-            throw new IllegalStateException("Maximum partial payments (4) reached for this application.");
+        Policy policy = policyService.getPolicyByApplicationId(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("No policy found for application ID: " + applicationId));
+
+        if (policy.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("Payment initiation skipped for application {}: Policy balance is already zero", applicationId);
+            throw new IllegalStateException("The policy for this application is already fully paid.");
         }
 
         MpesaClient.MpesaResponse response = mpesaClient.initiateStkPush(phoneNumber, amount, "APP-" + applicationId);
