@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByApplicationId(Long applicationId);
     Optional<Payment> findByCheckoutRequestId(String checkoutRequestId);
+    Optional<Payment> findByMpesaReceiptNumber(String mpesaReceiptNumber);
+    boolean existsByMpesaReceiptNumberAndIdNot(String mpesaReceiptNumber, Long id);
 }

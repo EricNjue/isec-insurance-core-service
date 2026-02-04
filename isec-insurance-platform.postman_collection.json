@@ -145,6 +145,57 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "List Applications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"applications"
+							]
+						},
+						"description": "Lists all applications for the current user. Admins see all applications."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Authenticated Quote",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/quote?applicationId={{applicationId}}&baseRate=0.045",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"applications",
+								"quote"
+							],
+							"query": [
+								{
+									"key": "applicationId",
+									"value": "{{applicationId}}"
+								},
+								{
+									"key": "baseRate",
+									"value": "0.045"
+								}
+							]
+						},
+						"description": "Calculates the final premium for an application, creates the policy record, and transitions application status to QUOTED."
+					},
+					"response": []
 				}
 			]
 		},
@@ -348,6 +399,36 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "M-Pesa Callback Mock",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Body\": {\n        \"stkCallback\": {\n            \"MerchantRequestID\": \"29115-346271-1\",\n            \"CheckoutRequestID\": \"ws_CO_191220191020363925\",\n            \"ResultCode\": 0,\n            \"ResultDesc\": \"The service was accepted successfully\",\n            \"CallbackMetadata\": {\n                \"Item\": [\n                    {\n                        \"Name\": \"Amount\",\n                        \"Value\": 10000.00\n                    },\n                    {\n                        \"Name\": \"MpesaReceiptNumber\",\n                        \"Value\": \"NLJ7RT61AS\"\n                    },\n                    {\n                        \"Name\": \"Balance\",\n                        \"Value\": 0.00\n                    },\n                    {\n                        \"Name\": \"TransactionDate\",\n                        \"Value\": 20191219102022\n                    },\n                    {\n                        \"Name\": \"PhoneNumber\",\n                        \"Value\": 254708374149\n                    }\n                ]\n            }\n        }\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/payments/callback",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"payments",
+								"callback"
+							]
+						},
+						"description": "Mock request for M-Pesa STK Push callback. This endpoint is typically called by Safaricom asynchronously after an STK push is initiated."
+					},
+					"response": []
 				}
 			]
 		},
@@ -380,7 +461,125 @@
 									"value": "30000"
 								}
 							]
+						},
+						"description": "Manually triggers the certificate issuance logic for a policy. Note: This is automatically triggered by the M-Pesa callback in a live flow."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Certificates by Policy",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/certificates/policy/{{policyId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"certificates",
+								"policy",
+								"{{policyId}}"
+							]
+						},
+						"description": "Returns all certificates (Month 1, Month 2, Annual) associated with a policy."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Policies",
+			"item": [
+				{
+					"name": "Get Policy by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/policies/{{policyId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"policies",
+								"{{policyId}}"
+							]
 						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Policy by Application ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/policies/application/{{applicationId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"policies",
+								"application",
+								"{{applicationId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Notifications",
+			"item": [
+				{
+					"name": "Trigger Reminders",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notifications/reminders/trigger",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notifications",
+								"reminders",
+								"trigger"
+							]
+						},
+						"description": "Admin-only endpoint to trigger policy expiry reminders."
+					},
+					"response": []
+				},
+				{
+					"name": "Request Valuation Letter",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/notifications/valuation-letter/{{policyId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"notifications",
+								"valuation-letter",
+								"{{policyId}}"
+							]
+						},
+						"description": "Triggers the asynchronous generation and delivery of a valuation letter for a policy."
 					},
 					"response": []
 				}
@@ -449,7 +648,41 @@
 									"value": "20"
 								}
 							]
-						}
+						},
+						"description": "Returns a paginated list of audit logs. Admin only."
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch Audit Logs by Entity",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit/entity/APPLICATION/{{applicationId}}?page=0&size=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"audit",
+								"entity",
+								"APPLICATION",
+								"{{applicationId}}"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Returns audit logs filtered by entity type and ID. Admin only."
 					},
 					"response": []
 				}

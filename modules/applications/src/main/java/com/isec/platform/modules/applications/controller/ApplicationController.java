@@ -6,6 +6,7 @@ import com.isec.platform.modules.applications.dto.ApplicationResponse;
 import com.isec.platform.modules.applications.domain.ApplicationStatus;
 import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.documents.service.ApplicationDocumentService;
+import com.isec.platform.modules.policies.service.PolicyService;
 import com.isec.platform.modules.rating.domain.AnonymousQuote;
 import com.isec.platform.modules.rating.service.RatingService;
 import jakarta.validation.Valid;
@@ -30,6 +31,7 @@ public class ApplicationController {
     private final ApplicationRepository applicationRepository;
     private final ApplicationDocumentService documentService;
     private final RatingService ratingService;
+    private final PolicyService policyService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT')")
@@ -105,7 +107,18 @@ public class ApplicationController {
             @RequestParam Long applicationId,
             @RequestParam java.math.BigDecimal baseRate) {
         return applicationRepository.findById(applicationId)
-                .map(app -> ResponseEntity.ok(ratingService.calculatePremium(app.getVehicleValue(), baseRate)))
+                .map(app -> {
+                    RatingService.PremiumBreakdown breakdown = ratingService.calculatePremium(app.getVehicleValue(), baseRate);
+                    
+                    // Create Policy if it doesn't exist
+                    policyService.createPolicy(app.getId(), breakdown.totalPremium());
+                    
+                    // Update Application status
+                    app.setStatus(ApplicationStatus.QUOTED);
+                    applicationRepository.save(app);
+                    
+                    return ResponseEntity.ok(breakdown);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 

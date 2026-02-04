@@ -22,5 +22,13 @@
             <groupId>com.isec</groupId>
             <artifactId>policies</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>applications</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>integrations</artifactId>
+        </dependency>
     </dependencies>
 </project>
