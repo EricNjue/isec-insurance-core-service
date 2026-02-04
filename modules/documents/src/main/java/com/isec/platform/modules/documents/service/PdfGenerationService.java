@@ -79,9 +79,21 @@ public class PdfGenerationService {
 
             // Insured Details
             document.add(new Paragraph("RE: VALUATION OF MOTOR VEHICLE", FONT_BOLD));
-            document.add(new Paragraph("INSURED: " + data.get("insuredName"), FONT_NORMAL));
-            document.add(new Paragraph("POLICY NO: " + data.get("policyNumber"), FONT_NORMAL));
-            document.add(new Paragraph("REGISTRATION NO: " + data.get("registrationNumber"), FONT_NORMAL));
+            
+            Paragraph insuredPara = new Paragraph();
+            insuredPara.add(new Phrase("INSURED: ", FONT_BOLD));
+            insuredPara.add(new Phrase(safe((String) data.get("insuredName")), FONT_NORMAL));
+            document.add(insuredPara);
+
+            Paragraph policyPara = new Paragraph();
+            policyPara.add(new Phrase("POLICY NO: ", FONT_BOLD));
+            policyPara.add(new Phrase(safe((String) data.get("policyNumber")), FONT_NORMAL));
+            document.add(policyPara);
+
+            Paragraph regPara = new Paragraph();
+            regPara.add(new Phrase("REGISTRATION NO: ", FONT_BOLD));
+            regPara.add(new Phrase(safe((String) data.get("registrationNumber")), FONT_NORMAL));
+            document.add(regPara);
 
             document.add(new Paragraph("\n"));
 
