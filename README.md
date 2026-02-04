@@ -136,7 +136,9 @@ To ensure reliability and prevent duplicate side effects (like double-issuing ce
 
 ### 3. Valuation Letter Flow
 - `ValuationLetterConsumer` listens for requests.
-- Generates a mock PDF, "stores" it in S3 (ApplicationDocument), and triggers a `NotificationSendEvent`.
+- Generates a production-grade PDF using **OpenPDF**, uploads it to **Amazon S3** (encrypted at rest), and persists metadata in `valuation_letters`.
+- Triggers a `NotificationSendEvent` with a secure, time-limited **presigned download URL**.
+- Supports idempotent generation to prevent duplicate letters for the same policy on the same day.
 
 ### 4. Notification Flow
 - `NotificationConsumer` handles all SMS/Email dispatch.
@@ -144,7 +146,32 @@ To ensure reliability and prevent duplicate side effects (like double-issuing ce
 
 ---
 
-## 13. How to Run Locally
+## 14. Valuation Letter Management
+The platform provides a complete capability for generating and managing valuation letters.
+
+### 1. Purpose
+Valuation letters are required by insurers to determine the current market value of a vehicle. The generated PDF strictly follows regulatory standards and includes a list of authorized valuers and mandatory warning clauses.
+
+### 2. S3 Storage Strategy
+- **Encryption:** All PDFs are encrypted at rest using `AES256` server-side encryption.
+- **Privacy:** S3 objects are private. Access is granted only via time-limited **Presigned URLs** (valid for 1 hour).
+- **Key Structure:** `valuation-letters/{policyId}/{valuationLetterId}.pdf`.
+
+### 3. API Usage
+#### A. Manage Authorized Valuers
+- `POST /api/v1/valuers`: Add a new valuer (Admin only).
+- `GET /api/v1/valuers`: List all active valuers.
+- `PUT /api/v1/valuers/{id}`: Update valuer details.
+- `DELETE /api/v1/valuers/{id}`: Deactivate a valuer.
+
+#### B. Valuation Letters
+- `POST /api/v1/policies/{policyId}/valuation-letter`: Manually trigger generation. Idempotent by default (won't regenerate on the same day unless `force=true`).
+- `GET /api/v1/valuation-letters/{id}`: Fetch metadata.
+- `GET /api/v1/valuation-letters/{id}/download`: Obtain a secure download link.
+
+---
+
+## 15. How to Run Locally
 
 ### Required Environment Variables
 - `RABBITMQ_HOST`: localhost

@@ -20,6 +20,7 @@
         <java.version>17</java.version>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
         <aws.sdk.version>2.25.27</aws.sdk.version>
+        <openpdf.version>2.0.2</openpdf.version>
     </properties>
 
     <modules>
@@ -54,6 +55,11 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.github.librepdf</groupId>
+                <artifactId>openpdf</artifactId>
+                <version>${openpdf.version}</version>
             </dependency>
             <!-- Internal Module Versions -->
             <dependency>

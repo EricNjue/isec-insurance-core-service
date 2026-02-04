@@ -621,6 +621,138 @@
 			]
 		},
 		{
+			"name": "Valuation Letters",
+			"item": [
+				{
+					"name": "Generate Valuation Letter",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"insuredName\": \"John Doe\",\n    \"registrationNumber\": \"KAA 001Z\",\n    \"recipientEmail\": \"customer@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/policies/{{policyId}}/valuation-letter?force=false",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"policies",
+								"{{policyId}}",
+								"valuation-letter"
+							],
+							"query": [
+								{
+									"key": "force",
+									"value": "false"
+								}
+							]
+						},
+						"description": "Admin/System endpoint to manually generate a valuation letter. It is idempotent by default for the same day."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Valuation Letter Metadata",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuation-letters/{{valuationLetterId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuation-letters",
+								"{{valuationLetterId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Download Valuation Letter (Signed URL)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuation-letters/{{valuationLetterId}}/download",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuation-letters",
+								"{{valuationLetterId}}",
+								"download"
+							]
+						},
+						"description": "Returns a time-limited presigned URL to download the valuation letter PDF from S3."
+					},
+					"response": []
+				},
+				{
+					"name": "List Active Valuers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Authorized Valuer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"companyName\": \"Auto Valuers Ltd\",\n    \"contactPerson\": \"James Kamau\",\n    \"email\": \"james@autovaluers.com\",\n    \"phoneNumbers\": \"0711223344, 0722334455\",\n    \"locations\": \"Nairobi, Mombasa\",\n    \"active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/valuers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"valuers"
+							]
+						},
+						"description": "Admin-only endpoint to add a new authorized motor valuer."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Audit",
 			"item": [
 				{
@@ -754,6 +886,10 @@
 		},
 		{
 			"key": "policyId",
+			"value": "1"
+		},
+		{
+			"key": "valuationLetterId",
 			"value": "1"
 		},
 		{

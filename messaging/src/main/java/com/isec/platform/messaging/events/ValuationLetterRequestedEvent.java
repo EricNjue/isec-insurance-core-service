@@ -16,6 +16,7 @@ public class ValuationLetterRequestedEvent implements Serializable {
     private Long policyId;
     private String policyNumber;
     private String registrationNumber;
+    private String insuredName;
     private String recipientEmail;
     private String correlationId;
 }
