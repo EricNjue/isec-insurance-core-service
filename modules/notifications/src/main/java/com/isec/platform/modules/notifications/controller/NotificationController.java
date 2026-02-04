@@ -48,6 +48,7 @@ public class NotificationController {
                 .policyId(policy.getId())
                 .policyNumber(policy.getPolicyNumber())
                 .registrationNumber(application.getRegistrationNumber())
+                .insuredName("Customer Name") // Ideally from user profile or application
                 .recipientEmail("customer@example.com") // Should be from user profile
                 .correlationId(UUID.randomUUID().toString())
                 .build();

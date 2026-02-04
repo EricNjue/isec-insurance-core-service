@@ -22,6 +22,14 @@
             <artifactId>messaging</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>policies</artifactId>
+        </dependency>
+        <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
         </dependency>
