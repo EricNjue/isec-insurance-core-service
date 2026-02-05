@@ -76,3 +76,7 @@ mpesa:
   oauth-url: ${MPESA_OAUTH_URL:https://sandbox.safaricom.co.ke/oauth/v1/generate}
   stk-push-url: ${MPESA_STK_PUSH_URL:https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest}
   stk-query-url: ${MPESA_STK_QUERY_URL:https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query}
+
+documents:
+  valuation-letter:
+    validity-days: ${VALUATION_LETTER_VALIDITY_DAYS:14}
