@@ -7,6 +7,7 @@ import java.util.Optional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByApplicationId(Long applicationId);
+    boolean existsByApplicationIdAndStatus(Long applicationId, String status);
     Optional<Payment> findByCheckoutRequestId(String checkoutRequestId);
     Optional<Payment> findByMpesaReceiptNumber(String mpesaReceiptNumber);
     boolean existsByMpesaReceiptNumberAndIdNot(String mpesaReceiptNumber, Long id);
