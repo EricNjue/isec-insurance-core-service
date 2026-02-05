@@ -14,7 +14,11 @@ class PdfGenerationServiceTest {
     private final PdfGenerationService pdfGenerationService;
 
     PdfGenerationServiceTest() {
-        pdfGenerationService = new PdfGenerationService(new DefaultResourceLoader());
+        pdfGenerationService = new PdfGenerationService(
+            new DefaultResourceLoader(), 
+            new QrCodeService(), 
+            new PdfSecurityService()
+        );
         ReflectionTestUtils.setField(pdfGenerationService, "logoPath", "classpath:/branding/isec_logo.jpg");
         ReflectionTestUtils.setField(pdfGenerationService, "signaturePath", "classpath:/branding/signature.png");
     }

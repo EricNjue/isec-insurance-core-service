@@ -11,4 +11,5 @@ public interface ValuationLetterRepository extends JpaRepository<ValuationLetter
     Optional<ValuationLetter> findFirstByPolicyIdAndGeneratedAtAfter(Long policyId, LocalDateTime generatedAt);
     Optional<ValuationLetter> findFirstByPolicyIdOrderByGeneratedAtDesc(Long policyId);
     Optional<ValuationLetter> findFirstByPolicyNumberOrderByGeneratedAtDesc(String policyNumber);
+    Optional<ValuationLetter> findByDocumentUuid(java.util.UUID documentUuid);
 }

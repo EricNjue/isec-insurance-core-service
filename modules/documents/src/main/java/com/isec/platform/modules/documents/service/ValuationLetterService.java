@@ -30,6 +30,7 @@ public class ValuationLetterService {
     private final RabbitTemplate rabbitTemplate;
     private final S3Service s3Service;
     private final PdfGenerationService pdfGenerationService;
+    private final PdfSecurityService pdfSecurityService;
 
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
@@ -57,20 +58,21 @@ public class ValuationLetterService {
                 .orElseThrow(() -> new IllegalArgumentException("Policy not found: " + policyId));
         log.debug("Loaded policy. policyNumber={}, startDate={}, expiryDate={}", policy.getPolicyNumber(), policy.getStartDate(), policy.getExpiryDate());
 
-        // Persist shell record first to obtain ID for S3 key
         ValuationLetter letter = ValuationLetter.builder()
                 .policyId(policyId)
                 .insuredName(insuredName)
                 .policyNumber(policy.getPolicyNumber())
                 .vehicleRegistrationNumber(registrationNumber)
-                .status(ValuationLetter.ValuationLetterStatus.GENERATED)
+                .status(ValuationLetter.ValuationLetterStatus.ACTIVE)
+                .documentUuid(UUID.randomUUID())
+                .documentType("VALUATION_LETTER")
                 .generatedBy("SYSTEM")
                 .generatedAt(LocalDateTime.now())
                 .build();
         letter = letterRepository.save(letter);
-        log.info("Created valuation letter shell record id={} for policyId={}", letter.getId(), policyId);
+        log.info("Created valuation letter record id={} documentUuid={} for policyId={}", letter.getId(), letter.getDocumentUuid(), policyId);
 
-        // Render PDF
+        // Render PDF with metadata
         Map<String, Object> data = new HashMap<>();
         data.put("insuredName", insuredName);
         data.put("policyNumber", policy.getPolicyNumber());
@@ -78,8 +80,12 @@ public class ValuationLetterService {
 
         java.util.List<AuthorizedValuer> valuers = valuerRepository.findByActiveTrue();
         log.debug("Generating PDF with {} active valuers", valuers.size());
-        byte[] pdf = pdfGenerationService.generateValuationLetter(data, valuers);
-        log.info("PDF generated for valuation letter id={} (size={} bytes)", letter.getId(), pdf != null ? pdf.length : 0);
+        byte[] pdf = pdfGenerationService.generateValuationLetter(data, valuers, letter);
+        
+        // Calculate and store hash
+        String hash = pdfSecurityService.calculateHash(pdf);
+        letter.setDocumentHash(hash);
+        log.info("PDF generated and hashed for letter id={} (size={} bytes, hash={})", letter.getId(), pdf.length, hash);
 
         // Upload to S3 with structured key
         String key = "valuation-letters/" + policyId + "/" + letter.getId() + ".pdf";

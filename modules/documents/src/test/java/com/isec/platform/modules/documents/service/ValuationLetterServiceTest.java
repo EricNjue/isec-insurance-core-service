@@ -36,6 +36,8 @@ class ValuationLetterServiceTest {
     private S3Service s3Service;
     @Mock
     private PdfGenerationService pdfGenerationService;
+    @Mock
+    private PdfSecurityService pdfSecurityService;
 
     @InjectMocks
     private ValuationLetterService valuationLetterService;
@@ -66,13 +68,15 @@ class ValuationLetterServiceTest {
         when(letterRepository.findFirstByPolicyIdOrderByGeneratedAtDesc(eq(policyId))).thenReturn(Optional.empty());
         when(policyRepository.findById(policyId)).thenReturn(Optional.of(policy));
         when(valuerRepository.findByActiveTrue()).thenReturn(Collections.emptyList());
-        when(pdfGenerationService.generateValuationLetter(anyMap(), anyList())).thenReturn(new byte[10]);
+        when(pdfGenerationService.generateValuationLetter(anyMap(), anyList(), any())).thenReturn(new byte[10]);
+        when(pdfSecurityService.calculateHash(any())).thenReturn("testhash");
         
         ValuationLetter letter = ValuationLetter.builder()
                 .id(100L)
                 .policyId(policyId)
                 .policyNumber("POL-123")
-                .status(ValuationLetter.ValuationLetterStatus.GENERATED)
+                .status(ValuationLetter.ValuationLetterStatus.ACTIVE)
+                .documentUuid(java.util.UUID.randomUUID())
                 .build();
         
         when(letterRepository.save(any(ValuationLetter.class))).thenReturn(letter);
