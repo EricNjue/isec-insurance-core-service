@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +36,11 @@ public class PolicyService {
                             .build();
                     return policyRepository.save(policy);
                 });
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Policy> getPolicyByApplicationId(Long applicationId) {
+        return policyRepository.findByApplicationId(applicationId);
     }
 
     @Transactional

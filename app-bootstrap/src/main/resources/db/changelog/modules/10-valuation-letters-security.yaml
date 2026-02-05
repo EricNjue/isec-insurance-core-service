@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240205-1
+      author: junie
+      changes:
+        - addColumn:
+            tableName: valuation_letters
+            columns:
+              - column:
+                  name: document_uuid
+                  type: UUID
+              - column:
+                  name: document_hash
+                  type: VARCHAR(64)
+              - column:
+                  name: document_type
+                  type: VARCHAR(100)
+              - column:
+                  name: verification_metadata
+                  type: TEXT

@@ -1,6 +1,9 @@
 package com.isec.platform.modules.payments.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.isec.platform.common.exception.BusinessException;
+import com.isec.platform.common.exception.PaymentNotFoundException;
+import com.isec.platform.common.exception.PolicyNotFoundException;
 import com.isec.platform.modules.certificates.service.CertificateService;
 import com.isec.platform.modules.integrations.mpesa.MpesaClient;
 import com.isec.platform.modules.integrations.mpesa.domain.MpesaRequestLog;
@@ -31,16 +34,28 @@ public class PaymentService {
     private final MpesaClient mpesaClient;
     private final MpesaRequestLogRepository mpesaRequestLogRepository;
     private final ObjectMapper objectMapper;
-    private static final int MAX_PARTIAL_PAYMENTS = 4;
 
     @Transactional
     public Payment initiateSTKPush(Long applicationId, BigDecimal amount, String phoneNumber) {
         log.info("Initiating STK Push for application: {}, amount: {}, phone: {}", applicationId, amount, phoneNumber);
 
-        List<Payment> existingPayments = paymentRepository.findByApplicationId(applicationId);
-        if (existingPayments.size() >= MAX_PARTIAL_PAYMENTS) {
-            log.error("Payment initiation failed for application {}: Max payments reached", applicationId);
-            throw new IllegalStateException("Maximum partial payments (4) reached for this application.");
+        Policy policy = policyService.getPolicyByApplicationId(applicationId)
+                .orElseThrow(() -> new PolicyNotFoundException(applicationId));
+
+        // Check if it's the first payment and if it meets the 35% threshold
+        boolean firstPayment = !paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED");
+        if (firstPayment) {
+            BigDecimal threshold = policy.getTotalAnnualPremium().multiply(new BigDecimal("0.35"));
+            if (amount.compareTo(threshold) < 0) {
+                log.warn("First payment threshold not met for application {}: amount {} is less than 35% of premium {}", 
+                        applicationId, amount, policy.getTotalAnnualPremium());
+                throw new BusinessException("The first payment must be at least 35% of the total annual premium (KES " + threshold + ")");
+            }
+        }
+
+        if (policy.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("Payment initiation skipped for application {}: Policy balance is already zero", applicationId);
+            throw new IllegalStateException("The policy for this application is already fully paid.");
         }
 
         MpesaClient.MpesaResponse response = mpesaClient.initiateStkPush(phoneNumber, amount, "APP-" + applicationId);
@@ -72,7 +87,7 @@ public class PaymentService {
         saveCallbackLog(request);
 
         Payment payment = paymentRepository.findByCheckoutRequestId(checkoutRequestId)
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found for checkoutRequestId: " + checkoutRequestId));
+                .orElseThrow(() -> new PaymentNotFoundException(checkoutRequestId));
 
         if (payment.getStatus().equals("COMPLETED")) {
             log.info("Payment already processed for checkoutRequestId: {}", checkoutRequestId);

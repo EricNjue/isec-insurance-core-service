@@ -47,8 +47,20 @@ public class ValuationLetter {
     @Column(nullable = false)
     private ValuationLetterStatus status;
 
+    @Column(name = "document_uuid", unique = true)
+    private java.util.UUID documentUuid;
+
+    @Column(name = "document_hash")
+    private String documentHash;
+
+    @Column(name = "document_type")
+    private String documentType;
+
+    @Column(name = "verification_metadata")
+    private String verificationMetadata;
+
     public enum ValuationLetterStatus {
-        GENERATED, SENT, REVOKED
+        ACTIVE, REVOKED, EXPIRED, GENERATED, SENT
     }
 
     @PrePersist

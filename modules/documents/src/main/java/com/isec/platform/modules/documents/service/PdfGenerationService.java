@@ -14,6 +14,9 @@ import com.lowagie.text.Phrase;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+import com.isec.platform.modules.documents.domain.ValuationLetter;
+import java.util.HashMap;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,14 +57,24 @@ public class PdfGenerationService {
     @Value("${branding.signature-path:classpath:/branding/signature.png}")
     private String signaturePath;
 
+    private final QrCodeService qrCodeService;
+    private final PdfSecurityService pdfSecurityService;
+
     public byte[] generateValuationLetter(Map<String, Object> data, List<AuthorizedValuer> valuers) {
+        return generateValuationLetter(data, valuers, null);
+    }
+
+    public byte[] generateValuationLetter(Map<String, Object> data, List<AuthorizedValuer> valuers, ValuationLetter metadata) {
+        log.info("Starting PDF generation for valuation letter. documentUuid={}", 
+                metadata != null ? metadata.getDocumentUuid() : "N/A");
         Document document = new Document(PageSize.A4);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try {
-            PdfWriter.getInstance(document, out);
+            PdfWriter writer = PdfWriter.getInstance(document, out);
             document.open();
 
+            log.debug("Adding logo and header details");
             // Company Logo (top)
             addLogoIfAvailable(document);
 
@@ -108,6 +121,7 @@ public class PdfGenerationService {
             document.add(new Paragraph("\n"));
 
             // Valuers Table (Name, Contact Person, Email, Location, Telephone)
+            log.debug("Adding valuers table with {} entries", valuers.size());
             PdfPTable table = new PdfPTable(5);
             table.setWidthPercentage(100);
             table.setWidths(new float[]{3, 3, 4, 3, 3});
@@ -167,9 +181,16 @@ public class PdfGenerationService {
             regulator.setAlignment(Element.ALIGN_CENTER);
             document.add(regulator);
 
+            if (metadata != null) {
+                log.debug("Adding security features: metadata and verification footer");
+                addVerificationFooter(document, metadata);
+                addMetadata(writer, metadata);
+            }
+
             document.close();
+            log.info("PDF generation completed successfully. size={} bytes", out.size());
         } catch (DocumentException e) {
-            log.error("Error generating PDF: {}", e.getMessage());
+            log.error("CRITICAL: Error during PDF generation", e);
         }
 
         return out.toByteArray();
@@ -208,5 +229,66 @@ public class PdfGenerationService {
         } catch (IOException | DocumentException ex) {
             log.warn("Could not load/add image from {}: {}", path, ex.getMessage());
         }
+    }
+
+    private void addVerificationFooter(Document document, ValuationLetter letter) {
+        try {
+            PdfPTable footerTable = new PdfPTable(2);
+            footerTable.setWidthPercentage(100);
+            footerTable.setWidths(new float[]{4, 1});
+
+            PdfPCell textCell = new PdfPCell();
+            textCell.setBorder(PdfPCell.NO_BORDER);
+            textCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+
+            Paragraph p = new Paragraph("Scan to verify document authenticity", FONT_SMALL_BOLD);
+            textCell.addElement(p);
+            Paragraph p2 = new Paragraph("Document ID: " + letter.getDocumentUuid(), FONT_SMALL);
+            textCell.addElement(p2);
+            Paragraph p3 = new Paragraph("Verification URL: " + getVerificationUrl(letter.getDocumentUuid().toString()), FONT_SMALL);
+            textCell.addElement(p3);
+
+            footerTable.addCell(textCell);
+
+            String qrUrl = getVerificationUrl(letter.getDocumentUuid().toString());
+            byte[] qrCode = qrCodeService.generateQrCode(qrUrl, 100, 100);
+            Image qrImage = Image.getInstance(qrCode);
+            qrImage.scaleToFit(60, 60);
+            PdfPCell qrCell = new PdfPCell(qrImage);
+            qrCell.setBorder(PdfPCell.NO_BORDER);
+            qrCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            footerTable.addCell(qrCell);
+
+            document.add(new Paragraph("\n"));
+            document.add(footerTable);
+        } catch (Exception e) {
+            log.warn("Could not add verification footer: {}", e.getMessage());
+        }
+    }
+
+    private void addMetadata(PdfWriter writer, ValuationLetter letter) {
+        com.lowagie.text.pdf.PdfContentByte cb = writer.getDirectContent();
+        writer.addViewerPreference(com.lowagie.text.pdf.PdfName.DISPLAYDOCTITLE, com.lowagie.text.pdf.PdfBoolean.PDFTRUE);
+        
+        // OpenPDF uses Info dictionary for metadata
+        com.lowagie.text.pdf.PdfDictionary info = writer.getInfo();
+        info.put(com.lowagie.text.pdf.PdfName.AUTHOR, new com.lowagie.text.pdf.PdfString(companyName));
+        info.put(com.lowagie.text.pdf.PdfName.CREATOR, new com.lowagie.text.pdf.PdfString(companyName));
+        info.put(com.lowagie.text.pdf.PdfName.TITLE, new com.lowagie.text.pdf.PdfString("Valuation Letter - " + letter.getVehicleRegistrationNumber()));
+        
+        // Custom metadata
+        info.put(new com.lowagie.text.pdf.PdfName("documentId"), new com.lowagie.text.pdf.PdfString(letter.getDocumentUuid().toString()));
+        info.put(new com.lowagie.text.pdf.PdfName("issuer"), new com.lowagie.text.pdf.PdfString(companyName));
+        info.put(new com.lowagie.text.pdf.PdfName("issuedAt"), new com.lowagie.text.pdf.PdfString(letter.getGeneratedAt().toString()));
+        info.put(new com.lowagie.text.pdf.PdfName("documentType"), new com.lowagie.text.pdf.PdfString("VALUATION_LETTER"));
+        info.put(new com.lowagie.text.pdf.PdfName("verificationUrl"), new com.lowagie.text.pdf.PdfString(getVerificationUrl(letter.getDocumentUuid().toString())));
+        info.put(new com.lowagie.text.pdf.PdfName("version"), new com.lowagie.text.pdf.PdfString("1.0"));
+        if (letter.getDocumentHash() != null) {
+            info.put(new com.lowagie.text.pdf.PdfName("documentHash"), new com.lowagie.text.pdf.PdfString(letter.getDocumentHash()));
+        }
+    }
+
+    private String getVerificationUrl(String documentId) {
+        return companyWebsite + "/verify/doc/" + documentId;
     }
 }

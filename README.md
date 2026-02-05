@@ -146,28 +146,45 @@ To ensure reliability and prevent duplicate side effects (like double-issuing ce
 
 ---
 
-## 14. Valuation Letter Management
-The platform provides a complete capability for generating and managing valuation letters.
+## 14. Valuation Letter Management & Authenticity
+The platform provides a complete capability for generating and managing valuation letters with built-in document authenticity features.
 
 ### 1. Purpose
-Valuation letters are required by insurers to determine the current market value of a vehicle. The generated PDF strictly follows regulatory standards and includes a list of authorized valuers and mandatory warning clauses.
+Valuation letters are required by insurers to determine the current market value of a vehicle. Every generated letter includes cryptographic protection and verification tools.
 
-### 2. S3 Storage Strategy
+### 2. Document Authenticity & Verification Security
+To ensure document integrity and prevent fraud, the system implements:
+- **Cryptographic Hashing:** A SHA-256 hash is generated from the final PDF content and stored in the database.
+- **Embedded Metadata:** Security metadata (Document ID, Hash, Issuer, IssuedAt) is embedded directly into the PDF info dictionary, programmatically readable but invisible to users.
+- **QR Code Verification:** A high-resolution QR code is embedded in the document footer, acting as a pointer to the online verification service.
+- **Server-Side Validation:** The system maintains the "Source of Truth" for every document's hash and status.
+
+### 3. End-to-End Verification Flow
+1. **QR Scan:** Scanning the QR code on a physical or digital document directs the user to `https://{domain}/verify/doc/{documentId}`.
+2. **Instant Status Check:** The Verification API checks the database for the document's existence and its current status (**ACTIVE**, **REVOKED**, or **EXPIRED**).
+3. **Cryptographic Proof:** For absolute certainty, the original PDF can be uploaded to `/verify/upload`. The system recomputes the SHA-256 hash of the uploaded file and compares it against the registered hash.
+4. **Tamper Detection:** If even a single byte of the PDF content is modified after generation, the hashes will not match, and the system will return a **MODIFIED** status.
+
+### 4. S3 Storage Strategy
 - **Encryption:** All PDFs are encrypted at rest using `AES256` server-side encryption.
 - **Privacy:** S3 objects are private. Access is granted only via time-limited **Presigned URLs** (valid for 1 hour).
 - **Key Structure:** `valuation-letters/{policyId}/{valuationLetterId}.pdf`.
 
-### 3. API Usage
+### 5. API Usage
 #### A. Manage Authorized Valuers
 - `POST /api/v1/valuers`: Add a new valuer (Admin only).
 - `GET /api/v1/valuers`: List all active valuers.
 - `PUT /api/v1/valuers/{id}`: Update valuer details.
 - `DELETE /api/v1/valuers/{id}`: Deactivate a valuer.
 
-#### B. Valuation Letters
-- `POST /api/v1/policies/{policyId}/valuation-letter`: Manually trigger generation. Idempotent by default (won't regenerate on the same day unless `force=true`).
-- `GET /api/v1/valuation-letters/{id}`: Fetch metadata.
+#### B. Valuation Letters & Verification
+- `POST /api/v1/policies/{policyId}/valuation-letter`: Trigger generation. Includes UUID generation, metadata embedding, and hashing.
+- `GET /verify/doc/{documentUuid}`: Public endpoint to verify document status via ID (used by QR codes).
+- `POST /verify/upload`: Secure endpoint to verify a PDF file against its registered cryptographic hash.
 - `GET /api/v1/valuation-letters/{id}/download`: Obtain a secure download link.
+
+#### C. Revocation
+Documents can be revoked server-side (e.g., if issued in error). Once revoked, any verification attempt via QR or ID will return a **REVOKED** warning, even if the cryptographic hash remains valid.
 
 ---
 

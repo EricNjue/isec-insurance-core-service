@@ -914,6 +914,66 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Verification",
+			"item": [
+				{
+					"name": "Verify Document Status",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/verify/doc/{{documentUuid}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verify",
+								"doc",
+								"{{documentUuid}}"
+							]
+						},
+						"description": "Public endpoint to verify the status of a document using its UUID. Returns VALID, REVOKED, EXPIRED, or NOT_FOUND."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify PDF Upload",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/verify/upload",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"verify",
+								"upload"
+							]
+						},
+						"description": "Public endpoint to verify a physical PDF file. Recomputes the SHA-256 hash and compares it with the registered hash for the embedded document ID."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"auth": {
@@ -982,6 +1042,10 @@
 		{
 			"key": "policyId",
 			"value": "1"
+		},
+		{
+			"key": "documentUuid",
+			"value": "550e8400-e29b-41d4-a716-446655440000"
 		},
 		{
 			"key": "valuationLetterId",
