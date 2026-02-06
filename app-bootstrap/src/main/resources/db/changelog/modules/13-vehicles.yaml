@@ -1,0 +1,155 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240206-01-create-vehicle-make
+      author: junie
+      preConditions:
+        - onFail: MARK_RAN
+          not:
+            tableExists:
+              tableName: vehicle_make
+      changes:
+        - createTable:
+            tableName: vehicle_make
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(50)
+                  constraints:
+                    unique: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: country
+                  type: VARCHAR(100)
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 20240206-02-create-vehicle-model
+      author: junie
+      preConditions:
+        - onFail: MARK_RAN
+          not:
+            tableExists:
+              tableName: vehicle_model
+      changes:
+        - createTable:
+            tableName: vehicle_model
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: make_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_vehicle_model_make
+                    referencedTableName: vehicle_make
+                    referencedColumnNames: id
+                    deleteCascade: false
+              - column:
+                  name: code
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: year_from
+                  type: INTEGER
+              - column:
+                  name: year_to
+                  type: INTEGER
+              - column:
+                  name: body_type
+                  type: VARCHAR(50)
+              - column:
+                  name: fuel_type
+                  type: VARCHAR(50)
+              - column:
+                  name: engine_capacity_cc
+                  type: INTEGER
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 20240206-03-add-vehicle-indices
+      author: junie
+      changes:
+        - addUniqueConstraint:
+            columnNames: make_id, code
+            constraintName: uk_vehicle_model_make_code
+            tableName: vehicle_model
+        - createIndex:
+            columns:
+              - column:
+                  name: make_id
+            indexName: idx_vehicle_model_make_id
+            tableName: vehicle_model
+        - createIndex:
+            columns:
+              - column:
+                  name: code
+            indexName: idx_vehicle_model_code
+            tableName: vehicle_model
+        - createIndex:
+            columns:
+              - column:
+                  name: is_active
+            indexName: idx_vehicle_model_active
+            tableName: vehicle_model
+        - createIndex:
+            columns:
+              - column:
+                  name: is_active
+            indexName: idx_vehicle_make_active
+            tableName: vehicle_make

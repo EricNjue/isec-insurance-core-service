@@ -71,6 +71,10 @@
             <groupId>com.isec</groupId>
             <artifactId>integrations</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>vehicles</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
