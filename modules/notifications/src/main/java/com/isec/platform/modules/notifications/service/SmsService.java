@@ -23,23 +23,51 @@ public class SmsService {
 
     @Transactional
     public void sendSms(String to, String message) {
-        validateInput(to, message);
+        log.info("Processing SMS request to: {}", to);
+        String validatedTo = validateAndFormatPhoneNumber(to);
+        validateMessage(message);
 
-        smsClient.sendSms(to, message)
-                .doOnNext(result -> persistSmsResult(to, message, result))
+        log.debug("Sending SMS via provider to: {}", validatedTo);
+        smsClient.sendSms(validatedTo, message)
+                .doOnNext(result -> {
+                    log.info("SMS successfully sent to: {}. Status: {}, MessageId: {}", 
+                            validatedTo, result.isOverallSuccess() ? "Sent" : "Failed", 
+                            result.getRecipients().isEmpty() ? "N/A" : result.getRecipients().get(0).getMessageId());
+                    persistSmsResult(validatedTo, message, result);
+                })
+                .doOnError(error -> log.error("Failed to process SMS to {}: {}", validatedTo, error.getMessage()))
                 .subscribe();
     }
 
-    private void validateInput(String to, String message) {
-        if (to == null || !to.startsWith("+")) {
-            throw new IllegalArgumentException("Phone number must be in E.164 format (+...)");
+    private String validateAndFormatPhoneNumber(String to) {
+        if (to == null || to.isBlank()) {
+            log.warn("Validation failed: Phone number is empty");
+            throw new IllegalArgumentException("Phone number cannot be empty");
         }
+
+        String formatted = to.trim();
+        if (!formatted.startsWith("+")) {
+            formatted = "+" + formatted;
+        }
+
+        // Basic E.164 validation: + followed by 7 to 15 digits
+        if (!formatted.matches("^\\+[1-9]\\d{6,14}$")) {
+            log.warn("Validation failed: Invalid phone number format: {}", formatted);
+            throw new IllegalArgumentException("Invalid phone number format. Must be E.164 (+ followed by 7-15 digits)");
+        }
+
+        return formatted;
+    }
+
+    private void validateMessage(String message) {
         if (message == null || message.isBlank()) {
+            log.warn("Validation failed: Message content is empty");
             throw new IllegalArgumentException("Message content cannot be empty");
         }
     }
 
     private void persistSmsResult(String to, String message, SmsSendResult result) {
+        log.debug("Persisting SMS result for: {}", to);
         String providerRequestId = result.getRecipients().isEmpty() ? null : result.getRecipients().get(0).getMessageId();
 
         SmsMessage smsMessage = SmsMessage.builder()
@@ -63,5 +91,6 @@ public class SmsService {
 
         smsMessage.setRecipientResults(recipientResults);
         smsMessageRepository.save(smsMessage);
+        log.info("SMS record persisted with ID: {} and providerRequestId: {}", smsMessage.getId(), providerRequestId);
     }
 }
