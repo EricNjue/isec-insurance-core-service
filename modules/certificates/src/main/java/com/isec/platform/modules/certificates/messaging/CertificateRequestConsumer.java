@@ -3,12 +3,15 @@ package com.isec.platform.modules.certificates.messaging;
 import com.isec.platform.common.idempotency.service.IdempotencyService;
 import com.isec.platform.messaging.RabbitMQConfig;
 import com.isec.platform.messaging.events.CertificateRequestedEvent;
+import com.isec.platform.messaging.events.NotificationChannel;
 import com.isec.platform.messaging.events.NotificationSendEvent;
+import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.certificates.domain.Certificate;
 import com.isec.platform.modules.certificates.domain.CertificateStatus;
 import com.isec.platform.modules.certificates.domain.CertificateType;
 import com.isec.platform.modules.certificates.repository.CertificateRepository;
 import com.isec.platform.modules.integrations.dmvic.DmvicClient;
+import com.isec.platform.modules.policies.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -26,6 +29,8 @@ public class CertificateRequestConsumer {
 
     private final DmvicClient dmvicClient;
     private final CertificateRepository certificateRepository;
+    private final ApplicationRepository applicationRepository;
+    private final PolicyRepository policyRepository;
     private final RabbitTemplate rabbitTemplate;
     private final IdempotencyService idempotencyService;
 
@@ -89,16 +94,33 @@ public class CertificateRequestConsumer {
     }
 
     private void sendNotification(CertificateRequestedEvent event, String dmvicRef, String subject, String content) {
-        NotificationSendEvent notificationEvent = NotificationSendEvent.builder()
-                .eventId(UUID.randomUUID().toString())
-                .recipient("customer@example.com") 
-                .channel("EMAIL")
-                .subject(subject)
-                .content(content)
-                .correlationId(event.getCorrelationId())
-                .build();
+        if (event.getRecipientEmail() != null) {
+            NotificationSendEvent emailEvent = NotificationSendEvent.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .recipient(event.getRecipientEmail())
+                    .channel(NotificationChannel.EMAIL)
+                    .subject(subject)
+                    .content(content)
+                    .correlationId(event.getCorrelationId())
+                    .build();
+            rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.NOTIFICATION_SEND_RK, emailEvent);
+            log.info("Notification event (EMAIL) sent for policy: {} to {}", event.getPolicyNumber(), event.getRecipientEmail());
+        } else {
+            log.warn("Recipient email not available in event for policy {}. Skipping EMAIL notification.", event.getPolicyNumber());
+        }
 
-        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.NOTIFICATION_SEND_RK, notificationEvent);
-        log.info("Notification event sent for policy: {}", event.getPolicyNumber());
+        if (event.getRecipientPhoneNumber() != null) {
+            NotificationSendEvent smsEvent = NotificationSendEvent.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .recipient(event.getRecipientPhoneNumber())
+                    .channel(NotificationChannel.SMS)
+                    .content(content)
+                    .correlationId(event.getCorrelationId())
+                    .build();
+            rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.NOTIFICATION_SEND_RK, smsEvent);
+            log.info("Notification event (SMS) sent for policy: {} to {}", event.getPolicyNumber(), event.getRecipientPhoneNumber());
+        } else {
+            log.warn("Recipient phone number not available in event for policy {}. Skipping SMS notification.", event.getPolicyNumber());
+        }
     }
 }

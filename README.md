@@ -77,6 +77,10 @@ Authentication and Authorization are handled via **Keycloak**.
 - `RABBITMQ_HOST` / `RABBITMQ_USER` / `RABBITMQ_PASS`: RabbitMQ connection details.
 - `KEYCLOAK_ISSUER_URI`: OIDC Discovery endpoint.
 - `S3_BUCKET` / `AWS_REGION`: AWS S3 configuration for document storage.
+- `AFRICASTALKING_USERNAME`: Africa's Talking API username.
+- `AFRICASTALKING_API_KEY`: Africa's Talking API key.
+- `AFRICASTALKING_FROM`: Sender ID or Shortcode for SMS.
+- `AFRICASTALKING_BASE_URL`: API URL.
 
 ---
 
@@ -142,7 +146,16 @@ To ensure reliability and prevent duplicate side effects (like double-issuing ce
 
 ### 4. Notification Flow
 - `NotificationConsumer` handles all SMS/Email dispatch.
+- **SMS Integration:** Uses Africa's Talking API for SMS delivery.
+- **Service Layer:** `SmsService` handles validation, client communication, and persistent storage of `SmsMessage` and `SmsRecipientResult`.
+- **Delivery Reports:** Supports webhook callbacks at `POST /api/v1/sms/delivery-report` (public) to update delivery status.
 - Uses idempotency to prevent spamming users on message replays.
+
+### 5. SMS Delivery Report Callback
+- **Endpoint:** `POST /api/v1/sms/delivery-report` (Public)
+- **Supported Formats:** `application/x-www-form-urlencoded` and `application/json`.
+- **Functionality:** Correlates Africa's Talking `messageId` with internal records and updates `deliveryStatus` and `deliveryFailureReason`.
+- **Idempotency:** Enforced via unique constraint on `message_id` in the `sms_delivery_report` table.
 
 ---
 

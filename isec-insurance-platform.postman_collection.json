@@ -105,7 +105,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"registrationNumber\": \"KAA 001Z\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000\n}",
+							"raw": "{\n    \"registrationNumber\": \"KAA 001Z\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"phoneNumber\": \"254712345678\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -529,6 +529,27 @@
 								"policies",
 								"application",
 								"{{applicationId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Policy by Policy Number",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/policies/number/{{policyNumber}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"policies",
+								"number",
+								"{{policyNumber}}"
 							]
 						}
 					},
@@ -970,6 +991,82 @@
 							]
 						},
 						"description": "Public endpoint to verify a physical PDF file. Recomputes the SHA-256 hash and compares it with the registered hash for the embedded document ID."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Customers",
+			"item": [
+				{
+					"name": "Create or Update Customer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"fullName\": \"John Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"phoneNumber\": \"254712345678\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers"
+							]
+						},
+						"description": "Idempotently creates or updates a customer profile linked to the authenticated user ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customers/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								"me"
+							]
+						},
+						"description": "Returns the customer profile for the currently authenticated user."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Profile (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/customers/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"customers",
+								"{{userId}}"
+							]
+						},
+						"description": "Admin endpoint to fetch any customer profile by their User ID."
 					},
 					"response": []
 				}

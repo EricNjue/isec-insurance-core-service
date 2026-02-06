@@ -22,4 +22,5 @@ public class ApplicationRequest {
     private BigDecimal vehicleValue;
     
     private String anonymousQuoteId;
+    private String phoneNumber;
 }

@@ -33,4 +33,13 @@ public class PolicyController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+    
+    @GetMapping("/number/{policyNumber}")
+    @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
+    public ResponseEntity<Policy> getPolicyByPolicyNumber(@PathVariable String policyNumber) {
+        log.debug("Fetching policy by policyNumber={}", policyNumber);
+        return policyRepository.findByPolicyNumber(policyNumber)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

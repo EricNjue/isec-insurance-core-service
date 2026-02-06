@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,8 +32,8 @@ public class CertificateService {
     private static final BigDecimal MONTHLY_PREMIUM_RATE = new BigDecimal("0.35");
 
     @Transactional
-    public void processCertificateIssuance(Policy policy, BigDecimal amountPaid) {
-        log.info("Processing certificate issuance for policy: {}, amount paid: {}", policy.getPolicyNumber(), amountPaid);
+    public void processCertificateIssuance(Policy policy, BigDecimal amountPaid, String recipientEmail, String recipientPhoneNumber) {
+        log.info("Processing certificate issuance for policy: {}, amount paid: {}, recipient: {}", policy.getPolicyNumber(), amountPaid, recipientEmail);
         
         BigDecimal annualPremium = policy.getTotalAnnualPremium();
         BigDecimal monthlyRequirement = annualPremium.multiply(MONTHLY_PREMIUM_RATE).setScale(2, RoundingMode.HALF_UP);
@@ -47,12 +46,12 @@ public class CertificateService {
         // Month 1 & 2 logic
         if (amountPaid.compareTo(monthlyRequirement) >= 0 && issued.isEmpty()) {
             log.info("Policy {} qualified for Month 1 certificate", policy.getPolicyNumber());
-            requestCertificate(policy, application, CertificateType.MONTH_1, policy.getStartDate(), policy.getStartDate().plusMonths(1).minusDays(1));
+            requestCertificate(policy, application, CertificateType.MONTH_1, policy.getStartDate(), policy.getStartDate().plusMonths(1).minusDays(1), recipientEmail, recipientPhoneNumber);
             
             // Check if they paid enough for Month 2 as well
             if (amountPaid.compareTo(monthlyRequirement.multiply(new BigDecimal("2"))) >= 0) {
                 log.info("Policy {} qualified for Month 2 certificate", policy.getPolicyNumber());
-                requestCertificate(policy, application, CertificateType.MONTH_2, policy.getStartDate().plusMonths(1), policy.getStartDate().plusMonths(2).minusDays(1));
+                requestCertificate(policy, application, CertificateType.MONTH_2, policy.getStartDate().plusMonths(1), policy.getStartDate().plusMonths(2).minusDays(1), recipientEmail, recipientPhoneNumber);
             }
         }
         
@@ -61,14 +60,14 @@ public class CertificateService {
             log.info("Policy {} is fully paid. Requesting final certificates", policy.getPolicyNumber());
             boolean hasMonth1 = issued.stream().anyMatch(c -> c.getType() == CertificateType.MONTH_1);
             if (hasMonth1) {
-                requestCertificate(policy, application, CertificateType.ANNUAL_REMAINDER, policy.getStartDate().plusMonths(2), policy.getExpiryDate());
+                requestCertificate(policy, application, CertificateType.ANNUAL_REMAINDER, policy.getStartDate().plusMonths(2), policy.getExpiryDate(), recipientEmail, recipientPhoneNumber);
             } else {
-                requestCertificate(policy, application, CertificateType.ANNUAL_FULL, policy.getStartDate(), policy.getExpiryDate());
+                requestCertificate(policy, application, CertificateType.ANNUAL_FULL, policy.getStartDate(), policy.getExpiryDate(), recipientEmail, recipientPhoneNumber);
             }
         }
     }
 
-    private void requestCertificate(Policy policy, Application application, CertificateType type, LocalDate start, LocalDate end) {
+    private void requestCertificate(Policy policy, Application application, CertificateType type, LocalDate start, LocalDate end, String recipientEmail, String recipientPhoneNumber) {
         log.info("Creating pending {} certificate for policy {}", type, policy.getPolicyNumber());
         
         String idempotencyKey = UUID.randomUUID().toString();
@@ -92,6 +91,8 @@ public class CertificateService {
                 .certificateType(type.name())
                 .startDate(start)
                 .expiryDate(end)
+                .recipientEmail(recipientEmail)
+                .recipientPhoneNumber(recipientPhoneNumber)
                 .correlationId(UUID.randomUUID().toString())
                 .build();
 

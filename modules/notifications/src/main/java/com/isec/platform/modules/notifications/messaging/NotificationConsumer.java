@@ -2,7 +2,9 @@ package com.isec.platform.modules.notifications.messaging;
 
 import com.isec.platform.common.idempotency.service.IdempotencyService;
 import com.isec.platform.messaging.RabbitMQConfig;
+import com.isec.platform.messaging.events.NotificationChannel;
 import com.isec.platform.messaging.events.NotificationSendEvent;
+import com.isec.platform.modules.notifications.service.SmsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class NotificationConsumer {
 
     private final IdempotencyService idempotencyService;
+    private final SmsService smsService;
 
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_SEND_QUEUE)
     public void handleNotificationSend(NotificationSendEvent event) {
@@ -25,7 +28,7 @@ public class NotificationConsumer {
         }
 
         try {
-            if ("SMS".equalsIgnoreCase(event.getChannel())) {
+            if (NotificationChannel.SMS.equals(event.getChannel())) {
                 sendSms(event.getRecipient(), event.getContent());
             } else {
                 sendEmail(event.getRecipient(), event.getSubject(), event.getContent());
@@ -39,8 +42,8 @@ public class NotificationConsumer {
     }
 
     private void sendSms(String recipient, String content) {
-        log.info("[MOCK SMS] To: {}, Content: {}", recipient, content);
-        // Integrate with SMS Gateway (e.g., Twilio, Africa's Talking)
+        log.info("Sending SMS to: {}, Content: {}", recipient, content);
+        smsService.sendSms(recipient, content);
     }
 
     private void sendEmail(String recipient, String subject, String content) {

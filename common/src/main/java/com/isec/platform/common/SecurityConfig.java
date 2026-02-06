@@ -20,7 +20,7 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "/verify/**").permitAll()
+                .requestMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "/verify/**", "/api/v1/sms/delivery-report").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2

@@ -1,8 +1,12 @@
 package com.isec.platform.modules.certificates.controller;
 
+import com.isec.platform.modules.applications.domain.Application;
+import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.certificates.domain.Certificate;
 import com.isec.platform.modules.certificates.repository.CertificateRepository;
 import com.isec.platform.modules.certificates.service.CertificateService;
+import com.isec.platform.modules.customers.domain.Customer;
+import com.isec.platform.modules.customers.service.CustomerService;
 import com.isec.platform.modules.policies.domain.Policy;
 import com.isec.platform.modules.policies.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,8 @@ public class CertificateController {
     private final CertificateService certificateService;
     private final CertificateRepository certificateRepository;
     private final PolicyRepository policyRepository;
+    private final ApplicationRepository applicationRepository;
+    private final CustomerService customerService;
 
     @PostMapping("/request")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
@@ -30,8 +36,20 @@ public class CertificateController {
         log.info("Manual certificate issuance requested. policyId={}, amount={}", policyId, amount);
         Policy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new IllegalArgumentException("Policy not found"));
+
+        Application application = applicationRepository.findById(policy.getApplicationId()).orElse(null);
+        String email = null;
+        String phoneNumber = null;
         
-        certificateService.processCertificateIssuance(policy, amount);
+        if (application != null) {
+            java.util.Optional<Customer> customer = customerService.getCustomerByUserId(application.getUserId());
+            if (customer.isPresent()) {
+                email = customer.get().getEmail();
+                phoneNumber = customer.get().getPhoneNumber();
+            }
+        }
+        
+        certificateService.processCertificateIssuance(policy, amount, email, phoneNumber);
         return ResponseEntity.accepted().build();
     }
 

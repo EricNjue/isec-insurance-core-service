@@ -14,7 +14,7 @@ import java.io.Serializable;
 public class NotificationSendEvent implements Serializable {
     private String eventId;
     private String recipient;
-    private String channel; // EMAIL, SMS
+    private NotificationChannel channel; // EMAIL, SMS
     private String subject;
     private String content;
     private String templateName;

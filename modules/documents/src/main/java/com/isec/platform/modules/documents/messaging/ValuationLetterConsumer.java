@@ -2,6 +2,7 @@ package com.isec.platform.modules.documents.messaging;
 
 import com.isec.platform.common.idempotency.service.IdempotencyService;
 import com.isec.platform.messaging.RabbitMQConfig;
+import com.isec.platform.messaging.events.NotificationChannel;
 import com.isec.platform.messaging.events.NotificationSendEvent;
 import com.isec.platform.messaging.events.ValuationLetterRequestedEvent;
 import com.isec.platform.modules.documents.domain.ValuationLetter;
@@ -48,7 +49,7 @@ public class ValuationLetterConsumer {
             NotificationSendEvent notificationEvent = NotificationSendEvent.builder()
                     .eventId(UUID.randomUUID().toString())
                     .recipient(event.getRecipientEmail())
-                    .channel("EMAIL")
+                    .channel(NotificationChannel.EMAIL)
                     .subject("Your Valuation Letter is Ready")
                     .content("Dear Customer, your valuation letter for vehicle " + event.getRegistrationNumber() + " is ready. Download: " + downloadUrl)
                     .correlationId(event.getCorrelationId())

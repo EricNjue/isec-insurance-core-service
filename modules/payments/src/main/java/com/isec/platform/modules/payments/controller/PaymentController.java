@@ -22,7 +22,8 @@ public class PaymentController {
 
     @PostMapping("/stk-push")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT')")
-    public ResponseEntity<Payment> initiateStkPush(@RequestBody StkPushRequest request) {
+    public ResponseEntity<Payment> initiateStkPush(
+            @RequestBody StkPushRequest request) {
         log.info("STK Push initiation request received. applicationId={}, amount={}, phone=***{}", request.getApplicationId(), request.getAmount(),
                 request.getPhoneNumber() != null && request.getPhoneNumber().length() >= 4 ? request.getPhoneNumber().substring(request.getPhoneNumber().length() - 4) : "");
         Payment payment = paymentService.initiateSTKPush(

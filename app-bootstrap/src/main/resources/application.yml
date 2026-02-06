@@ -80,3 +80,9 @@ mpesa:
 documents:
   valuation-letter:
     validity-days: ${VALUATION_LETTER_VALIDITY_DAYS:14}
+
+africastalking:
+  username: ${AFRICASTALKING_USERNAME}
+  api-key: ${AFRICASTALKING_API_KEY}
+  from: ${AFRICASTALKING_FROM}
+  base-url: ${AFRICASTALKING_BASE_URL:https://api.sandbox.africastalking.com}

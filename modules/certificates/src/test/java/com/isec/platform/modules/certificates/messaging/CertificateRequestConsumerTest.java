@@ -50,6 +50,8 @@ class CertificateRequestConsumerTest {
                 .certificateType("MONTH_1")
                 .startDate(LocalDate.now())
                 .expiryDate(LocalDate.now().plusMonths(1))
+                .recipientEmail("test@example.com")
+                .recipientPhoneNumber("254712345678")
                 .correlationId("corr-123")
                 .build();
 
@@ -72,7 +74,7 @@ class CertificateRequestConsumerTest {
 
         verify(dmvicClient).issueCertificate(eq("KAA 001A"), eq("POL-001"));
         verify(certificateRepository, atLeastOnce()).save(any(Certificate.class));
-        verify(rabbitTemplate).convertAndSend(anyString(), anyString(), any(Object.class));
+        verify(rabbitTemplate, times(2)).convertAndSend(anyString(), anyString(), any(Object.class));
     }
 
     @Test
