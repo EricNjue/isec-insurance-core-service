@@ -37,6 +37,7 @@
         <module>modules/reporting</module>
         <module>modules/audit</module>
         <module>modules/integrations</module>
+        <module>modules/customers</module>
         <module>app-bootstrap</module>
     </modules>
 
@@ -125,6 +126,11 @@
             <dependency>
                 <groupId>com.isec</groupId>
                 <artifactId>integrations</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.isec</groupId>
+                <artifactId>customers</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

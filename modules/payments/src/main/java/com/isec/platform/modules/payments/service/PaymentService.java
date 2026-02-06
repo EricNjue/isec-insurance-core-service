@@ -4,7 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.common.exception.PaymentNotFoundException;
 import com.isec.platform.common.exception.PolicyNotFoundException;
+import com.isec.platform.common.security.SecurityContextService;
+import com.isec.platform.modules.applications.domain.Application;
+import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.certificates.service.CertificateService;
+import com.isec.platform.modules.customers.domain.Customer;
+import com.isec.platform.modules.customers.service.CustomerService;
+import com.isec.platform.modules.customers.dto.CustomerRequest;
 import com.isec.platform.modules.integrations.mpesa.MpesaClient;
 import com.isec.platform.modules.integrations.mpesa.domain.MpesaRequestLog;
 import com.isec.platform.modules.integrations.mpesa.repository.MpesaRequestLogRepository;
@@ -20,7 +26,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -33,10 +38,23 @@ public class PaymentService {
     private final CertificateService certificateService;
     private final MpesaClient mpesaClient;
     private final MpesaRequestLogRepository mpesaRequestLogRepository;
+    private final ApplicationRepository applicationRepository;
+    private final CustomerService customerService;
+    private final SecurityContextService securityContextService;
     private final ObjectMapper objectMapper;
 
     @Transactional
     public Payment initiateSTKPush(Long applicationId, BigDecimal amount, String phoneNumber) {
+        
+        // Update/Create customer profile from current JWT and request phone number
+        securityContextService.getCurrentUserId().ifPresent(userId -> {
+            customerService.createOrUpdateCustomer(userId, CustomerRequest.builder()
+                    .fullName(securityContextService.getCurrentUserFullName().orElse("N/A"))
+                    .email(securityContextService.getCurrentUserEmail().orElse("N/A"))
+                    .phoneNumber(phoneNumber)
+                    .build());
+        });
+        
         log.info("Initiating STK Push for application: {}, amount: {}, phone: {}", applicationId, amount, phoneNumber);
 
         Policy policy = policyService.getPolicyByApplicationId(applicationId)
@@ -138,8 +156,21 @@ public class PaymentService {
 
             log.info("Policy {} balance updated to {}. Triggering certificate issuance logic.", policy.getPolicyNumber(), policy.getBalance());
 
+            // Resolve customer to get email and phone
+            Application application = applicationRepository.findById(payment.getApplicationId()).orElse(null);
+            String email = null;
+            String phoneNumber = payment.getPhoneNumber();
+            
+            if (application != null) {
+                Optional<Customer> customer = customerService.getCustomerByUserId(application.getUserId());
+                if (customer.isPresent()) {
+                    email = customer.get().getEmail();
+                    phoneNumber = customer.get().getPhoneNumber();
+                }
+            }
+
             // Trigger Certificate Issuance Logic
-            certificateService.processCertificateIssuance(policy, payment.getAmount());
+            certificateService.processCertificateIssuance(policy, payment.getAmount(), email, phoneNumber);
 
         } else {
             log.warn("Payment failed for checkoutRequestId: {}. Reason: {}", checkoutRequestId, callback.getResultDesc());

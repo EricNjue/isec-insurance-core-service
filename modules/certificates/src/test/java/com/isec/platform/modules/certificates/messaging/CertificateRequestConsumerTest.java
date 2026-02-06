@@ -50,6 +50,8 @@ class CertificateRequestConsumerTest {
                 .certificateType("MONTH_1")
                 .startDate(LocalDate.now())
                 .expiryDate(LocalDate.now().plusMonths(1))
+                .recipientEmail("test@example.com")
+                .recipientPhoneNumber("254712345678")
                 .correlationId("corr-123")
                 .build();
 

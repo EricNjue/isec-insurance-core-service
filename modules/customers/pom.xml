@@ -9,17 +9,13 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>identity</artifactId>
-    <name>identity</name>
+    <artifactId>customers</artifactId>
+    <name>customers</name>
 
     <dependencies>
         <dependency>
             <groupId>com.isec</groupId>
             <artifactId>common</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.isec</groupId>
-            <artifactId>customers</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -30,5 +30,9 @@
             <groupId>com.isec</groupId>
             <artifactId>integrations</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>customers</artifactId>
+        </dependency>
     </dependencies>
 </project>

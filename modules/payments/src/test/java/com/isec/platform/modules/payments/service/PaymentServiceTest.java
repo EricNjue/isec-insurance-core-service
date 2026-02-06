@@ -1,10 +1,15 @@
 package com.isec.platform.modules.payments.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.isec.platform.common.security.SecurityContextService;
 import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.common.exception.PaymentNotFoundException;
 import com.isec.platform.common.exception.PolicyNotFoundException;
+import com.isec.platform.modules.applications.domain.Application;
+import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.certificates.service.CertificateService;
+import com.isec.platform.modules.customers.domain.Customer;
+import com.isec.platform.modules.customers.service.CustomerService;
 import com.isec.platform.modules.integrations.mpesa.MpesaClient;
 import com.isec.platform.modules.integrations.mpesa.repository.MpesaRequestLogRepository;
 import com.isec.platform.modules.payments.domain.Payment;
@@ -19,6 +24,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.security.oauth2.jwt.Jwt;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +49,14 @@ class PaymentServiceTest {
     private MpesaRequestLogRepository mpesaRequestLogRepository;
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private ApplicationRepository applicationRepository;
+
+    @Mock
+    private CustomerService customerService;
+    @Mock
+    private SecurityContextService securityContextService;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -162,6 +176,14 @@ class PaymentServiceTest {
         
         when(paymentRepository.findByCheckoutRequestId(checkoutRequestId)).thenReturn(Optional.of(payment));
         when(paymentRepository.existsByMpesaReceiptNumberAndIdNot(anyString(), anyLong())).thenReturn(false);
+        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(Application.builder().userId("user@example.com").build()));
+        
+        Customer customer = Customer.builder()
+                .email("user@example.com")
+                .phoneNumber("254712345678")
+                .build();
+        when(customerService.getCustomerByUserId("user@example.com")).thenReturn(Optional.of(customer));
+        
         when(policyService.updateBalance(eq(applicationId), eq(amount))).thenReturn(testPolicy);
 
         paymentService.handleCallback(request);
@@ -170,7 +192,7 @@ class PaymentServiceTest {
         assertEquals("QK12345", payment.getMpesaReceiptNumber());
         verify(paymentRepository, atLeastOnce()).save(payment);
         verify(policyService).updateBalance(applicationId, amount);
-        verify(certificateService).processCertificateIssuance(testPolicy, amount);
+        verify(certificateService).processCertificateIssuance(testPolicy, amount, "user@example.com", "254712345678");
     }
 
     @Test

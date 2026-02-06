@@ -21,3 +21,5 @@ databaseChangeLog:
       file: db/changelog/modules/10-valuation-letters-security.yaml
   - include:
       file: db/changelog/modules/11-notifications-sms.yaml
+  - include:
+      file: db/changelog/modules/12-customers.yaml

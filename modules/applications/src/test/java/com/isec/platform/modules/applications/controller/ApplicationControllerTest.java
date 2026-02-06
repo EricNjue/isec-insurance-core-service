@@ -1,10 +1,9 @@
 package com.isec.platform.modules.applications.controller;
 
-import com.isec.platform.modules.applications.domain.Application;
+import com.isec.platform.common.security.SecurityContextService;
 import com.isec.platform.modules.applications.dto.ApplicationRequest;
-import com.isec.platform.modules.applications.repository.ApplicationRepository;
-import com.isec.platform.modules.documents.service.ApplicationDocumentService;
-import com.isec.platform.modules.policies.service.PolicyService;
+import com.isec.platform.modules.applications.dto.ApplicationResponse;
+import com.isec.platform.modules.applications.service.ApplicationService;
 import com.isec.platform.modules.rating.service.RatingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,16 +24,9 @@ import static org.mockito.Mockito.*;
 class ApplicationControllerTest {
 
     @Mock
-    private ApplicationRepository applicationRepository;
-
+    private ApplicationService applicationService;
     @Mock
-    private ApplicationDocumentService documentService;
-
-    @Mock
-    private RatingService ratingService;
-
-    @Mock
-    private PolicyService policyService;
+    private SecurityContextService securityContextService;
 
     @InjectMocks
     private ApplicationController applicationController;
@@ -54,10 +46,7 @@ class ApplicationControllerTest {
         request.setYearOfManufacture(2020);
         request.setVehicleValue(new BigDecimal("2500000"));
 
-        Jwt jwt = mock(Jwt.class);
-        when(jwt.getSubject()).thenReturn("test-user");
-
-        Application savedApplication = Application.builder()
+        ApplicationResponse expectedResponse = ApplicationResponse.builder()
                 .id(1L)
                 .userId("test-user")
                 .registrationNumber("KAA 001Z")
@@ -67,17 +56,16 @@ class ApplicationControllerTest {
                 .vehicleValue(new BigDecimal("2500000"))
                 .build();
 
-        when(applicationRepository.save(any(Application.class))).thenReturn(savedApplication);
-        when(documentService.getOrCreatePresignedUrls(1L)).thenReturn(Collections.emptyList());
+        when(applicationService.createApplication(eq(request))).thenReturn(expectedResponse);
 
         // Act
-        ResponseEntity<?> response = applicationController.createApplication(request, jwt);
+        ResponseEntity<ApplicationResponse> response = applicationController.createApplication(request);
 
         // Assert
         assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        verify(applicationRepository, times(1)).save(any(Application.class));
-        verify(documentService, times(1)).getOrCreatePresignedUrls(1L);
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(expectedResponse, response.getBody());
+        verify(applicationService, times(1)).createApplication(eq(request));
     }
 
     @Test
@@ -85,10 +73,6 @@ class ApplicationControllerTest {
         // Arrange
         Long appId = 1L;
         BigDecimal baseRate = new BigDecimal("0.05");
-        Application application = Application.builder()
-                .id(appId)
-                .vehicleValue(new BigDecimal("1000000"))
-                .build();
 
         RatingService.PremiumBreakdown breakdown = new RatingService.PremiumBreakdown(
                 new BigDecimal("50000"),
@@ -98,19 +82,16 @@ class ApplicationControllerTest {
                 new BigDecimal("50265")
         );
 
-        when(applicationRepository.findById(appId)).thenReturn(java.util.Optional.of(application));
-        when(ratingService.calculatePremium(any(), any())).thenReturn(breakdown);
+        when(applicationService.getQuote(appId, baseRate)).thenReturn(breakdown);
 
         // Act
         ResponseEntity<RatingService.PremiumBreakdown> response = applicationController.getQuote(appId, baseRate);
 
         // Assert
         assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals(breakdown, response.getBody());
         
-        verify(policyService, times(1)).createPolicy(eq(appId), eq(breakdown.totalPremium()));
-        verify(applicationRepository, times(1)).save(application);
-        assertEquals(com.isec.platform.modules.applications.domain.ApplicationStatus.QUOTED, application.getStatus());
+        verify(applicationService, times(1)).getQuote(eq(appId), eq(baseRate));
     }
 }

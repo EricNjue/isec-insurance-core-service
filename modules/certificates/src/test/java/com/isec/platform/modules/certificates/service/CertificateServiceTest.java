@@ -60,7 +60,7 @@ class CertificateServiceTest {
         when(certificateRepository.findByPolicyId(1L)).thenReturn(new ArrayList<>());
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
 
-        certificateService.processCertificateIssuance(policy, new BigDecimal("7000"));
+        certificateService.processCertificateIssuance(policy, new BigDecimal("7000"), "user@example.com", "254712345678");
 
         verify(certificateRepository, times(2)).save(any(Certificate.class));
         verify(rabbitTemplate, times(2)).convertAndSend(anyString(), anyString(), any(Object.class));
@@ -86,7 +86,7 @@ class CertificateServiceTest {
         when(certificateRepository.findByPolicyId(1L)).thenReturn(new ArrayList<>());
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
 
-        certificateService.processCertificateIssuance(policy, new BigDecimal("10000"));
+        certificateService.processCertificateIssuance(policy, new BigDecimal("10000"), "user@example.com", "254712345678");
 
         verify(certificateRepository).save(argThat(c -> c.getType() == CertificateType.ANNUAL_FULL));
         verify(rabbitTemplate, times(3)).convertAndSend(anyString(), anyString(), any(Object.class));

@@ -20,5 +20,7 @@ public class CertificateRequestedEvent implements Serializable {
     private String certificateType;
     private LocalDate startDate;
     private LocalDate expiryDate;
+    private String recipientEmail;
+    private String recipientPhoneNumber;
     private String correlationId;
 }
