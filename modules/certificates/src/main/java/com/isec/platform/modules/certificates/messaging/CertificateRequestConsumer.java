@@ -3,6 +3,7 @@ package com.isec.platform.modules.certificates.messaging;
 import com.isec.platform.common.idempotency.service.IdempotencyService;
 import com.isec.platform.messaging.RabbitMQConfig;
 import com.isec.platform.messaging.events.CertificateRequestedEvent;
+import com.isec.platform.messaging.events.NotificationChannel;
 import com.isec.platform.messaging.events.NotificationSendEvent;
 import com.isec.platform.modules.certificates.domain.Certificate;
 import com.isec.platform.modules.certificates.domain.CertificateStatus;
@@ -89,16 +90,31 @@ public class CertificateRequestConsumer {
     }
 
     private void sendNotification(CertificateRequestedEvent event, String dmvicRef, String subject, String content) {
-        NotificationSendEvent notificationEvent = NotificationSendEvent.builder()
+
+        // Send EMAIL notification
+        NotificationSendEvent emailEvent = NotificationSendEvent.builder()
                 .eventId(UUID.randomUUID().toString())
-                .recipient("customer@example.com") 
-                .channel("EMAIL")
+                .recipient("customer@example.com") // todo: get from user profile JWT claim jwt.getClaimAsString("email")
+                .channel(NotificationChannel.EMAIL)
                 .subject(subject)
                 .content(content)
                 .correlationId(event.getCorrelationId())
                 .build();
 
-        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.NOTIFICATION_SEND_RK, notificationEvent);
-        log.info("Notification event sent for policy: {}", event.getPolicyNumber());
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.NOTIFICATION_SEND_RK, emailEvent);
+
+        // Send SMS notification
+        NotificationSendEvent smsEvent = NotificationSendEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .recipient("+254719531872") // todo: get from user profile, where by when initiating the stk push, we ask for a phoneNumber, store it and subsequently use it as the recipient
+                .channel(NotificationChannel.SMS)
+                .subject(subject)
+                .content(content)
+                .correlationId(event.getCorrelationId())
+                .build();
+
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.NOTIFICATION_SEND_RK, smsEvent);
+
+        log.info("Notification events (EMAIL & SMS) sent for policy: {}", event.getPolicyNumber());
     }
 }

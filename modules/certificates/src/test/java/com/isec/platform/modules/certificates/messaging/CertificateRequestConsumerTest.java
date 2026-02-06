@@ -72,7 +72,7 @@ class CertificateRequestConsumerTest {
 
         verify(dmvicClient).issueCertificate(eq("KAA 001A"), eq("POL-001"));
         verify(certificateRepository, atLeastOnce()).save(any(Certificate.class));
-        verify(rabbitTemplate).convertAndSend(anyString(), anyString(), any(Object.class));
+        verify(rabbitTemplate, times(2)).convertAndSend(anyString(), anyString(), any(Object.class));
     }
 
     @Test
