@@ -70,6 +70,7 @@ class SmsServiceTest {
         assertEquals(to, savedMessage.getTo());
         assertEquals(message, savedMessage.getMessage());
         assertEquals("AfricasTalking", savedMessage.getProvider());
+        assertEquals("ATXid_123", savedMessage.getProviderRequestId());
         assertEquals("Sent to 1/1", savedMessage.getStatusSummary());
         assertEquals(1, savedMessage.getRecipientResults().size());
         assertEquals("ATXid_123", savedMessage.getRecipientResults().get(0).getMessageId());

@@ -40,10 +40,13 @@ public class SmsService {
     }
 
     private void persistSmsResult(String to, String message, SmsSendResult result) {
+        String providerRequestId = result.getRecipients().isEmpty() ? null : result.getRecipients().get(0).getMessageId();
+
         SmsMessage smsMessage = SmsMessage.builder()
                 .to(to)
                 .message(message)
                 .provider("AfricasTalking")
+                .providerRequestId(providerRequestId)
                 .statusSummary(result.getSummaryMessage())
                 .build();
 
