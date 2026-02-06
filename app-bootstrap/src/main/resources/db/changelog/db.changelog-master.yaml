@@ -25,3 +25,5 @@ databaseChangeLog:
       file: db/changelog/modules/12-customers.yaml
   - include:
       file: db/changelog/modules/13-vehicles.yaml
+  - include:
+      file: db/changelog/modules/14-vehicles-seed.yaml
