@@ -224,6 +224,52 @@ docker-compose up -d rabbitmq redis postgres keycloak
 ./mvnw spring-boot:run -pl app-bootstrap
 ```
 
+## Vehicle Management API
+
+### Vehicle Make APIs
+- **POST** `/api/v1/vehicles/makes` - Create a new make (Admin only)
+- **PUT** `/api/v1/vehicles/makes/{id}` - Update a make (Admin only)
+- **GET** `/api/v1/vehicles/makes/{id}` - Get make details
+- **GET** `/api/v1/vehicles/makes` - List makes with pagination and `active` filter
+- **DELETE** `/api/v1/vehicles/makes/{id}` - Soft delete a make (Admin only)
+
+### Vehicle Model APIs
+- **POST** `/api/v1/vehicles/models` - Create a new model (Admin only)
+- **PUT** `/api/v1/vehicles/models/{id}` - Update a model (Admin only)
+- **GET** `/api/v1/vehicles/models/{id}` - Get model details
+- **GET** `/api/v1/vehicles/models` - List models with pagination and filters (`makeId`, `makeCode`, `active`)
+- **DELETE** `/api/v1/vehicles/models/{id}` - Soft delete a model (Admin only)
+
+### Lookup APIs
+- **GET** `/api/v1/vehicles/makes/{makeId}/models` - Get all models for a make ID
+- **GET** `/api/v1/vehicles/makes/code/{makeCode}/models` - Get all models for a make code
+
+### Example Request (Create Make)
+```bash
+curl -X POST http://localhost:8080/api/v1/vehicles/makes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "TOYOTA",
+    "name": "Toyota",
+    "country": "Japan"
+  }'
+```
+
+### Example Request (Create Model)
+```bash
+curl -X POST http://localhost:8080/api/v1/vehicles/models \
+  -H "Content-Type: application/json" \
+  -d '{
+    "makeId": "uuid-of-toyota",
+    "code": "COROLLA",
+    "name": "Corolla 1.8 Hybrid",
+    "yearFrom": 2018,
+    "yearTo": 2024,
+    "bodyType": "Sedan",
+    "fuelType": "Hybrid"
+  }'
+```
+
 ---
 
 ## 14. How to Test the Full E2E Flow

@@ -1071,6 +1071,143 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Vehicles",
+			"item": [
+				{
+					"name": "Makes",
+					"item": [
+						{
+							"name": "Create Make",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"code\": \"TOYOTA\",\n    \"name\": \"Toyota\",\n    \"country\": \"Japan\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/vehicles/makes",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"vehicles",
+										"makes"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "List Makes",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/vehicles/makes?active=true&page=0&size=20",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"vehicles",
+										"makes"
+									],
+									"query": [
+										{
+											"key": "active",
+											"value": "true"
+										},
+										{
+											"key": "page",
+											"value": "0"
+										},
+										{
+											"key": "size",
+											"value": "20"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Models",
+					"item": [
+						{
+							"name": "Create Model",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"makeId\": \"{{makeId}}\",\n    \"code\": \"COROLLA\",\n    \"name\": \"Corolla 1.8 Hybrid\",\n    \"yearFrom\": 2018,\n    \"yearTo\": 2024,\n    \"bodyType\": \"Sedan\",\n    \"fuelType\": \"Hybrid\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/vehicles/models",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"vehicles",
+										"models"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "List Models",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/vehicles/models?makeCode=TOYOTA&active=true",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"vehicles",
+										"models"
+									],
+									"query": [
+										{
+											"key": "makeCode",
+											"value": "TOYOTA"
+										},
+										{
+											"key": "active",
+											"value": "true"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
 		}
 	],
 	"auth": {
@@ -1155,6 +1292,10 @@
 		{
 			"key": "valuerId",
 			"value": "1"
+		},
+		{
+			"key": "makeId",
+			"value": "your-make-uuid-here"
 		},
 		{
 			"key": "presignedUploadUrl",
