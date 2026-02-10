@@ -101,7 +101,7 @@ public class PricingEngine {
                 .map(r -> {
                     appliedRuleIds.add(r.getId());
                     BigDecimal rate = ruleMatcher.evaluateBigDecimal(r, context);
-                    return context.getVehicleValue().multiply(rate).setScale(2, RoundingMode.HALF_UP);
+                    return context.getVehicleValue().multiply(rate).setScale(0, RoundingMode.UP);
                 })
                 .orElseThrow(() -> new IllegalStateException("No base premium rule matched for category: " + context.getCategory()));
     }
@@ -126,7 +126,7 @@ public class PricingEngine {
                 .filter(r -> context.getSelectedAddonIds() != null && context.getSelectedAddonIds().contains(r.getId()))
                 .filter(r -> ruleMatcher.matches(r, context))
                 .forEach(r -> {
-                    BigDecimal addonAmount = ruleMatcher.evaluateBigDecimal(r, context).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal addonAmount = ruleMatcher.evaluateBigDecimal(r, context).setScale(0, RoundingMode.UP);
                     addons.add(new AddonBreakdown(r.getDescription(), r.getDescription(), addonAmount, r.getId()));
                     appliedRuleIds.add(r.getId());
                 });
@@ -134,10 +134,10 @@ public class PricingEngine {
     }
 
     private PricingResult buildPricingResult(BigDecimal basePremium, List<AddonBreakdown> addons, ReferralInfo referralInfo, boolean minApplied, List<Long> appliedRuleIds) {
-        BigDecimal pcf = basePremium.multiply(PCF_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal itl = basePremium.multiply(ITL_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal pcf = basePremium.multiply(PCF_RATE).setScale(0, RoundingMode.UP);
+        BigDecimal itl = basePremium.multiply(ITL_RATE).setScale(0, RoundingMode.UP);
         BigDecimal addonTotal = addons.stream().map(AddonBreakdown::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal total = basePremium.add(pcf).add(itl).add(CERT_CHARGE).add(addonTotal);
+        BigDecimal total = basePremium.add(pcf).add(itl).add(CERT_CHARGE).add(addonTotal).setScale(0, RoundingMode.UP);
 
         return PricingResult.builder()
                 .basePremium(basePremium)
