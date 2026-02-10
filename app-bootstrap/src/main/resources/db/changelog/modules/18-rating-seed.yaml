@@ -152,7 +152,9 @@ databaseChangeLog:
               - column: {name: name, value: "Toyota Group"}
         - insert:
             tableName: vehicle_make_group_members
-            columns: {group_id: 1, make: "Toyota"}
+            columns:
+              - column: {name: group_id, valueNumeric: 1}
+              - column: {name: make, value: "Toyota"}
         
         # Mazda Group
         - insert:
@@ -163,7 +165,9 @@ databaseChangeLog:
               - column: {name: name, value: "Mazda Group"}
         - insert:
             tableName: vehicle_make_group_members
-            columns: {group_id: 2, make: "Mazda"}
+            columns:
+              - column: {name: group_id, valueNumeric: 2}
+              - column: {name: make, value: "Mazda"}
 
         # Add rules referencing makes
         - insert:

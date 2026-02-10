@@ -44,7 +44,6 @@ databaseChangeLog:
             tableName: payments
             columns:
               - column: {name: tenant_id, type: varchar(50)}
-              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
               - column: {name: updated_at, type: timestamp}
               - column: {name: version, type: bigint, defaultValueNumeric: 0}
         - createIndex:

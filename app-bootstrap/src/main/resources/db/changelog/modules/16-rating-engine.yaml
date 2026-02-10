@@ -84,8 +84,8 @@ databaseChangeLog:
             columns:
               - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
               - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
-              - column: {name: min_value, type: decimal(19,2)}
-              - column: {name: max_value, type: decimal(19,2)}
+              - column: {name: min_value, type: "decimal(19,2)"}
+              - column: {name: max_value, type: "decimal(19,2)"}
               - column: {name: label, type: varchar(100)}
               - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
               - column: {name: updated_at, type: timestamp}
