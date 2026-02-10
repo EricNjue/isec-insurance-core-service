@@ -16,6 +16,9 @@ public class QuoteResponse {
     private String vehicleModel;
     private Integer yearOfManufacture;
     private BigDecimal vehicleValue;
+    private String registrationNumber;
+    private String chassisNumber;
+    private String engineNumber;
 
     private Long rateBookId;
     private String rateBookVersion;

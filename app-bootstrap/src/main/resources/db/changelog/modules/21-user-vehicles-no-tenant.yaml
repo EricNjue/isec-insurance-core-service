@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 21-1
+      author: junie
+      changes:
+        - dropIndex:
+            indexName: idx_user_vehicles_user_tenant
+            tableName: user_vehicles
+        - dropColumn:
+            columnName: tenant_id
+            tableName: user_vehicles
+        - createIndex:
+            tableName: user_vehicles
+            indexName: idx_user_vehicles_user
+            columns:
+              - column: {name: user_id}

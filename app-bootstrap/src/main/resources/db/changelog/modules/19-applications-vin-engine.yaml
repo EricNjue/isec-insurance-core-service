@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 19-1
+      author: junie
+      changes:
+        - addColumn:
+            tableName: applications
+            columns:
+              - column: {name: chassis_number, type: varchar(100)}
+              - column: {name: engine_number, type: varchar(100)}

@@ -1,0 +1,27 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20-1
+      author: junie
+      changes:
+        - createTable:
+            tableName: user_vehicles
+            columns:
+              - column: {name: id, type: uuid, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: user_id, type: varchar(255), constraints: {nullable: false}}
+              - column: {name: registration_number, type: varchar(255), constraints: {nullable: false}}
+              - column: {name: vehicle_make, type: varchar(255), constraints: {nullable: false}}
+              - column: {name: vehicle_model, type: varchar(255), constraints: {nullable: false}}
+              - column: {name: year_of_manufacture, type: int, constraints: {nullable: false}}
+              - column: {name: vehicle_value, type: "decimal(19,2)", constraints: {nullable: false}}
+              - column: {name: chassis_number, type: varchar(100)}
+              - column: {name: engine_number, type: varchar(100)}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - createIndex:
+            tableName: user_vehicles
+            indexName: idx_user_vehicles_user_tenant
+            columns:
+              - column: {name: user_id}
+              - column: {name: tenant_id}

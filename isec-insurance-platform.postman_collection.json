@@ -37,7 +37,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"category\": \"PRIVATE_CAR\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000\n}",
+									"raw": "{\n    \"category\": \"PRIVATE_CAR\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"registrationNumber\": \"KAA 123X\",\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\"\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -89,7 +89,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"registrationNumber\": \"KAA 123X\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"phoneNumber\": \"254712345678\",\n    \"quoteId\": \"{{quoteId}}\"\n}",
+									"raw": "{\n    \"registrationNumber\": \"KAA 123X\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"phoneNumber\": \"254712345678\",\n    \"quoteId\": \"{{quoteId}}\"\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -105,6 +105,31 @@
 										"api",
 										"v1",
 										"applications"
+									]
+								}
+							}
+						},
+						{
+							"name": "Get My Vehicles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/vehicles/my-vehicles",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"vehicles",
+										"my-vehicles"
 									]
 								}
 							}

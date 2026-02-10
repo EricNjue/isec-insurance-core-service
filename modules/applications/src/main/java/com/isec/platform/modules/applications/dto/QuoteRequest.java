@@ -20,4 +20,8 @@ public class QuoteRequest {
     @NotNull
     @Positive
     private BigDecimal vehicleValue;
+
+    private String registrationNumber;
+    private String chassisNumber;
+    private String engineNumber;
 }

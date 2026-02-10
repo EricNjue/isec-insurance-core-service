@@ -21,6 +21,9 @@ public class ApplicationRequest {
     @Positive
     private BigDecimal vehicleValue;
     
+    private String chassisNumber;
+    private String engineNumber;
+    
     private String anonymousQuoteId;
     private String quoteId;
     private String phoneNumber;

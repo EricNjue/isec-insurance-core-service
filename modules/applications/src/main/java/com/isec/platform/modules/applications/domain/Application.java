@@ -36,6 +36,12 @@ public class Application extends TenantBaseEntity {
     @Column(nullable = false)
     private BigDecimal vehicleValue;
 
+    @Column(name = "chassis_number")
+    private String chassisNumber;
+
+    @Column(name = "engine_number")
+    private String engineNumber;
+
     @Enumerated(EnumType.STRING)
     private ApplicationStatus status;
 

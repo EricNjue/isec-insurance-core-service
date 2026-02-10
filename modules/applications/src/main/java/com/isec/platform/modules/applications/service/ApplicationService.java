@@ -14,6 +14,8 @@ import com.isec.platform.modules.customers.dto.CustomerRequest;
 import com.isec.platform.modules.customers.service.CustomerService;
 import com.isec.platform.modules.documents.service.ApplicationDocumentService;
 import com.isec.platform.modules.policies.service.PolicyService;
+import com.isec.platform.modules.vehicles.dto.UserVehicleDto;
+import com.isec.platform.modules.vehicles.service.UserVehicleService;
 import com.isec.platform.modules.rating.domain.AnonymousQuote;
 import com.isec.platform.modules.rating.dto.ReferralDecision;
 import com.isec.platform.modules.rating.service.RatingService;
@@ -38,6 +40,7 @@ public class ApplicationService {
     private final QuoteService quoteService;
     private final PolicyService policyService;
     private final CustomerService customerService;
+    private final UserVehicleService userVehicleService;
     private final SecurityContextService securityContextService;
     private final ObjectMapper objectMapper;
 
@@ -62,6 +65,8 @@ public class ApplicationService {
                 .vehicleModel(request.getVehicleModel())
                 .yearOfManufacture(request.getYearOfManufacture())
                 .vehicleValue(request.getVehicleValue())
+                .chassisNumber(request.getChassisNumber())
+                .engineNumber(request.getEngineNumber())
                 .status(ApplicationStatus.DRAFT);
 
         if (request.getAnonymousQuoteId() != null) {
@@ -84,6 +89,9 @@ public class ApplicationService {
                         .vehicleModel(quote.getVehicleModel())
                         .yearOfManufacture(quote.getYearOfManufacture())
                         .vehicleValue(quote.getVehicleValue())
+                        .registrationNumber(quote.getRegistrationNumber() != null ? quote.getRegistrationNumber() : request.getRegistrationNumber())
+                        .chassisNumber(quote.getChassisNumber())
+                        .engineNumber(quote.getEngineNumber())
                         .quoteId(quote.getQuoteId())
                         .rateBookId(quote.getRateBookId());
 
@@ -111,6 +119,18 @@ public class ApplicationService {
              }
         }
         log.info("Application created successfully with ID: {}", saved.getId());
+
+        // Store vehicle details for the user
+        userVehicleService.saveOrUpdateVehicle(userId, UserVehicleDto.builder()
+                .registrationNumber(saved.getRegistrationNumber())
+                .vehicleMake(saved.getVehicleMake())
+                .vehicleModel(saved.getVehicleModel())
+                .yearOfManufacture(saved.getYearOfManufacture())
+                .vehicleValue(saved.getVehicleValue())
+                .chassisNumber(saved.getChassisNumber())
+                .engineNumber(saved.getEngineNumber())
+                .build());
+
         return mapToResponse(saved);
     }
 
@@ -171,6 +191,8 @@ public class ApplicationService {
                 .yearOfManufacture(app.getYearOfManufacture())
                 .vehicleValue(app.getVehicleValue())
                 .status(app.getStatus())
+                .chassisNumber(app.getChassisNumber())
+                .engineNumber(app.getEngineNumber())
                 .createdAt(app.getCreatedAt())
                 .documents(documentService.getOrCreatePresignedUrls(app.getId()))
                 .build();
