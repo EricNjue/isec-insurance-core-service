@@ -168,6 +168,232 @@
 					]
 				},
 				{
+					"name": "Rate Book Management",
+					"item": [
+						{
+							"name": "List RateBooks",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rate-books",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rate-books"
+									]
+								}
+							}
+						},
+						{
+							"name": "Create RateBook",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"New Motor Tariff\",\n    \"versionName\": \"v2.0\",\n    \"effectiveFrom\": \"2026-01-01T00:00:00\",\n    \"active\": false\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rate-books",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rate-books"
+									]
+								}
+							}
+						},
+						{
+							"name": "Update RateBook",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Motor Tariff\",\n    \"versionName\": \"v2.1\",\n    \"effectiveFrom\": \"2026-01-01T00:00:00\",\n    \"active\": true\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rate-books/{{rateBookId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rate-books",
+										"{{rateBookId}}"
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Rate Rule Management",
+					"item": [
+						{
+							"name": "List Rules by RateBook",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rules/book/{{rateBookId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rules",
+										"book",
+										"{{rateBookId}}"
+									]
+								}
+							}
+						},
+						{
+							"name": "Create Rate Rule",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"New Base Rate\",\n    \"priority\": 10,\n    \"conditionExpression\": \"vehicleValue > 0\",\n    \"valueExpression\": \"0.045\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rules",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rules"
+									]
+								}
+							}
+						},
+						{
+							"name": "Update Rate Rule",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"Updated Base Rate\",\n    \"priority\": 5,\n    \"conditionExpression\": \"vehicleValue > 0\",\n    \"valueExpression\": \"0.042\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rules/{{ruleId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rules",
+										"{{ruleId}}"
+									]
+								}
+							}
+						},
+						{
+							"name": "Delete Rate Rule",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rules/{{ruleId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rules",
+										"{{ruleId}}"
+									]
+								}
+							}
+						}
+					]
+				},
+				{
 					"name": "Underwriting",
 					"item": [
 						{

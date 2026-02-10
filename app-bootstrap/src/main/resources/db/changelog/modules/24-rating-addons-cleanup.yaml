@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 24-1
+      author: junie
+      changes:
+        - delete:
+            tableName: rate_rules
+            where: "tenant_id = 'SANLAM' AND description IN ('Excess Protector', 'Political Violence & Terrorism')"

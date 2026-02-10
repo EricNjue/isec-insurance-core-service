@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: 23-1
+      author: junie
+      changes:
+        # SANLAM Add-ons with Min Premium logic
+        # 1. Excess Protector (0.5% SI, Min 5,000)
+        # Note: We implement this as a SpEL expression: max(5000, vehicleValue * 0.005)
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Excess Protector (0.5% SI, Min 5,000)"}
+              - column: {name: priority, valueNumeric: 40}
+              - column: {name: value_expression, value: "T(java.lang.Math).max(5000.0, vehicleValue.doubleValue() * 0.005)"}
+
+        # 2. Political Violence & Terrorism (0.45% SI, Min 3,000)
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "PVT Cover (0.45% SI, Min 3,000)"}
+              - column: {name: priority, valueNumeric: 41}
+              - column: {name: value_expression, value: "T(java.lang.Math).max(3000.0, vehicleValue.doubleValue() * 0.0045)"}

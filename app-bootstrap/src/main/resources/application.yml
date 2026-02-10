@@ -65,6 +65,7 @@ tenant:
     - "/api/v1/rating/anonymous-quote"
     - "/api/v1/payments/callback"
     - "/api/v1/sms/delivery-report"
+    - "/api/v1/profile"
 
 branding:
   company:

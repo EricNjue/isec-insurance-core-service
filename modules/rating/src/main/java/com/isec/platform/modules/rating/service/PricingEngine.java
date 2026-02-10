@@ -66,19 +66,16 @@ public class PricingEngine {
     }
 
     private void checkEligibility(RatingContext context, List<RateBookDto.RateRuleDto> rules, List<Long> appliedRuleIds) {
-        boolean eligible = rules.stream()
+        rules.stream()
                 .filter(r -> r.getRuleType() == RuleType.ELIGIBILITY && r.getCategory().equalsIgnoreCase(context.getCategory()))
-                .filter(r -> ruleMatcher.matches(r, context))
-                .findFirst()
-                .map(r -> {
+                .forEach(r -> {
+                    boolean matches = ruleMatcher.matches(r, context);
+                    log.debug("Evaluating eligibility rule {}: {}, result: {}", r.getId(), r.getDescription(), matches);
+                    if (!matches) {
+                        throw new IllegalStateException("Not eligible for cover: " + r.getDescription());
+                    }
                     appliedRuleIds.add(r.getId());
-                    return true;
-                })
-                .orElse(true);
-
-        if (!eligible) {
-            throw new IllegalStateException("Not eligible for cover as per rate book rules");
-        }
+                });
     }
 
     private ReferralInfo checkReferral(RatingContext context, List<RateBookDto.RateRuleDto> rules, List<Long> appliedRuleIds) {
