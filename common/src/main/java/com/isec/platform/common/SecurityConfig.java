@@ -1,6 +1,7 @@
 package com.isec.platform.common;
 
 import com.isec.platform.common.multitenancy.TenantFilter;
+import com.isec.platform.common.multitenancy.TenantProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -18,7 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, TenantFilter tenantFilter) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
@@ -28,8 +29,13 @@ public class SecurityConfig {
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
             )
-            .addFilterAfter(new TenantFilter(), UsernamePasswordAuthenticationFilter.class);
+            .addFilterAfter(tenantFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    @Bean
+    public TenantFilter tenantFilter(TenantProperties tenantProperties) {
+        return new TenantFilter(tenantProperties);
     }
 
     @Bean

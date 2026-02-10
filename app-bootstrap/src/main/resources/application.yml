@@ -58,6 +58,14 @@ logging:
     com.isec.platform: INFO
     org.springframework.security: INFO
 
+tenant:
+  public-patterns:
+    - "/actuator/**"
+    - "/verify/**"
+    - "/api/v1/rating/anonymous-quote"
+    - "/api/v1/payments/callback"
+    - "/api/v1/sms/delivery-report"
+
 branding:
   company:
     name: ${BRANDING_COMPANY_NAME:iSec Insurance Agency}
