@@ -1,6 +1,6 @@
 package com.isec.platform.modules.rating.service;
 
-import com.isec.platform.modules.rating.domain.RateBook;
+import com.isec.platform.modules.rating.dto.RateBookDto;
 import com.isec.platform.modules.rating.repository.RateBookRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,9 +9,10 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
- * Loads and caches active RateBook per tenant. Cache key uses tenant and book identity for auditability.
+ * Loads and caches active RateBook per tenant as a DTO to avoid serialization pitfalls with JPA entities.
  */
 @Component
 @RequiredArgsConstructor
@@ -24,8 +25,9 @@ public class RateBookSnapshotLoader {
 
     @Cacheable(cacheNames = RATEBOOK_CACHE, key = "#tenantId")
     public Optional<Snapshot> loadActive(String tenantId) {
-        Optional<RateBook> rb = rateBookRepository.findActiveByTenantId(tenantId);
-        return rb.map(Snapshot::from);
+        log.debug("Loading active rate book for tenant: {}", tenantId);
+        return rateBookRepository.findActiveByTenantId(tenantId)
+                .map(rb -> Snapshot.from(mapToDto(rb)));
     }
 
     @CacheEvict(cacheNames = RATEBOOK_CACHE, allEntries = true)
@@ -33,8 +35,28 @@ public class RateBookSnapshotLoader {
         log.info("Invalidated all ratebook snapshots cache");
     }
 
-    public record Snapshot(Long rateBookId, String version, RateBook rateBook, String cacheKey) {
-        public static Snapshot from(RateBook rb) {
+    private RateBookDto mapToDto(com.isec.platform.modules.rating.domain.RateBook rb) {
+        return RateBookDto.builder()
+                .id(rb.getId())
+                .tenantId(rb.getTenantId())
+                .name(rb.getName())
+                .versionName(rb.getVersionName())
+                .rules(rb.getRules().stream()
+                        .map(rule -> RateBookDto.RateRuleDto.builder()
+                                .id(rule.getId())
+                                .ruleType(rule.getRuleType())
+                                .category(rule.getCategory())
+                                .description(rule.getDescription())
+                                .priority(rule.getPriority())
+                                .conditionExpression(rule.getConditionExpression())
+                                .valueExpression(rule.getValueExpression())
+                                .build())
+                        .collect(Collectors.toList()))
+                .build();
+    }
+
+    public record Snapshot(Long rateBookId, String version, RateBookDto rateBook, String cacheKey) {
+        public static Snapshot from(RateBookDto rb) {
             String key = rb.getTenantId() + ":" + rb.getId() + ":" + rb.getVersionName();
             return new Snapshot(rb.getId(), rb.getVersionName(), rb, key);
         }

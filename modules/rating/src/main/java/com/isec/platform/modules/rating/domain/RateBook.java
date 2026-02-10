@@ -1,5 +1,6 @@
 package com.isec.platform.modules.rating.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.isec.platform.common.domain.TenantBaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -37,5 +38,6 @@ public class RateBook extends TenantBaseEntity {
 
     @OneToMany(mappedBy = "rateBook", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
     private List<RateRule> rules = new ArrayList<>();
 }

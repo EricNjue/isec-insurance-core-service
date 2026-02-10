@@ -1,10 +1,9 @@
 package com.isec.platform.modules.rating.service;
 
-import com.isec.platform.modules.rating.domain.RateBook;
-import com.isec.platform.modules.rating.domain.RateRule;
+import com.isec.platform.modules.rating.dto.RateBookDto;
+import com.isec.platform.modules.rating.dto.PricingResult;
 import com.isec.platform.modules.rating.domain.RuleType;
 import com.isec.platform.modules.rating.dto.AddonBreakdown;
-import com.isec.platform.modules.rating.dto.PricingResult;
 import com.isec.platform.modules.rating.dto.RatingContext;
 import com.isec.platform.modules.rating.dto.ReferralDecision;
 import lombok.RequiredArgsConstructor;
@@ -32,10 +31,12 @@ public class PricingEngine {
     public PricingResult price(RatingContext context) {
         RateBookSnapshotLoader.Snapshot snapshot = rateBookSnapshotLoader.loadActive(context.getTenantId())
                 .orElseThrow(() -> new IllegalStateException("No active ratebook for tenant: " + context.getTenantId()));
-        RateBook rateBook = snapshot.rateBook();
-
-        List<RateRule> rules = rateBook.getRules().stream()
-                .sorted(Comparator.comparingInt(RateRule::getPriority))
+        
+        RateBookDto rateBook = snapshot.rateBook();
+        List<RateBookDto.RateRuleDto> rules = rateBook.getRules();
+        
+        List<RateBookDto.RateRuleDto> sortedRules = rules.stream()
+                .sorted(Comparator.comparingInt(RateBookDto.RateRuleDto::getPriority))
                 .toList();
 
         List<Long> appliedRuleIds = new ArrayList<>();
@@ -44,7 +45,7 @@ public class PricingEngine {
         String referralReason = null;
 
         // 1. Eligibility
-        boolean eligible = rules.stream()
+        boolean eligible = sortedRules.stream()
                 .filter(r -> r.getRuleType() == RuleType.ELIGIBILITY && r.getCategory().equalsIgnoreCase(context.getCategory()))
                 .filter(r -> ruleMatcher.matches(r, context))
                 .findFirst()
@@ -58,7 +59,7 @@ public class PricingEngine {
         }
 
         // 2. Referral
-        var referralRuleOpt = rules.stream()
+        var referralRuleOpt = sortedRules.stream()
                 .filter(r -> r.getRuleType() == RuleType.REFERRAL && r.getCategory().equalsIgnoreCase(context.getCategory()))
                 .filter(r -> ruleMatcher.matches(r, context))
                 .findFirst();
@@ -70,7 +71,7 @@ public class PricingEngine {
         }
 
         // 3. Base premium
-        BigDecimal baseRate = rules.stream()
+        BigDecimal baseRate = sortedRules.stream()
                 .filter(r -> r.getRuleType() == RuleType.BASE_PREMIUM && r.getCategory().equalsIgnoreCase(context.getCategory()))
                 .filter(r -> ruleMatcher.matches(r, context))
                 .findFirst()
@@ -84,7 +85,7 @@ public class PricingEngine {
         boolean minApplied = false;
 
         // 4. Minimum premium
-        var minRuleOpt = rules.stream()
+        var minRuleOpt = sortedRules.stream()
                 .filter(r -> r.getRuleType() == RuleType.MIN_PREMIUM && r.getCategory().equalsIgnoreCase(context.getCategory()))
                 .filter(r -> ruleMatcher.matches(r, context))
                 .findFirst();
@@ -99,7 +100,7 @@ public class PricingEngine {
         }
 
         // 5. Add-ons (sum amounts)
-        rules.stream()
+        sortedRules.stream()
                 .filter(r -> r.getRuleType() == RuleType.ADDON && r.getCategory().equalsIgnoreCase(context.getCategory()))
                 .filter(r -> ruleMatcher.matches(r, context))
                 .forEach(r -> {

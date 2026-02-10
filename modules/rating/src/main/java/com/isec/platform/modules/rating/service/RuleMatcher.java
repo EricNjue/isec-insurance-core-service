@@ -1,6 +1,6 @@
 package com.isec.platform.modules.rating.service;
 
-import com.isec.platform.modules.rating.domain.RateRule;
+import com.isec.platform.modules.rating.dto.RateBookDto;
 import com.isec.platform.modules.rating.dto.RatingContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.expression.ExpressionParser;
@@ -16,7 +16,7 @@ public class RuleMatcher {
 
     private final ExpressionParser parser = new SpelExpressionParser();
 
-    public boolean matches(RateRule rule, RatingContext context) {
+    public boolean matches(RateBookDto.RateRuleDto rule, RatingContext context) {
         if (rule.getConditionExpression() == null || rule.getConditionExpression().isBlank()) {
             return true;
         }
@@ -29,7 +29,7 @@ public class RuleMatcher {
         }
     }
 
-    public Object evaluateValue(RateRule rule, RatingContext context) {
+    public Object evaluateValue(RateBookDto.RateRuleDto rule, RatingContext context) {
         if (rule.getValueExpression() == null || rule.getValueExpression().isBlank()) {
             return null;
         }
@@ -42,7 +42,7 @@ public class RuleMatcher {
         }
     }
     
-    public BigDecimal evaluateBigDecimal(RateRule rule, RatingContext context) {
+    public BigDecimal evaluateBigDecimal(RateBookDto.RateRuleDto rule, RatingContext context) {
         Object value = evaluateValue(rule, context);
         if (value instanceof BigDecimal bd) return bd;
         if (value instanceof Number n) return BigDecimal.valueOf(n.doubleValue());

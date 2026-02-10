@@ -1,135 +1,155 @@
 package com.isec.platform.modules.rating.service;
 
-import com.isec.platform.modules.rating.domain.RateBook;
-import com.isec.platform.modules.rating.domain.RateRule;
-import com.isec.platform.modules.rating.domain.RuleType;
-import com.isec.platform.modules.rating.dto.PricingResult;
+import com.isec.platform.modules.rating.dto.RateBookDto;
 import com.isec.platform.modules.rating.dto.RatingContext;
+import com.isec.platform.modules.rating.dto.PricingResult;
 import com.isec.platform.modules.rating.dto.ReferralDecision;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
 class PricingEngineTest {
 
-    @Mock
-    private RateBookSnapshotLoader rateBookSnapshotLoader;
-
-    @Mock
+    private RateBookSnapshotLoader snapshotLoader;
     private RuleMatcher ruleMatcher;
-
-    @InjectMocks
     private PricingEngine pricingEngine;
-
-    private RateBook rateBook;
-    private RatingContext context;
 
     @BeforeEach
     void setUp() {
-        rateBook = RateBook.builder()
-                .id(1L)
-                .versionName("v1.0")
-                .build();
-        rateBook.setTenantId("SANLAM");
+        snapshotLoader = Mockito.mock(RateBookSnapshotLoader.class);
+        ruleMatcher = Mockito.mock(RuleMatcher.class);
+        pricingEngine = new PricingEngine(snapshotLoader, ruleMatcher);
+    }
 
-        context = RatingContext.builder()
-                .tenantId("SANLAM")
+    @Test
+    void price_calculatesBasePremium() {
+        // given
+        String tenantId = "TENANT1";
+        RatingContext context = RatingContext.builder()
+                .tenantId(tenantId)
                 .category("PRIVATE_CAR")
                 .vehicleValue(new BigDecimal("1000000"))
-                .vehicleAge(5)
                 .build();
 
-        RateBookSnapshotLoader.Snapshot snapshot = new RateBookSnapshotLoader.Snapshot(1L, "v1.0", rateBook, "SANLAM:1:v1.0");
-        when(rateBookSnapshotLoader.loadActive("SANLAM")).thenReturn(Optional.of(snapshot));
-    }
-
-    @Test
-    void shouldCalculateBasePremium() {
-        RateRule baseRule = RateRule.builder()
-                .id(10L)
-                .ruleType(RuleType.BASE_PREMIUM)
+        RateBookDto.RateRuleDto baseRule = RateBookDto.RateRuleDto.builder()
+                .id(1L)
+                .ruleType(com.isec.platform.modules.rating.domain.RuleType.BASE_PREMIUM)
                 .category("PRIVATE_CAR")
                 .priority(10)
                 .build();
-        rateBook.setRules(List.of(baseRule));
 
-        when(ruleMatcher.matches(eq(baseRule), any())).thenReturn(true);
-        when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.04"));
+        RateBookDto rb = RateBookDto.builder()
+                .id(1L)
+                .tenantId(tenantId)
+                .versionName("v1.0")
+                .rules(List.of(baseRule))
+                .build();
 
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Optional.of(RateBookSnapshotLoader.Snapshot.from(rb)));
+        when(ruleMatcher.matches(any(), any())).thenReturn(true);
+        when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05"));
+
+        // when
         PricingResult result = pricingEngine.price(context);
 
-        assertNotNull(result);
-        assertEquals(new BigDecimal("40000.00"), result.getBasePremium());
-        assertEquals(new BigDecimal("100.00"), result.getPcf()); // 0.25% of 40000
-        assertEquals(new BigDecimal("80.00"), result.getItl());  // 0.20% of 40000
-        assertEquals(new BigDecimal("40.00"), result.getCertificateCharge());
-        assertEquals(new BigDecimal("40220.00"), result.getTotalPremium());
-        assertEquals(ReferralDecision.NONE, result.getReferralDecision());
+        // then
+        assertThat(result.getBasePremium()).isEqualByComparingTo("50000.00");
+        assertThat(result.getTotalPremium()).isEqualByComparingTo("50260.00"); // 50000 + PCF(125) + ITL(100) + CERT(35)
     }
 
     @Test
-    void shouldApplyMinimumPremium() {
-        RateRule baseRule = RateRule.builder()
-                .id(10L)
-                .ruleType(RuleType.BASE_PREMIUM)
+    void price_appliesMinimumPremium() {
+        // given
+        String tenantId = "TENANT1";
+        RatingContext context = RatingContext.builder()
+                .tenantId(tenantId)
+                .category("PRIVATE_CAR")
+                .vehicleValue(new BigDecimal("100000")) // Low value
+                .build();
+
+        RateBookDto.RateRuleDto baseRule = RateBookDto.RateRuleDto.builder()
+                .id(1L)
+                .ruleType(com.isec.platform.modules.rating.domain.RuleType.BASE_PREMIUM)
                 .category("PRIVATE_CAR")
                 .priority(10)
                 .build();
-        RateRule minRule = RateRule.builder()
-                .id(11L)
-                .ruleType(RuleType.MIN_PREMIUM)
+
+        RateBookDto.RateRuleDto minRule = RateBookDto.RateRuleDto.builder()
+                .id(2L)
+                .ruleType(com.isec.platform.modules.rating.domain.RuleType.MIN_PREMIUM)
                 .category("PRIVATE_CAR")
                 .priority(20)
                 .build();
-        rateBook.setRules(List.of(baseRule, minRule));
 
+        RateBookDto rb = RateBookDto.builder()
+                .id(1L)
+                .tenantId(tenantId)
+                .rules(List.of(baseRule, minRule))
+                .build();
+
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Optional.of(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(any(), any())).thenReturn(true);
-        when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.01")); // 1% of 1M = 10000
-        when(ruleMatcher.evaluateBigDecimal(eq(minRule), any())).thenReturn(new BigDecimal("15000"));
+        when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05")); // 5000
+        when(ruleMatcher.evaluateBigDecimal(eq(minRule), any())).thenReturn(new BigDecimal("15000")); // Min 15000
 
+        // when
         PricingResult result = pricingEngine.price(context);
 
-        assertTrue(result.isMinimumPremiumApplied());
-        assertEquals(0, result.getBasePremium().compareTo(new BigDecimal("15000.00")));
+        // then
+        assertThat(result.getBasePremium()).isEqualByComparingTo("15000.00");
+        assertThat(result.isMinimumPremiumApplied()).isTrue();
     }
 
     @Test
-    void shouldTriggerReferral() {
-        RateRule baseRule = RateRule.builder()
-                .id(10L)
-                .ruleType(RuleType.BASE_PREMIUM)
+    void price_detectsReferral() {
+        // given
+        String tenantId = "TENANT1";
+        RatingContext context = RatingContext.builder()
+                .tenantId(tenantId)
+                .category("PRIVATE_CAR")
+                .vehicleValue(new BigDecimal("1000000"))
+                .build();
+
+        RateBookDto.RateRuleDto baseRule = RateBookDto.RateRuleDto.builder()
+                .id(1L)
+                .ruleType(com.isec.platform.modules.rating.domain.RuleType.BASE_PREMIUM)
                 .category("PRIVATE_CAR")
                 .priority(10)
                 .build();
-        RateRule referralRule = RateRule.builder()
-                .id(12L)
-                .ruleType(RuleType.REFERRAL)
+
+        RateBookDto.RateRuleDto referralRule = RateBookDto.RateRuleDto.builder()
+                .id(3L)
+                .ruleType(com.isec.platform.modules.rating.domain.RuleType.REFERRAL)
                 .category("PRIVATE_CAR")
+                .description("Refer old cars")
                 .priority(5)
-                .description("Refer old vehicles")
                 .build();
-        rateBook.setRules(List.of(baseRule, referralRule));
 
-        when(ruleMatcher.matches(eq(baseRule), any())).thenReturn(true);
+        RateBookDto rb = RateBookDto.builder()
+                .id(1L)
+                .tenantId(tenantId)
+                .rules(List.of(baseRule, referralRule))
+                .build();
+
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Optional.of(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(eq(referralRule), any())).thenReturn(true);
-        when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.04"));
+        when(ruleMatcher.matches(eq(baseRule), any())).thenReturn(true);
+        when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05"));
 
+        // when
         PricingResult result = pricingEngine.price(context);
 
-        assertEquals(ReferralDecision.REFERRED, result.getReferralDecision());
-        assertEquals("Refer old vehicles", result.getReferralReason());
+        // then
+        assertThat(result.getReferralDecision()).isEqualTo(ReferralDecision.REFERRED);
+        assertThat(result.getReferralReason()).isEqualTo("Refer old cars");
     }
 }

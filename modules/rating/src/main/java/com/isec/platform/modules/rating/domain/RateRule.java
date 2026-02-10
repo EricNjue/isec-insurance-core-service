@@ -1,5 +1,6 @@
 package com.isec.platform.modules.rating.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.isec.platform.common.domain.TenantBaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -19,6 +20,7 @@ public class RateRule extends TenantBaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rate_book_id", nullable = false)
+    @JsonIgnore
     private RateBook rateBook;
 
     @Enumerated(EnumType.STRING)
