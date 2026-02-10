@@ -369,8 +369,10 @@ Update the following variables in the collection to match your setup:
 
 ### New APIs
 - Quote: `POST /api/v1/{tenantId}/motor/quotes`
-  - Request: `{ category, vehicleMake, vehicleModel, yearOfManufacture, vehicleValue }`
+  - Request: `{ category, vehicleMake, vehicleModel, yearOfManufacture, vehicleValue, registrationNumber, chassisNumber, engineNumber, quoteId?, addonRuleIds[] }`
   - Response: `{ quoteId, tenantId, category, vehicleMake, vehicleModel, yearOfManufacture, vehicleValue, rateBookId, rateBookVersion, cacheKey, pricing{...}, expiryDate }`
+  - **Selecting Add-ons**: Provide a list of `rate_rule` IDs in the `addonRuleIds` field to include optional covers in the quote.
+  - **Editing a Quote**: To modify an existing quote, provide the original `quoteId` in the request body. The system will recalculate the pricing and overwrite the cached entry using the same ID.
 - Application (existing): `POST /api/v1/applications`
   - Extended request supports `quoteId` to convert a quote → application, persisting the pricing snapshot and setting status:
     - If referral → `UNDERWRITING_REVIEW`
@@ -398,6 +400,48 @@ Update the following variables in the collection to match your setup:
 2. Create a new `rate_books` row (inactive), author rules in `rate_rules`.
 3. Activate the new rate book (this invalidates the rate book cache automatically when wired to activation events).
 4. Test with `X-Tenant-Id` set to the new tenant ID.
+
+### Rate Rule Management
+Rate rules are defined in the `rate_rules` table and are scoped by `rate_book_id` and `tenant_id`. They use **Spring Expression Language (SpEL)** for conditions and value calculations.
+
+#### Rule Types and Order of Evaluation
+The `PricingEngine` evaluates rules in the following strict order:
+1. **ELIGIBILITY**: Boolean check. If any eligible rule matches but returns `false` (or if explicit blocking rules exist), the quote is rejected.
+2. **REFERRAL**: If matched, the application is flagged for manual Underwriting Review.
+3. **BASE_PREMIUM**: Calculates the core rate (usually a percentage of `vehicleValue`).
+4. **MIN_PREMIUM**: Ensures the base premium doesn't fall below a statutory or commercial floor.
+5. **ADDON**: Optional covers added to the base premium.
+
+#### Creating a Rate Rule
+- **`condition_expression`**: A SpEL expression that must evaluate to `true` for the rule to apply. 
+  - Context variables: `vehicleMake`, `vehicleModel`, `vehicleAge`, `vehicleValue`, `category`.
+  - Example: `vehicleMake == 'Toyota' and vehicleAge > 5`
+- **`value_expression`**: A SpEL expression that calculates the result (e.g., rate or fixed amount).
+  - Example (Base Rate): `0.045` (represents 4.5%)
+  - Example (Dynamic Addon): `vehicleValue * 0.0025`
+- **`priority`**: Lower numbers are evaluated first.
+
+### Add-on Management
+Add-ons are technically a specific type of `rate_rule` (`rule_type = 'ADDON'`). 
+
+#### How to Define Add-ons
+1. **Define the Metadata**: Add an entry to `addon_definitions` if you want to track standard add-on codes across tenants.
+2. **Link to Rate Book**: Insert into `rate_rules` with `rule_type = 'ADDON'`.
+3. **Set the Price**: 
+   - Use `value_expression` for the cost.
+   - Use `condition_expression` if the add-on only applies to certain vehicles (e.g. `category == 'PRIVATE_CAR'`).
+
+#### Example Add-on (Fixed Price)
+```sql
+INSERT INTO rate_rules (rate_book_id, tenant_id, rule_type, category, description, priority, value_expression)
+VALUES (1, 'SANLAM', 'ADDON', 'PRIVATE_CAR', 'Excess Protector', 30, '2500');
+```
+
+#### Example Add-on (Dynamic Price)
+```sql
+INSERT INTO rate_rules (rate_book_id, tenant_id, rule_type, category, description, priority, value_expression)
+VALUES (1, 'SANLAM', 'ADDON', 'PRIVATE_CAR', 'PVT Cover', 31, 'vehicleValue * 0.0025');
+```
 
 ### Production Notes
 - Idempotent APIs and defensive validations in place (e.g., payment thresholds, callback deduplication).

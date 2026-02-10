@@ -1,0 +1,61 @@
+databaseChangeLog:
+  - changeSet:
+      id: 22-1
+      author: junie
+      changes:
+        # Additional Add-ons for current tenants
+        # SANLAM Add-ons
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Excess Protector"}
+              - column: {name: priority, valueNumeric: 30}
+              - column: {name: value_expression, value: "2500"}
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Political Violence & Terrorism"}
+              - column: {name: priority, valueNumeric: 31}
+              - column: {name: value_expression, value: "vehicleValue * 0.0025"}
+
+        # APA Add-ons
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 2}
+              - column: {name: tenant_id, value: "APA"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Windscreen (Limit 50k)"}
+              - column: {name: priority, valueNumeric: 30}
+              - column: {name: value_expression, value: "1000"}
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 2}
+              - column: {name: tenant_id, value: "APA"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Courtesy Car"}
+              - column: {name: priority, valueNumeric: 31}
+              - column: {name: value_expression, value: "3000"}
+
+        # ICEA Lion Add-ons
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 3}
+              - column: {name: tenant_id, value: "ICEA"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Radio Cassette (Limit 30k)"}
+              - column: {name: priority, valueNumeric: 31}
+              - column: {name: value_expression, value: "500"}

@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Set;
 
 @Data
 @Builder
@@ -15,5 +16,6 @@ public class RatingContext {
     private Integer vehicleAge;
     private String vehicleMake;
     private String vehicleModel;
+    private Set<Long> selectedAddonIds;
     private Map<String, Object> additionaldata;
 }

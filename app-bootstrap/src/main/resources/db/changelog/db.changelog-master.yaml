@@ -41,3 +41,5 @@ databaseChangeLog:
       file: db/changelog/modules/20-user-vehicles.yaml
   - include:
       file: db/changelog/modules/21-user-vehicles-no-tenant.yaml
+  - include:
+      file: db/changelog/modules/22-rating-addons-seed.yaml

@@ -123,6 +123,7 @@ public class PricingEngine {
         List<AddonBreakdown> addons = new ArrayList<>();
         rules.stream()
                 .filter(r -> r.getRuleType() == RuleType.ADDON && r.getCategory().equalsIgnoreCase(context.getCategory()))
+                .filter(r -> context.getSelectedAddonIds() != null && context.getSelectedAddonIds().contains(r.getId()))
                 .filter(r -> ruleMatcher.matches(r, context))
                 .forEach(r -> {
                     BigDecimal addonAmount = ruleMatcher.evaluateBigDecimal(r, context).setScale(2, RoundingMode.HALF_UP);

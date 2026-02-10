@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.UUID;
 
 @Service
@@ -29,6 +30,7 @@ public class QuoteService {
         String tenantId = TenantContext.getTenantId();
         log.info("Calculating quote for tenant: {}, category: {}", tenantId, request.getCategory());
 
+        String quoteId = request.getQuoteId() != null ? request.getQuoteId() : UUID.randomUUID().toString();
         int vehicleAge = LocalDateTime.now().getYear() - request.getYearOfManufacture();
 
         RatingContext ratingContext = RatingContext.builder()
@@ -38,6 +40,7 @@ public class QuoteService {
                 .vehicleAge(vehicleAge)
                 .vehicleMake(request.getVehicleMake())
                 .vehicleModel(request.getVehicleModel())
+                .selectedAddonIds(request.getAddonRuleIds() != null ? new HashSet<>(request.getAddonRuleIds()) : new HashSet<>())
                 .build();
 
         PricingResult pricingResult = pricingEngine.price(ratingContext);
@@ -47,7 +50,6 @@ public class QuoteService {
         String rateBookVersion = snapshot != null ? snapshot.version() : null;
         String cacheKey = snapshot != null ? snapshot.cacheKey() : null;
 
-        String quoteId = UUID.randomUUID().toString();
         QuoteResponse response = QuoteResponse.builder()
                 .quoteId(quoteId)
                 .tenantId(tenantId)

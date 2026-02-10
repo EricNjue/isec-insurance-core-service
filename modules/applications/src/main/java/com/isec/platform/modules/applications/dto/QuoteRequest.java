@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class QuoteRequest {
@@ -24,4 +25,7 @@ public class QuoteRequest {
     private String registrationNumber;
     private String chassisNumber;
     private String engineNumber;
+
+    private String quoteId;
+    private List<Long> addonRuleIds;
 }
