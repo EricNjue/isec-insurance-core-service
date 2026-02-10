@@ -351,3 +351,55 @@ Update the following variables in the collection to match your setup:
 - `username` / `password`: Test user credentials.
 - `applicationId` / `policyId`: IDs used for testing specific records.
 - `presignedUploadUrl`: (Managed) Set automatically when running 'Get Upload Presigned URL'.
+
+
+---
+
+## 16. Multi‑Tenancy, Rate Books, and New Motor Flow (2026 Update)
+
+### Multi‑Tenant Concept
+- Tenant equals insurer. Every request carries a `tenant_id` derived from JWT claim `tenant_id` or `X-Tenant-Id` header.
+- DB isolation: all new pricing/rating tables include `tenant_id` with tenant‑first indexes.
+- Cache isolation: rate book snapshots cached per tenant.
+
+### Rate Books
+- Active rate book is loaded per tenant (versioned, effective dates). Rules evaluated in order:
+  1) Eligibility  2) Referral  3) Base premium  4) Minimum premium  5) Add‑ons
+- Pricing output includes: base premium, levies (PCF/ITL), certificate charge, add‑ons, total, referral decision, applied rule IDs.
+
+### New APIs
+- Quote: `POST /api/v1/{tenantId}/motor/quotes`
+  - Request: `{ category, vehicleMake, vehicleModel, yearOfManufacture, vehicleValue }`
+  - Response: `{ quoteId, tenantId, category, vehicleMake, vehicleModel, yearOfManufacture, vehicleValue, rateBookId, rateBookVersion, cacheKey, pricing{...}, expiryDate }`
+- Application (existing): `POST /api/v1/applications`
+  - Extended request supports `quoteId` to convert a quote → application, persisting the pricing snapshot and setting status:
+    - If referral → `UNDERWRITING_REVIEW`
+    - Else → `APPROVED_PENDING_PAYMENT` and auto‑creates Policy using total premium from snapshot
+- Underwriting decisions:
+  - `POST /api/v1/applications/{applicationId}/underwriting/approve?underwriterId=...&comments=...`
+  - `POST /api/v1/applications/{applicationId}/underwriting/decline?underwriterId=...&comments=...&reason=...`
+
+### End‑to‑End Testing (Quote → Application → Underwriting → Payment → Issuance)
+1. Obtain token and set `X-Tenant-Id` header (e.g., `SANLAM`, `APA`, `ICEA`).
+2. Quote: `POST /api/v1/{tenantId}/motor/quotes` with `category=PRIVATE_CAR`, `vehicleMake=Toyota`, `vehicleModel=Corolla`, `yearOfManufacture=2018`, `vehicleValue=1200000`.
+3. Create application with returned `quoteId`: `POST /api/v1/applications` with body including `quoteId` and customer/vehicle fields.
+4. If application status is `UNDERWRITING_REVIEW`, approve:
+   - `POST /api/v1/applications/{id}/underwriting/approve?underwriterId=uw1&comments=ok`
+5. Initiate payment via existing flow: `POST /api/v1/payments/stk-push` with `applicationId`, `amount` (>= 35% on first payment), and `phoneNumber`.
+6. On callback confirmation, existing issuance/documents/notifications flows are reused automatically.
+
+### Seed Data
+- Tenants: SANLAM, APA, ICEA Lion.
+- Rate books: `v1.0` active for each tenant; sample rules (Private Car/Commercial) plus min‑premium/referral/add‑on.
+- Make bands (sample): Toyota (Corolla, RAV4, Hilux), Mazda (Demio, CX‑5, Axela) — used via simple rule conditions (can extend to group‑based lookups later).
+
+### Adding a New Insurer (Tenant)
+1. Insert into `tenants` table and add any `tenant_configs` as needed.
+2. Create a new `rate_books` row (inactive), author rules in `rate_rules`.
+3. Activate the new rate book (this invalidates the rate book cache automatically when wired to activation events).
+4. Test with `X-Tenant-Id` set to the new tenant ID.
+
+### Production Notes
+- Idempotent APIs and defensive validations in place (e.g., payment thresholds, callback deduplication).
+- Clean logs (no sensitive data) and explicit exceptions for domain failures.
+- Designed for horizontal scaling; caching layer used for rate book snapshots.

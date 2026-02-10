@@ -1,21 +1,24 @@
 package com.isec.platform.modules.applications.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.common.exception.ResourceNotFoundException;
 import com.isec.platform.common.security.SecurityContextService;
 import com.isec.platform.modules.applications.domain.Application;
 import com.isec.platform.modules.applications.domain.ApplicationStatus;
 import com.isec.platform.modules.applications.dto.ApplicationRequest;
 import com.isec.platform.modules.applications.dto.ApplicationResponse;
+import com.isec.platform.modules.applications.dto.QuoteResponse;
 import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.customers.dto.CustomerRequest;
 import com.isec.platform.modules.customers.service.CustomerService;
 import com.isec.platform.modules.documents.service.ApplicationDocumentService;
 import com.isec.platform.modules.policies.service.PolicyService;
 import com.isec.platform.modules.rating.domain.AnonymousQuote;
+import com.isec.platform.modules.rating.dto.ReferralDecision;
 import com.isec.platform.modules.rating.service.RatingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,9 +35,11 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final ApplicationDocumentService documentService;
     private final RatingService ratingService;
+    private final QuoteService quoteService;
     private final PolicyService policyService;
     private final CustomerService customerService;
     private final SecurityContextService securityContextService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public ApplicationResponse createApplication(ApplicationRequest request) {
@@ -71,7 +76,40 @@ public class ApplicationService {
             }
         }
 
+        if (request.getQuoteId() != null) {
+            log.info("Proceeding from official quote ID: {}", request.getQuoteId());
+            QuoteResponse quote = quoteService.getQuote(request.getQuoteId());
+            if (quote != null) {
+                applicationBuilder.vehicleMake(quote.getVehicleMake())
+                        .vehicleModel(quote.getVehicleModel())
+                        .yearOfManufacture(quote.getYearOfManufacture())
+                        .vehicleValue(quote.getVehicleValue())
+                        .quoteId(quote.getQuoteId())
+                        .rateBookId(quote.getRateBookId());
+
+                try {
+                    applicationBuilder.pricingSnapshot(objectMapper.writeValueAsString(quote.getPricing()));
+                } catch (JsonProcessingException e) {
+                    log.error("Failed to serialize pricing snapshot", e);
+                }
+
+                if (quote.getPricing().getReferralDecision() == ReferralDecision.REFERRED) {
+                    applicationBuilder.status(ApplicationStatus.UNDERWRITING_REVIEW)
+                            .referralReason(quote.getPricing().getReferralReason());
+                } else {
+                    applicationBuilder.status(ApplicationStatus.APPROVED_PENDING_PAYMENT);
+                }
+            }
+        }
+
         Application saved = applicationRepository.save(applicationBuilder.build());
+
+        if (saved.getStatus() == ApplicationStatus.APPROVED_PENDING_PAYMENT) {
+             QuoteResponse quote = quoteService.getQuote(request.getQuoteId());
+             if (quote != null) {
+                 policyService.createPolicy(saved.getId(), quote.getPricing().getTotalPremium());
+             }
+        }
         log.info("Application created successfully with ID: {}", saved.getId());
         return mapToResponse(saved);
     }
@@ -98,7 +136,10 @@ public class ApplicationService {
         String userId = securityContextService.getCurrentUserId()
                 .orElseThrow(() -> new IllegalStateException("User not authenticated"));
 
-        List<Application> apps = isAdmin ? applicationRepository.findAll() : applicationRepository.findByUserId(userId);
+        String tenantId = com.isec.platform.common.multitenancy.TenantContext.getTenantId();
+        List<Application> apps = isAdmin
+                ? applicationRepository.findAllByTenantId(tenantId)
+                : applicationRepository.findByUserIdAndTenantId(userId, tenantId);
         return apps.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 

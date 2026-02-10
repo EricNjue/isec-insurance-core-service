@@ -7,9 +7,9 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class ApplicationRequest {
+public class QuoteRequest {
     @NotBlank
-    private String registrationNumber;
+    private String category; // e.g. PRIVATE_CAR
     @NotBlank
     private String vehicleMake;
     @NotBlank
@@ -20,8 +20,4 @@ public class ApplicationRequest {
     @NotNull
     @Positive
     private BigDecimal vehicleValue;
-    
-    private String anonymousQuoteId;
-    private String quoteId;
-    private String phoneNumber;
 }

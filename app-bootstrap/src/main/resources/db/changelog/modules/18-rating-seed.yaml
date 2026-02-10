@@ -1,0 +1,179 @@
+databaseChangeLog:
+  - changeSet:
+      id: 18-1
+      author: junie
+      changes:
+        - insert:
+            tableName: tenants
+            columns:
+              - column: {name: id, value: "SANLAM"}
+              - column: {name: name, value: "Sanlam Insurance"}
+        - insert:
+            tableName: tenants
+            columns:
+              - column: {name: id, value: "APA"}
+              - column: {name: name, value: "APA Insurance"}
+        - insert:
+            tableName: tenants
+            columns:
+              - column: {name: id, value: "ICEA"}
+              - column: {name: name, value: "ICEA Lion Insurance"}
+
+  - changeSet:
+      id: 18-2
+      author: junie
+      changes:
+        # Rate Books for each tenant
+        - insert:
+            tableName: rate_books
+            columns:
+              - column: {name: id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: name, value: "Sanlam Motor Tariff"}
+              - column: {name: version_name, value: "v1.0"}
+              - column: {name: active, valueBoolean: true}
+              - column: {name: effective_from, valueDate: "2024-01-01T00:00:00"}
+        - insert:
+            tableName: rate_books
+            columns:
+              - column: {name: id, valueNumeric: 2}
+              - column: {name: tenant_id, value: "APA"}
+              - column: {name: name, value: "APA Motor Tariff"}
+              - column: {name: version_name, value: "v1.0"}
+              - column: {name: active, valueBoolean: true}
+              - column: {name: effective_from, valueDate: "2024-01-01T00:00:00"}
+        - insert:
+            tableName: rate_books
+            columns:
+              - column: {name: id, valueNumeric: 3}
+              - column: {name: tenant_id, value: "ICEA"}
+              - column: {name: name, value: "ICEA Motor Tariff"}
+              - column: {name: version_name, value: "v1.0"}
+              - column: {name: active, valueBoolean: true}
+              - column: {name: effective_from, valueDate: "2024-01-01T00:00:00"}
+
+  - changeSet:
+      id: 18-3
+      author: junie
+      changes:
+        # SANLAM RULES
+        # Private Car Base Rate
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "BASE_PREMIUM"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Sanlam Private Car Base Rate"}
+              - column: {name: priority, valueNumeric: 10}
+              - column: {name: value_expression, value: "0.04"}
+        # Commercial Base Rate
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "BASE_PREMIUM"}
+              - column: {name: category, value: "COMMERCIAL"}
+              - column: {name: description, value: "Sanlam Commercial Base Rate"}
+              - column: {name: priority, valueNumeric: 10}
+              - column: {name: value_expression, value: "0.06"}
+        # Minimum Premium
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "MIN_PREMIUM"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Sanlam Private Car Min Premium"}
+              - column: {name: priority, valueNumeric: 20}
+              - column: {name: value_expression, value: "15000"}
+
+        # APA RULES
+        # Private Car Base Rate
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 2}
+              - column: {name: tenant_id, value: "APA"}
+              - column: {name: rule_type, value: "BASE_PREMIUM"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "APA Private Car Base Rate"}
+              - column: {name: priority, valueNumeric: 10}
+              - column: {name: value_expression, value: "0.045"}
+        # Referral for old vehicles
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 2}
+              - column: {name: tenant_id, value: "APA"}
+              - column: {name: rule_type, value: "REFERRAL"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "APA: Refer vehicles older than 15 years"}
+              - column: {name: priority, valueNumeric: 5}
+              - column: {name: condition_expression, value: "vehicleAge > 15"}
+
+        # ICEA Lion RULES
+        # Private Car Base Rate
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 3}
+              - column: {name: tenant_id, value: "ICEA"}
+              - column: {name: rule_type, value: "BASE_PREMIUM"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "ICEA Lion Private Car Base Rate"}
+              - column: {name: priority, valueNumeric: 10}
+              - column: {name: value_expression, value: "0.035"}
+        # Add-on: Windscreen
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 3}
+              - column: {name: tenant_id, value: "ICEA"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Windscreen Cover"}
+              - column: {name: priority, valueNumeric: 30}
+              - column: {name: value_expression, value: "1000"}
+
+  - changeSet:
+      id: 18-4
+      author: junie
+      changes:
+        # Toyota Group
+        - insert:
+            tableName: vehicle_make_groups
+            columns:
+              - column: {name: id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: name, value: "Toyota Group"}
+        - insert:
+            tableName: vehicle_make_group_members
+            columns: {group_id: 1, make: "Toyota"}
+        
+        # Mazda Group
+        - insert:
+            tableName: vehicle_make_groups
+            columns:
+              - column: {name: id, valueNumeric: 2}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: name, value: "Mazda Group"}
+        - insert:
+            tableName: vehicle_make_group_members
+            columns: {group_id: 2, make: "Mazda"}
+
+        # Add rules referencing makes
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "BASE_PREMIUM"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Toyota Special Rate"}
+              - column: {name: priority, valueNumeric: 5}
+              - column: {name: condition_expression, value: "vehicleMake == 'Toyota'"}
+              - column: {name: value_expression, value: "0.038"}

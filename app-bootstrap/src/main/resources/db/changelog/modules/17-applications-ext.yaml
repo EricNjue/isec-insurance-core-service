@@ -1,0 +1,69 @@
+databaseChangeLog:
+  - changeSet:
+      id: 17-1
+      author: junie
+      changes:
+        - addColumn:
+            tableName: applications
+            columns:
+              - column: {name: tenant_id, type: varchar(50)}
+              - column: {name: quote_id, type: varchar(50)}
+              - column: {name: rate_book_id, type: bigint}
+              - column: {name: pricing_snapshot, type: text}
+              - column: {name: referral_reason, type: varchar(500)}
+              - column: {name: underwriter_comments, type: text}
+              - column: {name: underwriter_id, type: varchar(50)}
+              - column: {name: approved_at, type: timestamp}
+              - column: {name: updated_at, type: timestamp}
+        - createIndex:
+            tableName: applications
+            indexName: idx_apps_tenant
+            columns:
+              - column: {name: tenant_id}
+
+  - changeSet:
+      id: 17-2
+      author: junie
+      changes:
+        - addColumn:
+            tableName: policies
+            columns:
+              - column: {name: tenant_id, type: varchar(50)}
+              - column: {name: updated_at, type: timestamp}
+        - createIndex:
+            tableName: policies
+            indexName: idx_policies_tenant
+            columns:
+              - column: {name: tenant_id}
+
+  - changeSet:
+      id: 17-3
+      author: junie
+      changes:
+        - addColumn:
+            tableName: payments
+            columns:
+              - column: {name: tenant_id, type: varchar(50)}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - createIndex:
+            tableName: payments
+            indexName: idx_payments_tenant
+            columns:
+              - column: {name: tenant_id}
+
+  - changeSet:
+      id: 17-4
+      author: junie
+      changes:
+        - addColumn:
+            tableName: customers
+            columns:
+              - column: {name: tenant_id, type: varchar(50)}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - createIndex:
+            tableName: customers
+            indexName: idx_customers_tenant
+            columns:
+              - column: {name: tenant_id}

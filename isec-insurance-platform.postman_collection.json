@@ -7,6 +7,196 @@
 	},
 	"item": [
 		{
+			"name": "Motor Insurance 2026",
+			"item": [
+				{
+					"name": "Quote",
+					"item": [
+						{
+							"name": "Create Quote",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"quoteId\", jsonData.quoteId);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"category\": \"PRIVATE_CAR\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/{{tenantId}}/motor/quotes",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"{{tenantId}}",
+										"motor",
+										"quotes"
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Application",
+					"item": [
+						{
+							"name": "Convert Quote to Application",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"applicationId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"registrationNumber\": \"KAA 123X\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"phoneNumber\": \"254712345678\",\n    \"quoteId\": \"{{quoteId}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/applications",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"applications"
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Underwriting",
+					"item": [
+						{
+							"name": "Approve Application",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/underwriting/approve?underwriterId={{underwriterId}}&comments=Approved via Postman",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"applications",
+										"{{applicationId}}",
+										"underwriting",
+										"approve"
+									],
+									"query": [
+										{
+											"key": "underwriterId",
+											"value": "{{underwriterId}}"
+										},
+										{
+											"key": "comments",
+											"value": "Approved via Postman"
+										}
+									]
+								}
+							}
+						},
+						{
+							"name": "Decline Application",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/underwriting/decline?underwriterId={{underwriterId}}&reason=High risk&comments=Declined via Postman",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"applications",
+										"{{applicationId}}",
+										"underwriting",
+										"decline"
+									],
+									"query": [
+										{
+											"key": "underwriterId",
+											"value": "{{underwriterId}}"
+										},
+										{
+											"key": "reason",
+											"value": "High risk"
+										},
+										{
+											"key": "comments",
+											"value": "Declined via Postman"
+										}
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
 			"name": "Authentication",
 			"item": [
 				{
@@ -1300,6 +1490,18 @@
 		{
 			"key": "presignedUploadUrl",
 			"value": ""
+		},
+		{
+			"key": "tenantId",
+			"value": "SANLAM"
+		},
+		{
+			"key": "quoteId",
+			"value": ""
+		},
+		{
+			"key": "underwriterId",
+			"value": "uw1"
 		}
 	]
 }

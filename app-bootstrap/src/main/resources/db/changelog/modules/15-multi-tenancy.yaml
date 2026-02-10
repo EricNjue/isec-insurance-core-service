@@ -1,0 +1,83 @@
+databaseChangeLog:
+  - changeSet:
+      id: 15-1
+      author: junie
+      changes:
+        - createTable:
+            tableName: tenants
+            columns:
+              - column:
+                  name: id
+                  type: varchar(50)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: timestamp
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+
+  - changeSet:
+      id: 15-2
+      author: junie
+      changes:
+        - createTable:
+            tableName: tenant_configs
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: config_key
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: config_value
+                  type: text
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: timestamp
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+        - addUniqueConstraint:
+            columnNames: tenant_id, config_key
+            constraintName: uk_tenant_config_key
+            tableName: tenant_configs
+        - addForeignKeyConstraint:
+            baseColumnNames: tenant_id
+            baseTableName: tenant_configs
+            constraintName: fk_tenant_config_tenant
+            referencedColumnNames: id
+            referencedTableName: tenants
