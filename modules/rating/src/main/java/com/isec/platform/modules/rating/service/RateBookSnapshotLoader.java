@@ -8,7 +8,6 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -21,13 +20,14 @@ public class RateBookSnapshotLoader {
 
     private final RateBookRepository rateBookRepository;
 
-    public static final String RATEBOOK_CACHE = "ratebookSnapshots";
+    public static final String RATEBOOK_CACHE = "ratebookSnapshots_v3";
 
     @Cacheable(cacheNames = RATEBOOK_CACHE, key = "#tenantId")
-    public Optional<Snapshot> loadActive(String tenantId) {
+    public Snapshot loadActive(String tenantId) {
         log.debug("Loading active rate book for tenant: {}", tenantId);
         return rateBookRepository.findActiveByTenantId(tenantId)
-                .map(rb -> Snapshot.from(mapToDto(rb)));
+                .map(rb -> Snapshot.from(mapToDto(rb)))
+                .orElse(null);
     }
 
     @CacheEvict(cacheNames = RATEBOOK_CACHE, allEntries = true)

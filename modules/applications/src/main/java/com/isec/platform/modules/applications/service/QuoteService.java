@@ -42,10 +42,10 @@ public class QuoteService {
 
         PricingResult pricingResult = pricingEngine.price(ratingContext);
 
-        var snapshotOpt = rateBookSnapshotLoader.loadActive(tenantId);
-        Long rateBookId = snapshotOpt.map(RateBookSnapshotLoader.Snapshot::rateBookId).orElse(null);
-        String rateBookVersion = snapshotOpt.map(RateBookSnapshotLoader.Snapshot::version).orElse(null);
-        String cacheKey = snapshotOpt.map(RateBookSnapshotLoader.Snapshot::cacheKey).orElse(null);
+        var snapshot = rateBookSnapshotLoader.loadActive(tenantId);
+        Long rateBookId = snapshot != null ? snapshot.rateBookId() : null;
+        String rateBookVersion = snapshot != null ? snapshot.version() : null;
+        String cacheKey = snapshot != null ? snapshot.cacheKey() : null;
 
         String quoteId = UUID.randomUUID().toString();
         QuoteResponse response = QuoteResponse.builder()
@@ -67,12 +67,12 @@ public class QuoteService {
                 .build();
 
         // Cache quote for application conversion
-        redisTemplate.opsForValue().set("quote:" + quoteId, response, Duration.ofDays(30));
+        redisTemplate.opsForValue().set("quote_v2:" + quoteId, response, Duration.ofDays(30));
 
         return response;
     }
 
     public QuoteResponse getQuote(String quoteId) {
-        return (QuoteResponse) redisTemplate.opsForValue().get("quote:" + quoteId);
+        return (QuoteResponse) redisTemplate.opsForValue().get("quote_v2:" + quoteId);
     }
 }

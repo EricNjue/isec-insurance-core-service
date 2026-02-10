@@ -54,7 +54,7 @@ class PricingEngineTest {
                 .rules(List.of(baseRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(Optional.of(RateBookSnapshotLoader.Snapshot.from(rb)));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
         when(ruleMatcher.matches(any(), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05"));
 
@@ -96,7 +96,7 @@ class PricingEngineTest {
                 .rules(List.of(baseRule, minRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(Optional.of(RateBookSnapshotLoader.Snapshot.from(rb)));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
         when(ruleMatcher.matches(any(), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05")); // 5000
         when(ruleMatcher.evaluateBigDecimal(eq(minRule), any())).thenReturn(new BigDecimal("15000")); // Min 15000
@@ -140,7 +140,7 @@ class PricingEngineTest {
                 .rules(List.of(baseRule, referralRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(Optional.of(RateBookSnapshotLoader.Snapshot.from(rb)));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
         when(ruleMatcher.matches(eq(referralRule), any())).thenReturn(true);
         when(ruleMatcher.matches(eq(baseRule), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05"));
