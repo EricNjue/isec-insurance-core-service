@@ -27,3 +27,19 @@ databaseChangeLog:
       file: db/changelog/modules/13-vehicles.yaml
   - include:
       file: db/changelog/modules/14-vehicles-seed.yaml
+  - include:
+      file: db/changelog/modules/15-multi-tenancy.yaml
+  - include:
+      file: db/changelog/modules/16-rating-engine.yaml
+  - include:
+      file: db/changelog/modules/17-applications-ext.yaml
+  - include:
+      file: db/changelog/modules/18-rating-seed.yaml
+  - include:
+      file: db/changelog/modules/19-applications-vin-engine.yaml
+  - include:
+      file: db/changelog/modules/20-user-vehicles.yaml
+  - include:
+      file: db/changelog/modules/21-user-vehicles-no-tenant.yaml
+  - include:
+      file: db/changelog/modules/22-rating-addons-seed.yaml

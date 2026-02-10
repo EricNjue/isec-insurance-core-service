@@ -1,5 +1,6 @@
 package com.isec.platform.modules.applications.domain;
 
+import com.isec.platform.common.domain.TenantBaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Application {
+public class Application extends TenantBaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,17 +36,33 @@ public class Application {
     @Column(nullable = false)
     private BigDecimal vehicleValue;
 
+    @Column(name = "chassis_number")
+    private String chassisNumber;
+
+    @Column(name = "engine_number")
+    private String engineNumber;
+
     @Enumerated(EnumType.STRING)
     private ApplicationStatus status;
 
-    private LocalDateTime createdAt;
-    
-    @Version
-    private Long version;
+    @Column(name = "quote_id")
+    private String quoteId;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) status = ApplicationStatus.DRAFT;
-    }
+    @Column(name = "rate_book_id")
+    private Long rateBookId;
+
+    @Column(name = "pricing_snapshot", columnDefinition = "TEXT")
+    private String pricingSnapshot;
+
+    @Column(name = "referral_reason")
+    private String referralReason;
+
+    @Column(name = "underwriter_comments", columnDefinition = "TEXT")
+    private String underwriter_comments;
+
+    @Column(name = "underwriter_id")
+    private String underwriterId;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
 }

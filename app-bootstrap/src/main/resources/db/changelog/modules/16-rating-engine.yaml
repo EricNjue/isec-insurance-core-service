@@ -1,0 +1,150 @@
+databaseChangeLog:
+  - changeSet:
+      id: 16-1
+      author: junie
+      changes:
+        - createTable:
+            tableName: rate_books
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: name, type: varchar(255), constraints: {nullable: false}}
+              - column: {name: version_name, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: active, type: boolean, defaultValueBoolean: false}
+              - column: {name: effective_from, type: timestamp, constraints: {nullable: false}}
+              - column: {name: effective_to, type: timestamp}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - createIndex:
+            tableName: rate_books
+            indexName: idx_rate_books_tenant_active
+            columns:
+              - column: {name: tenant_id}
+              - column: {name: active}
+
+  - changeSet:
+      id: 16-2
+      author: junie
+      changes:
+        - createTable:
+            tableName: rate_rules
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: rate_book_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: rule_type, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: category, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: description, type: varchar(500)}
+              - column: {name: priority, type: int, defaultValueNumeric: 0}
+              - column: {name: condition_expression, type: text}
+              - column: {name: value_expression, type: text}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - addForeignKeyConstraint:
+            baseColumnNames: rate_book_id
+            baseTableName: rate_rules
+            constraintName: fk_rate_rule_book
+            referencedColumnNames: id
+            referencedTableName: rate_books
+        - createIndex:
+            tableName: rate_rules
+            indexName: idx_rate_rules_book_type
+            columns:
+              - column: {name: rate_book_id}
+              - column: {name: rule_type}
+
+  - changeSet:
+      id: 16-3
+      author: junie
+      changes:
+        - createTable:
+            tableName: addon_definitions
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: code, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: name, type: varchar(255), constraints: {nullable: false}}
+              - column: {name: description, type: text}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - addUniqueConstraint:
+            columnNames: tenant_id, code
+            constraintName: uk_addon_definition_code
+            tableName: addon_definitions
+
+  - changeSet:
+      id: 16-4
+      author: junie
+      changes:
+        - createTable:
+            tableName: vehicle_value_bands
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: min_value, type: "decimal(19,2)"}
+              - column: {name: max_value, type: "decimal(19,2)"}
+              - column: {name: label, type: varchar(100)}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+
+  - changeSet:
+      id: 16-5
+      author: junie
+      changes:
+        - createTable:
+            tableName: vehicle_age_bands
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: min_age, type: int}
+              - column: {name: max_age, type: int}
+              - column: {name: label, type: varchar(100)}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+
+  - changeSet:
+      id: 16-6
+      author: junie
+      changes:
+        - createTable:
+            tableName: vehicle_make_groups
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: tenant_id, type: varchar(50), constraints: {nullable: false}}
+              - column: {name: name, type: varchar(100), constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - addUniqueConstraint:
+            columnNames: tenant_id, name
+            constraintName: uk_vehicle_make_group_name
+            tableName: vehicle_make_groups
+
+  - changeSet:
+      id: 16-7
+      author: junie
+      changes:
+        - createTable:
+            tableName: vehicle_make_group_members
+            columns:
+              - column: {name: id, type: bigint, autoIncrement: true, constraints: {primaryKey: true, nullable: false}}
+              - column: {name: group_id, type: bigint, constraints: {nullable: false}}
+              - column: {name: make, type: varchar(100), constraints: {nullable: false}}
+              - column: {name: created_at, type: timestamp, defaultValueComputed: CURRENT_TIMESTAMP}
+              - column: {name: updated_at, type: timestamp}
+              - column: {name: version, type: bigint, defaultValueNumeric: 0}
+        - addForeignKeyConstraint:
+            baseColumnNames: group_id
+            baseTableName: vehicle_make_group_members
+            constraintName: fk_vmgm_group
+            referencedColumnNames: id
+            referencedTableName: vehicle_make_groups
+        - addUniqueConstraint:
+            columnNames: group_id, make
+            constraintName: uk_vmgm_group_make
+            tableName: vehicle_make_group_members

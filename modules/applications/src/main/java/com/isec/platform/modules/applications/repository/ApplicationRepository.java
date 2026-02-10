@@ -7,5 +7,6 @@ import java.util.List;
 
 @Repository
 public interface ApplicationRepository extends JpaRepository<Application, Long> {
-    List<Application> findByUserId(String userId);
+    List<Application> findByUserIdAndTenantId(String userId, String tenantId);
+    List<Application> findAllByTenantId(String tenantId);
 }

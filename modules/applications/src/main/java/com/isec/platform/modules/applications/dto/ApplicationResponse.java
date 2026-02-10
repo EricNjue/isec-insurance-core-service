@@ -18,6 +18,8 @@ public class ApplicationResponse {
     private String vehicleModel;
     private Integer yearOfManufacture;
     private BigDecimal vehicleValue;
+    private String chassisNumber;
+    private String engineNumber;
     private ApplicationStatus status;
     private LocalDateTime createdAt;
     private List<ApplicationDocumentDto> documents;

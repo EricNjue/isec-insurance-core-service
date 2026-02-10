@@ -5,11 +5,12 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
-public class ApplicationRequest {
+public class QuoteRequest {
     @NotBlank
-    private String registrationNumber;
+    private String category; // e.g. PRIVATE_CAR
     @NotBlank
     private String vehicleMake;
     @NotBlank
@@ -20,11 +21,11 @@ public class ApplicationRequest {
     @NotNull
     @Positive
     private BigDecimal vehicleValue;
-    
+
+    private String registrationNumber;
     private String chassisNumber;
     private String engineNumber;
-    
-    private String anonymousQuoteId;
+
     private String quoteId;
-    private String phoneNumber;
+    private List<Long> addonRuleIds;
 }
