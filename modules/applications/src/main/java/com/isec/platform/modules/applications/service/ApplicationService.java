@@ -144,14 +144,7 @@ public class ApplicationService {
 
     @Transactional(readOnly = true)
     public List<ApplicationResponse> listApplications() {
-        boolean isAdmin = securityContextService.getCurrentJwt()
-                .map(jwt -> {
-                    if (jwt.getClaimAsMap("realm_access") != null) {
-                        List<String> roles = (List<String>) jwt.getClaimAsMap("realm_access").get("roles");
-                        return roles != null && roles.contains("ADMIN");
-                    }
-                    return false;
-                }).orElse(false);
+        boolean isAdmin = securityContextService.isAdmin();
 
         String userId = securityContextService.getCurrentUserId()
                 .orElseThrow(() -> new IllegalStateException("User not authenticated"));

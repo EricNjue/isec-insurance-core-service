@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 25-1
+      author: junie
+      changes:
+        # Sample Eligibility Rules for SANLAM
+        # Rule: Only Private Cars with value between 500k and 15M are eligible
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ELIGIBILITY"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Vehicle value must be between 500k and 15M"}
+              - column: {name: priority, valueNumeric: 1}
+              - column: {name: condition_expression, value: "vehicleValue >= 500000 and vehicleValue <= 15000000"}
+              - column: {name: value_expression, value: "true"}
+
+        # Rule: Vehicles older than 20 years are not eligible for Comprehensive cover
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ELIGIBILITY"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Vehicles older than 20 years are not eligible"}
+              - column: {name: priority, valueNumeric: 2}
+              - column: {name: condition_expression, value: "vehicleAge <= 20"}
+              - column: {name: value_expression, value: "true"}
+
+        # Rule: Specific Block for high-risk make/model (e.g. specialized sports cars)
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ELIGIBILITY"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Ferrari/Lamborghini not eligible for standard retail cover"}
+              - column: {name: priority, valueNumeric: 3}
+              - column: {name: condition_expression, value: "not (vehicleMake.equalsIgnoreCase('Ferrari') or vehicleMake.equalsIgnoreCase('Lamborghini'))"}
+              - column: {name: value_expression, value: "true"}

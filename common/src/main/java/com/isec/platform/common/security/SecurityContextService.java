@@ -60,4 +60,21 @@ public class SecurityContextService {
     public Optional<String> getClaimAsString(String claim) {
         return getCurrentJwt().map(jwt -> jwt.getClaimAsString(claim));
     }
+
+    /**
+     * Checks if the current authenticated user has the ADMIN role.
+     *
+     * @return true if the user has the ADMIN role, false otherwise.
+     */
+    public boolean isAdmin() {
+        return getCurrentJwt()
+                .map(jwt -> {
+                    java.util.Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+                    if (realmAccess != null) {
+                        java.util.List<String> roles = (java.util.List<String>) realmAccess.get("roles");
+                        return roles != null && roles.contains("ADMIN");
+                    }
+                    return false;
+                }).orElse(false);
+    }
 }

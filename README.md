@@ -416,10 +416,32 @@ The `PricingEngine` evaluates rules in the following strict order:
 - **`condition_expression`**: A SpEL expression that must evaluate to `true` for the rule to apply. 
   - Context variables: `vehicleMake`, `vehicleModel`, `vehicleAge`, `vehicleValue`, `category`.
   - Example: `vehicleMake == 'Toyota' and vehicleAge > 5`
-- **`value_expression`**: A SpEL expression that calculates the result (e.g., rate or fixed amount).
-  - Example (Base Rate): `0.045` (represents 4.5%)
-  - Example (Dynamic Addon): `vehicleValue * 0.0025`
+- **`value_expression`**: A SpEL expression that calculates the result.
+  - For `BASE_PREMIUM`, `MIN_PREMIUM`, `ADDON`: Calculates the rate or fixed amount.
+  - For `ELIGIBILITY`: Must return `true` or `false`.
 - **`priority`**: Lower numbers are evaluated first.
+
+### Eligibility Rule Management
+Eligibility rules (`rule_type = 'ELIGIBILITY'`) act as gatekeepers. If any eligibility rule matches the request but evaluates to `false`, the quote is rejected immediately.
+
+#### How to Define Eligibility Rules
+1. **Define the Scope**: Set the `category` (e.g., `PRIVATE_CAR`) the rule applies to.
+2. **Set the Logic**: Use the `condition_expression` to define when the rule should be checked, and `value_expression` to define the requirement.
+   - *Note*: It's often simpler to put the requirement directly in the `condition_expression` and set `value_expression` to `'true'`.
+
+#### Example Eligibility Rule (Value Range)
+```sql
+-- Rejects vehicles valued below 500k or above 15M
+INSERT INTO rate_rules (rate_book_id, tenant_id, rule_type, category, description, priority, condition_expression, value_expression)
+VALUES (1, 'SANLAM', 'ELIGIBILITY', 'PRIVATE_CAR', 'Value must be 500k - 15M', 1, 'vehicleValue >= 500000 and vehicleValue <= 15000000', 'true');
+```
+
+#### Example Eligibility Rule (Blacklisted Makes)
+```sql
+-- Rejects specific high-risk makes
+INSERT INTO rate_rules (rate_book_id, tenant_id, rule_type, category, description, priority, condition_expression, value_expression)
+VALUES (1, 'SANLAM', 'ELIGIBILITY', 'PRIVATE_CAR', 'High-risk luxury makes not eligible', 2, 'not (vehicleMake.equalsIgnoreCase("Ferrari") or vehicleMake.equalsIgnoreCase("Lamborghini"))', 'true');
+```
 
 ### Add-on Management
 Add-ons are technically a specific type of `rate_rule` (`rule_type = 'ADDON'`). 
@@ -437,10 +459,19 @@ INSERT INTO rate_rules (rate_book_id, tenant_id, rule_type, category, descriptio
 VALUES (1, 'SANLAM', 'ADDON', 'PRIVATE_CAR', 'Excess Protector', 30, '2500');
 ```
 
-#### Example Add-on (Dynamic Price)
+#### Example Add-on (Dynamic Price with Minimum)
+For covers like Excess Protector or PVT that have a percentage rate but a fixed minimum floor, use the `T(java.lang.Math).max()` function in the `value_expression`:
+
 ```sql
+-- 0.5% of vehicleValue, but at least 5,000
 INSERT INTO rate_rules (rate_book_id, tenant_id, rule_type, category, description, priority, value_expression)
-VALUES (1, 'SANLAM', 'ADDON', 'PRIVATE_CAR', 'PVT Cover', 31, 'vehicleValue * 0.0025');
+VALUES (1, 'SANLAM', 'ADDON', 'PRIVATE_CAR', 'Excess Protector', 40, 'T(java.lang.Math).max(5000.0, vehicleValue.doubleValue() * 0.005)');
+```
+
+```sql
+-- 0.45% of vehicleValue, but at least 3,000
+INSERT INTO rate_rules (rate_book_id, tenant_id, rule_type, category, description, priority, value_expression)
+VALUES (1, 'SANLAM', 'ADDON', 'PRIVATE_CAR', 'PVT Cover', 41, 'T(java.lang.Math).max(3000.0, vehicleValue.doubleValue() * 0.0045)');
 ```
 
 ### Production Notes

@@ -43,3 +43,9 @@ databaseChangeLog:
       file: db/changelog/modules/21-user-vehicles-no-tenant.yaml
   - include:
       file: db/changelog/modules/22-rating-addons-seed.yaml
+  - include:
+      file: db/changelog/modules/23-rating-addons-min-logic.yaml
+  - include:
+      file: db/changelog/modules/24-rating-addons-cleanup.yaml
+  - include:
+      file: db/changelog/modules/25-rating-eligibility-seed.yaml
