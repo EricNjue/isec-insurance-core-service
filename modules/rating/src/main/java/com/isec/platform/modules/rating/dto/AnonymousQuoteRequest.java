@@ -16,4 +16,6 @@ public class AnonymousQuoteRequest {
     private Integer yearOfManufacture;
     private BigDecimal vehicleValue;
     private BigDecimal baseRate;
+    private String tenantId;
+    private String category;
 }

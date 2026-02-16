@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 26-1
+      author: junie
+      changes:
+        # Rules for vehicleValue <= 600,000
+        # 1. Basic Premium: 37,500
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "BASE_PREMIUM"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Basic premium for vehicles <= 600k"}
+              - column: {name: priority, valueNumeric: 5}
+              - column: {name: condition_expression, value: "vehicleValue <= 600000"}
+              - column: {name: value_expression, value: "37500"}
+
+        # 2. Excess Protector: 5,000
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Excess Protector (Vehicles <= 600k)"}
+              - column: {name: priority, valueNumeric: 25}
+              - column: {name: condition_expression, value: "vehicleValue <= 600000"}
+              - column: {name: value_expression, value: "5000"}
+
+        # 3. PVT: 3,000 flat
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "PVT (Vehicles <= 600k)"}
+              - column: {name: priority, valueNumeric: 26}
+              - column: {name: condition_expression, value: "vehicleValue <= 600000"}
+              - column: {name: value_expression, value: "3000"}
+
+        # 4. Courtesy Car: 3,000 per 10 days
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Courtesy Car (3000 per 10 days)"}
+              - column: {name: priority, valueNumeric: 27}
+              - column: {name: condition_expression, value: "additionalData != null && additionalData['courtesyCarDays'] != null"}
+              - column: {name: value_expression, value: "(T(java.lang.Integer).parseInt(additionalData['courtesyCarDays'].toString()) / 10) * 3000"}

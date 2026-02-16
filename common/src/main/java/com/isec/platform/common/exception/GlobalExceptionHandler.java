@@ -5,6 +5,7 @@ import com.isec.platform.common.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -37,6 +38,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalStateException(IllegalStateException ex, WebRequest request) {
         log.error("Illegal state: {}", ex.getMessage());
         return createErrorResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex, WebRequest request) {
+        log.error("Access denied: {}", ex.getMessage());
+        return createErrorResponse(HttpStatus.FORBIDDEN, "Access denied: " + ex.getMessage(), request);
     }
 
     @ExceptionHandler(Exception.class)

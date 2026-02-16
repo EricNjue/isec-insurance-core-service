@@ -41,6 +41,7 @@ public class QuoteService {
                 .vehicleMake(request.getVehicleMake())
                 .vehicleModel(request.getVehicleModel())
                 .selectedAddonIds(request.getAddonRuleIds() != null ? new HashSet<>(request.getAddonRuleIds()) : new HashSet<>())
+                .additionalData(request.getAdditionalData())
                 .build();
 
         PricingResult pricingResult = pricingEngine.price(ratingContext);

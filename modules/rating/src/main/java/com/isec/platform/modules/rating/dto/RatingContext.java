@@ -17,5 +17,5 @@ public class RatingContext {
     private String vehicleMake;
     private String vehicleModel;
     private Set<Long> selectedAddonIds;
-    private Map<String, Object> additionaldata;
+    private Map<String, Object> additionalData;
 }

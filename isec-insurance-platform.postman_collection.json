@@ -37,7 +37,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"category\": \"PRIVATE_CAR\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"registrationNumber\": \"KAA 123X\",\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"quoteId\": \"{{quoteId}}\",\n    \"addonRuleIds\": [1, 2]\n}",
+									"raw": "{\n    \"category\": \"PRIVATE_CAR\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 500000,\n    \"registrationNumber\": \"KAA 123X\",\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"quoteId\": \"{{quoteId}}\",\n    \"addonRuleIds\": [1, 2],\n    \"additionalData\": {\n        \"courtesyCarDays\": 10\n    }\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -681,7 +681,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Vitz\",\n    \"yearOfManufacture\": 2018,\n    \"vehicleValue\": 1200000,\n    \"baseRate\": 0.04\n}",
+							"raw": "{\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Vitz\",\n    \"yearOfManufacture\": 2018,\n    \"vehicleValue\": 400000,\n    \"baseRate\": 0.06,\n    \"tenantId\": \"SANLAM\",\n    \"category\": \"PRIVATE_CAR\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"

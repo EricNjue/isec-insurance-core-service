@@ -66,7 +66,6 @@ tenant:
     - "/api/v1/payments/callback"
     - "/api/v1/sms/delivery-report"
     - "/api/v1/profile"
-
 branding:
   company:
     name: ${BRANDING_COMPANY_NAME:iSec Insurance Agency}
@@ -95,3 +94,12 @@ africastalking:
   api-key: ${AFRICASTALKING_API_KEY}
   from: ${AFRICASTALKING_FROM}
   base-url: ${AFRICASTALKING_BASE_URL:https://api.sandbox.africastalking.com}
+
+rating:
+  charges:
+    pcf-rate: ${RATING_PCF_RATE:0.0025}
+    itl-rate: ${RATING_ITL_RATE:0.0020}
+    cert-charge: ${RATING_CERT_CHARGE:40.00}
+
+server:
+  port: ${SERVER_PORT:8080}

@@ -44,6 +44,7 @@ public class RateRuleService {
                 .build();
 
         RateRule saved = rateRuleRepository.save(rule);
+        log.info("Rule created: {}, invalidating cache", saved.getId());
         snapshotLoader.invalidateAll(); // Clear cache on rule changes
         return saved;
     }
@@ -63,6 +64,7 @@ public class RateRuleService {
         existing.setValueExpression(request.getValueExpression());
 
         RateRule saved = rateRuleRepository.save(existing);
+        log.info("Rule updated: {}, invalidating cache", saved.getId());
         snapshotLoader.invalidateAll();
         return saved;
     }
