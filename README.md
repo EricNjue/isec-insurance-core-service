@@ -373,6 +373,8 @@ Update the following variables in the collection to match your setup:
   - Response: `{ quoteId, tenantId, category, vehicleMake, vehicleModel, yearOfManufacture, vehicleValue, rateBookId, rateBookVersion, cacheKey, pricing{...}, expiryDate }`
   - **Selecting Add-ons**: Provide a list of `rate_rule` IDs in the `addonRuleIds` field to include optional covers in the quote.
   - **Editing a Quote**: To modify an existing quote, provide the original `quoteId` in the request body. The system will recalculate the pricing and overwrite the cached entry using the same ID.
+  - **Dynamic Additional Data**: Use the `additionalData` map to pass metadata required by specific rules (e.g., Courtesy Car days).
+    - Example: `{ "additionalData": { "courtesyCarDays": 10 } }`
 - Application (existing): `POST /api/v1/applications`
   - Extended request supports `quoteId` to convert a quote → application, persisting the pricing snapshot and setting status:
     - If referral → `UNDERWRITING_REVIEW`

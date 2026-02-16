@@ -66,24 +66,24 @@ class SanlamPricingIntegrationTest {
                 .valueExpression("0.04")
                 .build();
 
-        RateBookDto.RateRuleDto thresholdExcess = RateBookDto.RateRuleDto.builder()
+        RateBookDto.RateRuleDto consolidatedExcess = RateBookDto.RateRuleDto.builder()
                 .id(101L)
                 .ruleType(com.isec.platform.modules.rating.domain.RuleType.ADDON)
                 .category("PRIVATE_CAR")
-                .priority(25)
-                .conditionExpression("vehicleValue.doubleValue() <= 600000")
-                .valueExpression("5000")
+                .priority(30)
+                .conditionExpression("true")
+                .valueExpression("vehicleValue.doubleValue() <= 600000 ? 5000.0 : T(java.lang.Math).max(5000.0, vehicleValue.doubleValue() * 0.005)")
                 .description("Excess Protector")
                 .build();
 
-        RateBookDto.RateRuleDto thresholdPvt = RateBookDto.RateRuleDto.builder()
+        RateBookDto.RateRuleDto consolidatedPvt = RateBookDto.RateRuleDto.builder()
                 .id(102L)
                 .ruleType(com.isec.platform.modules.rating.domain.RuleType.ADDON)
                 .category("PRIVATE_CAR")
-                .priority(26)
-                .conditionExpression("vehicleValue.doubleValue() <= 600000")
-                .valueExpression("3000")
-                .description("PVT")
+                .priority(31)
+                .conditionExpression("true")
+                .valueExpression("vehicleValue.doubleValue() <= 600000 ? 3000.0 : T(java.lang.Math).max(3000.0, vehicleValue.doubleValue() * 0.0045)")
+                .description("Political Violence & Terrorism (PVT)")
                 .build();
 
         RateBookDto.RateRuleDto courtesyCar = RateBookDto.RateRuleDto.builder()
@@ -99,7 +99,7 @@ class SanlamPricingIntegrationTest {
         RateBookDto rb = RateBookDto.builder()
                 .id(1L)
                 .tenantId(tenantId)
-                .rules(List.of(thresholdBase, defaultBase, thresholdExcess, thresholdPvt, courtesyCar))
+                .rules(List.of(thresholdBase, defaultBase, consolidatedExcess, consolidatedPvt, courtesyCar))
                 .build();
 
         when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
@@ -116,6 +116,7 @@ class SanlamPricingIntegrationTest {
 
         AddonBreakdown pvt = result.getAddons().stream().filter(a -> a.getRuleId() == 102L).findFirst().get();
         assertThat(pvt.getAmount()).isEqualByComparingTo("3000");
+        assertThat(pvt.getName()).isEqualTo("Political Violence & Terrorism (PVT)");
 
         AddonBreakdown courtesy = result.getAddons().stream().filter(a -> a.getRuleId() == 103L).findFirst().get();
         assertThat(courtesy.getAmount()).isEqualByComparingTo("3000"); // 10 days / 10 * 3000 = 3000
@@ -151,20 +152,20 @@ class SanlamPricingIntegrationTest {
                 .valueExpression("0.04")
                 .build();
 
-        RateBookDto.RateRuleDto defaultExcess = RateBookDto.RateRuleDto.builder()
+        RateBookDto.RateRuleDto consolidatedExcess = RateBookDto.RateRuleDto.builder()
                 .id(104L)
                 .ruleType(com.isec.platform.modules.rating.domain.RuleType.ADDON)
                 .category("PRIVATE_CAR")
                 .priority(30)
-                .conditionExpression("vehicleValue.doubleValue() > 600000")
-                .valueExpression("T(java.lang.Math).max(5000.0, vehicleValue.doubleValue() * 0.005)")
-                .description("Excess Protector (Default)")
+                .conditionExpression("true")
+                .valueExpression("vehicleValue.doubleValue() <= 600000 ? 5000.0 : T(java.lang.Math).max(5000.0, vehicleValue.doubleValue() * 0.005)")
+                .description("Excess Protector")
                 .build();
 
         RateBookDto rb = RateBookDto.builder()
                 .id(1L)
                 .tenantId(tenantId)
-                .rules(List.of(thresholdBase, defaultBase, defaultExcess))
+                .rules(List.of(thresholdBase, defaultBase, consolidatedExcess))
                 .build();
 
         when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));

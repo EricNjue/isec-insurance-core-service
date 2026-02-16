@@ -1,0 +1,35 @@
+databaseChangeLog:
+  - changeSet:
+      id: 30-1
+      author: junie
+      comment: "Consolidate duplicate addon rules for SANLAM"
+      changes:
+        - delete:
+            tableName: rate_rules
+            where: "tenant_id = 'SANLAM' AND description IN ('Excess Protector (Flat 5,000 for <= 600k)', 'Excess Protector (0.5% SI, Min 5,000)', 'PVT (Flat 3,000 for <= 600k)', 'PVT Cover (0.45% SI, Min 3,000)')"
+
+        # 1. Consolidated Excess Protector
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Excess Protector"}
+              - column: {name: priority, valueNumeric: 30}
+              - column: {name: condition_expression, value: "true"}
+              - column: {name: value_expression, value: "vehicleValue.doubleValue() <= 600000 ? 5000.0 : T(java.lang.Math).max(5000.0, vehicleValue.doubleValue() * 0.005)"}
+
+        # 2. Consolidated PVT
+        - insert:
+            tableName: rate_rules
+            columns:
+              - column: {name: rate_book_id, valueNumeric: 1}
+              - column: {name: tenant_id, value: "SANLAM"}
+              - column: {name: rule_type, value: "ADDON"}
+              - column: {name: category, value: "PRIVATE_CAR"}
+              - column: {name: description, value: "Political Violence & Terrorism (PVT)"}
+              - column: {name: priority, valueNumeric: 31}
+              - column: {name: condition_expression, value: "true"}
+              - column: {name: value_expression, value: "vehicleValue.doubleValue() <= 600000 ? 3000.0 : T(java.lang.Math).max(3000.0, vehicleValue.doubleValue() * 0.0045)"}

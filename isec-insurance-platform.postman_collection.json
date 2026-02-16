@@ -309,7 +309,41 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"New Base Rate\",\n    \"priority\": 10,\n    \"conditionExpression\": \"vehicleValue > 0\",\n    \"valueExpression\": \"0.045\"\n}",
+									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"New Base Rate\",\n    \"priority\": 10,\n    \"conditionExpression\": \"vehicleValue.doubleValue() > 0\",\n    \"valueExpression\": \"0.045\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/rating/rules",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"rating",
+										"rules"
+									]
+								}
+							}
+						},
+						{
+							"name": "Create Courtesy Car Rule (AdditionalData example)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"ADDON\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"Courtesy Car (3000 per 10 days)\",\n    \"priority\": 35,\n    \"conditionExpression\": \"additionalData != null && additionalData['courtesyCarDays'] != null\",\n    \"valueExpression\": \"(T(java.lang.Integer).parseInt(additionalData['courtesyCarDays'].toString()) / 10) * 3000\"\n}",
 									"options": {
 										"raw": {
 											"language": "json"
