@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +30,9 @@ class PricingEngineTest {
         snapshotLoader = Mockito.mock(RateBookSnapshotLoader.class);
         ruleMatcher = Mockito.mock(RuleMatcher.class);
         pricingEngine = new PricingEngine(snapshotLoader, ruleMatcher);
+        ReflectionTestUtils.setField(pricingEngine, "pcfRate", new BigDecimal("0.0025"));
+        ReflectionTestUtils.setField(pricingEngine, "itlRate", new BigDecimal("0.0020"));
+        ReflectionTestUtils.setField(pricingEngine, "certCharge", new BigDecimal("40.00"));
     }
 
     @Test
@@ -76,8 +80,8 @@ class PricingEngineTest {
         // itl = 40001 * 0.0020 = 80.002 -> 81
         assertThat(result.getItl()).isEqualByComparingTo("81");
         
-        // total = 40001 + 101 + 81 + 35 = 40218
-        assertThat(result.getTotalPremium()).isEqualByComparingTo("40218");
+        // total = 40001 + 101 + 81 + 40 = 40223
+        assertThat(result.getTotalPremium()).isEqualByComparingTo("40223");
     }
 
     @Test

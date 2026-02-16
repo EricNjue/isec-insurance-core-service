@@ -3,11 +3,15 @@ package com.isec.platform.modules.rating.service;
 import com.isec.platform.modules.rating.domain.AnonymousQuote;
 import com.isec.platform.modules.rating.dto.AnonymousQuoteRequest;
 import com.isec.platform.modules.rating.repository.AnonymousQuoteRepository;
+import com.isec.platform.modules.rating.dto.PricingResult;
+import com.isec.platform.modules.rating.dto.RatingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,6 +21,7 @@ import java.util.UUID;
 public class RatingService {
 
     private final AnonymousQuoteRepository anonymousQuoteRepository;
+    private final PricingEngine pricingEngine;
 
     private static final BigDecimal PCF_RATE = new BigDecimal("0.0025"); // 0.25%
     private static final BigDecimal ITL_RATE = new BigDecimal("0.0020"); // 0.20%
@@ -33,9 +38,29 @@ public class RatingService {
 
     public AnonymousQuote createAnonymousQuote(AnonymousQuoteRequest request) {
         log.info("Creating anonymous quote for vehicle: {} {}", request.getVehicleMake(), request.getVehicleModel());
-        
-        PremiumBreakdown breakdown = calculatePremium(request.getVehicleValue(), request.getBaseRate());
-        
+
+        String tenantId = request.getTenantId() != null ? request.getTenantId() : "SANLAM";
+        String category = request.getCategory() != null ? request.getCategory() : "PRIVATE_CAR";
+
+        RatingContext context = RatingContext.builder()
+                .tenantId(tenantId)
+                .category(category)
+                .vehicleValue(request.getVehicleValue())
+                .vehicleMake(request.getVehicleMake())
+                .vehicleModel(request.getVehicleModel())
+                .vehicleAge(calculateVehicleAge(request.getYearOfManufacture()))
+                .build();
+
+        PricingResult pricingResult = pricingEngine.price(context);
+
+        PremiumBreakdown breakdown = new PremiumBreakdown(
+                pricingResult.getBasePremium(),
+                pricingResult.getPcf(),
+                pricingResult.getItl(),
+                pricingResult.getCertificateCharge(),
+                pricingResult.getTotalPremium()
+        );
+
         AnonymousQuote quote = AnonymousQuote.builder()
                 .id(UUID.randomUUID().toString())
                 .vehicleMake(request.getVehicleMake())
@@ -45,8 +70,13 @@ public class RatingService {
                 .baseRate(request.getBaseRate())
                 .premiumBreakdown(breakdown)
                 .build();
-        
+
         return anonymousQuoteRepository.save(quote);
+    }
+
+    private Integer calculateVehicleAge(Integer yearOfManufacture) {
+        if (yearOfManufacture == null) return null;
+        return LocalDate.now().getYear() - yearOfManufacture;
     }
 
     public Optional<AnonymousQuote> getAnonymousQuote(String id) {

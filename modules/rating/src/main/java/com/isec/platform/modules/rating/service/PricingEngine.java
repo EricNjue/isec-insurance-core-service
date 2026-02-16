@@ -8,6 +8,7 @@ import com.isec.platform.modules.rating.dto.RatingContext;
 import com.isec.platform.modules.rating.dto.ReferralDecision;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,9 +22,14 @@ import java.util.List;
 @Slf4j
 public class PricingEngine {
 
-    private static final BigDecimal PCF_RATE = new BigDecimal("0.0025"); // 0.25%
-    private static final BigDecimal ITL_RATE = new BigDecimal("0.0020"); // 0.20%
-    private static final BigDecimal CERT_CHARGE = new BigDecimal("35.00");
+    @Value("${rating.charges.pcf-rate:0.0025}")
+    private BigDecimal pcfRate;
+
+    @Value("${rating.charges.itl-rate:0.0020}")
+    private BigDecimal itlRate;
+
+    @Value("${rating.charges.cert-charge:40.00}")
+    private BigDecimal certCharge;
 
     private final RateBookSnapshotLoader rateBookSnapshotLoader;
     private final RuleMatcher ruleMatcher;
@@ -97,8 +103,12 @@ public class PricingEngine {
                 .findFirst()
                 .map(r -> {
                     appliedRuleIds.add(r.getId());
-                    BigDecimal rate = ruleMatcher.evaluateBigDecimal(r, context);
-                    return context.getVehicleValue().multiply(rate).setScale(0, RoundingMode.UP);
+                    BigDecimal value = ruleMatcher.evaluateBigDecimal(r, context);
+                    // If the value is > 1, treat it as a flat premium, otherwise treat as a rate
+                    if (value.compareTo(BigDecimal.ONE) > 0) {
+                        return value.setScale(0, RoundingMode.UP);
+                    }
+                    return context.getVehicleValue().multiply(value).setScale(0, RoundingMode.UP);
                 })
                 .orElseThrow(() -> new IllegalStateException("No base premium rule matched for category: " + context.getCategory()));
     }
@@ -131,16 +141,16 @@ public class PricingEngine {
     }
 
     private PricingResult buildPricingResult(BigDecimal basePremium, List<AddonBreakdown> addons, ReferralInfo referralInfo, boolean minApplied, List<Long> appliedRuleIds) {
-        BigDecimal pcf = basePremium.multiply(PCF_RATE).setScale(0, RoundingMode.UP);
-        BigDecimal itl = basePremium.multiply(ITL_RATE).setScale(0, RoundingMode.UP);
+        BigDecimal pcf = basePremium.multiply(pcfRate).setScale(0, RoundingMode.UP);
+        BigDecimal itl = basePremium.multiply(itlRate).setScale(0, RoundingMode.UP);
         BigDecimal addonTotal = addons.stream().map(AddonBreakdown::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal total = basePremium.add(pcf).add(itl).add(CERT_CHARGE).add(addonTotal).setScale(0, RoundingMode.UP);
+        BigDecimal total = basePremium.add(pcf).add(itl).add(certCharge).add(addonTotal).setScale(0, RoundingMode.UP);
 
         return PricingResult.builder()
                 .basePremium(basePremium)
                 .pcf(pcf)
                 .itl(itl)
-                .certificateCharge(CERT_CHARGE)
+                .certificateCharge(certCharge)
                 .totalPremium(total)
                 .minimumPremiumApplied(minApplied)
                 .referralDecision(referralInfo.decision())

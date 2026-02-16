@@ -28,4 +28,5 @@ public class QuoteRequest {
 
     private String quoteId;
     private List<Long> addonRuleIds;
+    private java.util.Map<String, Object> additionalData;
 }

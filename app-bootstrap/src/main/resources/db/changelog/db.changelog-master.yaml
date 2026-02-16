@@ -49,3 +49,11 @@ databaseChangeLog:
       file: db/changelog/modules/24-rating-addons-cleanup.yaml
   - include:
       file: db/changelog/modules/25-rating-eligibility-seed.yaml
+  - include:
+      file: db/changelog/modules/26-vehicle-value-threshold-rules.yaml
+  - include:
+      file: db/changelog/modules/27-vehicle-value-threshold-commercial-rules.yaml
+  - include:
+      file: db/changelog/modules/28-sanlam-rules-redefined.yaml
+  - include:
+      file: db/changelog/modules/29-sanlam-rules-repopulation.yaml
