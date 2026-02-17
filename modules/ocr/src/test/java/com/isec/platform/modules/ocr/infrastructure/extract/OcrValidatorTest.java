@@ -16,11 +16,10 @@ class OcrValidatorTest {
 
     @Test
     void testIsValidVin() {
-        assertTrue(OcrValidator.isValidVin("1ABC2DEF3GHI4JKL5")); // 17 chars
-        assertFalse(OcrValidator.isValidVin("1ABC2DEF3GHI4JKL")); // 16 chars
-        assertFalse(OcrValidator.isValidVin("1ABC2DEF3GHI4JKL56")); // 18 chars
-        // I, O, Q are generally not in VINs but the regex used [A-HJ-NPR-Z0-9] handles it
-        assertFalse(OcrValidator.isValidVin("1ABC2DEF3GHI4JKLI")); 
+        assertTrue(OcrValidator.isValidVin("1ABC2DEF3GHI4JKL5"));
+        assertFalse(OcrValidator.isValidVin("1ABC2DEF3GHI4JKL"));
+        assertFalse(OcrValidator.isValidVin("1ABC2DEF3GHI4JKL56"));
+        assertFalse(OcrValidator.isValidVin("1ABC2DEF3GHI4JKLI"));
     }
 
     @Test
@@ -46,6 +45,7 @@ class OcrValidatorTest {
         assertTrue(OcrValidator.isValidDate("2023-01-01"));
         assertTrue(OcrValidator.isValidDate("1/1/2023"));
         assertTrue(OcrValidator.isValidDate("01.01.2023"));
+        assertTrue(OcrValidator.isValidDate("01/01/23"));
         assertFalse(OcrValidator.isValidDate("2023/13/01"));
         assertFalse(OcrValidator.isValidDate("not-a-date"));
     }

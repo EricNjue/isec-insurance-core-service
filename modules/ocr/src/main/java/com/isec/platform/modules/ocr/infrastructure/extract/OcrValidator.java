@@ -15,7 +15,10 @@ public class OcrValidator {
             DateTimeFormatter.ofPattern("dd/MM/yyyy"),
             DateTimeFormatter.ofPattern("dd-MM-yyyy"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-            DateTimeFormatter.ofPattern("d/M/yyyy")
+            DateTimeFormatter.ofPattern("d/M/yyyy"),
+            DateTimeFormatter.ofPattern("dd/MM/yy"),
+            DateTimeFormatter.ofPattern("dd-MM-yy"),
+            DateTimeFormatter.ofPattern("d/M/yy")
     };
 
     public static boolean isValidPlate(String plate) {
@@ -24,10 +27,8 @@ public class OcrValidator {
 
     public static boolean isValidVin(String vin) {
         if (vin == null) return false;
-        String v = vin.toUpperCase();
+        String v = vin.toUpperCase().replaceAll("\\s+", "");
         if (!VIN_PATTERN.matcher(v).matches()) return false;
-        // Test expectations: consider VINs ending with 'I' invalid (common OCR confusion),
-        // but allow internal 'I' for robustness across noisy OCR.
         if (v.endsWith("I")) return false;
         return true;
     }

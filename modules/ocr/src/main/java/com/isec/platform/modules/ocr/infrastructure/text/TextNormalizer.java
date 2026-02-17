@@ -14,17 +14,23 @@ public class TextNormalizer {
         String s = Normalizer.normalize(input, Normalizer.Form.NFKC)
                 .replaceAll("[\u200B-\u200D\uFEFF]", "") // zero-width
                 .replaceAll("[\u00A0]", " ") // non-breaking space
-                .replaceAll("[\r\t]", " ")
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .replaceAll("[\t]", " ")
                 .replaceAll("[\u2013\u2014]", "-")
                 .replaceAll("[^\\p{L}\\p{N}\\-/:,.()&%#\\s]", " ")
                 .toUpperCase();
-        // collapse whitespace
-        s = s.replaceAll(" +", " ").trim();
-        return s;
+
+        // Collapse whitespace but keep line breaks for label proximity.
+        List<String> lines = Arrays.stream(s.split("\n"))
+                .map(l -> l.replaceAll(" +", " ").trim())
+                .filter(l -> !l.isBlank())
+                .collect(Collectors.toList());
+        return String.join("\n", lines);
     }
 
     public List<String> toLines(String normalized) {
-        if (normalized == null) return List.of();
+        if (normalized == null || normalized.isBlank()) return List.of();
         return Arrays.stream(normalized.split("\n"))
                 .map(l -> l.replaceAll(" +", " ").trim())
                 .filter(l -> !l.isBlank())

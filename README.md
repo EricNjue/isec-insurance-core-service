@@ -107,6 +107,7 @@ Authentication and Authorization are handled via **Keycloak**.
 - `RABBITMQ_HOST` / `RABBITMQ_USER` / `RABBITMQ_PASS`: RabbitMQ connection details.
 - `KEYCLOAK_ISSUER_URI`: OIDC Discovery endpoint.
 - `S3_BUCKET` / `AWS_REGION`: AWS S3 configuration for document storage.
+- `TESSERACT_LIBRARY_PATH`: (Optional) Path to Tesseract native library directory if not in system search path. On macOS (Apple Silicon), this is usually `/opt/homebrew/lib` or the prefix returned by `brew --prefix tesseract`. The app will automatically check for a `lib` subfolder if a prefix is provided.
 - `OCR_STORAGE_BUCKET`: (Optional) S3 bucket specifically for OCR documents. Defaults to `S3_BUCKET`.
 - `OCR_STORAGE_KEY_PREFIX`: (Optional) S3 key prefix for OCR uploads. Defaults to `uploads/ocr`.
 - `TESSDATA_PREFIX`: (Optional) Path to Tesseract training data.
@@ -372,7 +373,9 @@ The `modules/ocr` provides a robust, asynchronous extraction pipeline. Follow th
 
 ### 1. Prerequisites
 - **Tesseract OCR:** Ensure `tesseract` is installed on your host or in the Docker container.
-- **Tessdata:** Download English training data (`eng.traineddata`) and set `TESSDATA_PREFIX` or use the default `/usr/local/share/tessdata`.
+  - **macOS:** `brew install tesseract`
+  - **Linux:** `sudo apt-get install tesseract-ocr libtesseract-dev`
+- **Tessdata:** Download English training data (`eng.traineddata`) and set `TESSDATA_PREFIX` or use the default bundled resources.
 - **S3 Bucket:** A private S3 bucket must be accessible (via LocalStack or AWS).
 - **RabbitMQ:** Ensure the `ocr.document.submitted` queue is active.
 

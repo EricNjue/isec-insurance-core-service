@@ -102,13 +102,40 @@ rating:
     cert-charge: ${RATING_CERT_CHARGE:40.00}
 
 ocr:
+  debug:
+    enabled: true
+    file: "/Users/ericgitonganjue/Desktop/dev-workspace/isec-insurance-core-service/KDD454J-LogBook.pdf"
+    documentType: NTSA_LOGBOOK #NTSA_SEARCH_RECORD
   storage:
     bucket: ${OCR_STORAGE_BUCKET:${S3_BUCKET:isecdocuments}}
     key-prefix: ${OCR_STORAGE_KEY_PREFIX:uploads/ocr}
     public-base-url: ${OCR_STORAGE_PUBLIC_BASE_URL:}
   tesseract:
     datapath: ${TESSDATA_PREFIX:modules/ocr/src/main/resources/tessdata}
+    library-path: ${TESSERACT_LIBRARY_PATH:/opt/homebrew/opt/tesseract}
     language: ${OCR_TESSERACT_LANG:eng}
 
+    page-seg-mode: ${OCR_TESSERACT_PSM:6}
+    ocr-engine-mode: ${OCR_TESSERACT_OEM:1}
+    preserve-interword-spaces: ${OCR_TESSERACT_PRESERVE_SPACES:true}
+    user-defined-dpi: ${OCR_TESSERACT_DPI:300}
+    char-whitelist: ${OCR_TESSERACT_WHITELIST:}
+    char-blacklist: ${OCR_TESSERACT_BLACKLIST:}
+  preprocess:
+    enabled: ${OCR_PREPROCESS_ENABLED:true}
+    deskew-enabled: ${OCR_PREPROCESS_DESKEW_ENABLED:true}
+    scale-factor: ${OCR_PREPROCESS_SCALE_FACTOR:1.2}
+    median-blur-kernel: ${OCR_PREPROCESS_MEDIAN_BLUR_KERNEL:3}
+    adaptive-threshold: ${OCR_PREPROCESS_ADAPTIVE_THRESHOLD:true}
+    adaptive-block-size: ${OCR_PREPROCESS_ADAPTIVE_BLOCK_SIZE:15}
+    adaptive-c: ${OCR_PREPROCESS_ADAPTIVE_C:3.0}
+    clahe-clip-limit: ${OCR_PREPROCESS_CLAHE_CLIP_LIMIT:2.0}
+    clahe-tile-size: ${OCR_PREPROCESS_CLAHE_TILE_SIZE:8}
+  processing:
+    pdf-render-dpi: ${OCR_PDF_RENDER_DPI:300}
+    max-pdf-pages: ${OCR_MAX_PDF_PAGES:3}
+    store-diagnostics: ${OCR_STORE_DIAGNOSTICS:true}
+    diagnostics-min-confidence: ${OCR_DIAGNOSTICS_MIN_CONFIDENCE:0.75}
+    diagnostics-max-chars: ${OCR_DIAGNOSTICS_MAX_CHARS:8000}
 server:
   port: ${SERVER_PORT:8080}
