@@ -101,5 +101,14 @@ rating:
     itl-rate: ${RATING_ITL_RATE:0.0020}
     cert-charge: ${RATING_CERT_CHARGE:40.00}
 
+ocr:
+  storage:
+    bucket: ${OCR_STORAGE_BUCKET:${S3_BUCKET:isecdocuments}}
+    key-prefix: ${OCR_STORAGE_KEY_PREFIX:uploads/ocr}
+    public-base-url: ${OCR_STORAGE_PUBLIC_BASE_URL:}
+  tesseract:
+    datapath: ${TESSDATA_PREFIX:modules/ocr/src/main/resources/tessdata}
+    language: ${OCR_TESSERACT_LANG:eng}
+
 server:
   port: ${SERVER_PORT:8080}

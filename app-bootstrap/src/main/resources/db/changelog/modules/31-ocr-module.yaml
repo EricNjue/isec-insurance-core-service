@@ -1,0 +1,129 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260217-001
+      author: junie
+      changes:
+        - createTable:
+            tableName: ocr_document
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: document_type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: s3_url
+                  type: VARCHAR(255)
+              - column:
+                  name: document_hash
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: overall_confidence
+                  type: DECIMAL(5,4)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - createIndex:
+            indexName: idx_ocr_document_tenant_id
+            tableName: ocr_document
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            indexName: idx_ocr_document_hash
+            tableName: ocr_document
+            columns:
+              - column:
+                  name: document_hash
+        - createIndex:
+            indexName: idx_ocr_document_type
+            tableName: ocr_document
+            columns:
+              - column:
+                  name: document_type
+
+  - changeSet:
+      id: 20260217-002
+      author: junie
+      changes:
+        - createTable:
+            tableName: ocr_field
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ocr_field_document
+                    referencedTableName: ocr_document
+                    referencedColumnNames: id
+              - column:
+                  name: field_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: field_value
+                  type: TEXT
+              - column:
+                  name: confidence
+                  type: DECIMAL(5,4)
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+
+  - changeSet:
+      id: 20260217-003
+      author: junie
+      changes:
+        - createTable:
+            tableName: ocr_audit_log
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: metadata
+                  type: JSONB
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP

@@ -1712,6 +1712,115 @@
 							"response": []
 						}
 					]
+				},
+				{
+					"name": "OCR (NTSA Documents)",
+					"item": [
+						{
+							"name": "Submit OCR Document",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"ocrDocumentId\", jsonData.id);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "tenantId",
+											"value": "{{tenantId}}",
+											"type": "text"
+										},
+										{
+											"key": "documentType",
+											"value": "NTSA_LOGBOOK",
+											"type": "text"
+										},
+										{
+											"key": "file",
+											"type": "file",
+											"src": "/path/to/your/logbook.pdf"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/ocr/documents",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"ocr",
+										"documents"
+									]
+								},
+								"description": "Submits an NTSA Logbook or Search Record for OCR extraction."
+							},
+							"response": []
+						},
+						{
+							"name": "Get OCR Results",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/ocr/documents/{{ocrDocumentId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"ocr",
+										"documents",
+										"{{ocrDocumentId}}"
+									]
+								},
+								"description": "Retrieves the extraction results for a submitted OCR document."
+							},
+							"response": []
+						},
+						{
+							"name": "Renew OCR Presigned Link",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/ocr/documents/{{ocrDocumentId}}/presigned?minutes=60",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"ocr",
+										"documents",
+										"{{ocrDocumentId}}",
+										"presigned"
+									],
+									"query": [
+										{
+											"key": "minutes",
+											"value": "60"
+										}
+									]
+								},
+								"description": "Generates a fresh presigned URL for the OCR document."
+							},
+							"response": []
+						}
+					]
 				}
 			]
 		}
@@ -1818,6 +1927,10 @@
 		{
 			"key": "underwriterId",
 			"value": "uw1"
+		},
+		{
+			"key": "ocrDocumentId",
+			"value": ""
 		}
 	]
 }

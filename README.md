@@ -47,10 +47,40 @@ The project is structured as a multi-module Maven repository to enforce boundari
 - `modules/reporting`: CSV exports & date-range reports.
 - `modules/audit`: Aspect-oriented audit logging.
 - `modules/integrations`: External API adapters (M-Pesa, DMVIC).
+- `modules/ocr`: Production-grade extraction of NTSA Logbooks and Search Records.
 
 ---
 
-## 5. Authentication & Roles (Keycloak)
+## 5. OCR Extraction Module (NTSA Documents)
+The platform includes a specialized `modules/ocr` for extracting structured data from Kenyan NTSA documents.
+
+### Key Features
+- **Document Types:** NTSA Logbook (Motor Vehicle Registration Book) and Motor Vehicle Search Record.
+- **Layout Resilient:** Uses a layered extraction strategy (Label-based → Pattern-based → Proximity → Context) instead of fixed coordinates.
+- **Image Preprocessing:** Uses OpenCV for grayscale, noise reduction, adaptive thresholding, and contrast enhancement.
+- **OCR Engine:** Tesseract (via tess4j) with support for DPI normalization.
+- **Confidence Scoring:** Provides deterministic confidence scores and validation status per field.
+- **Multi-Tenancy:** Data is strictly scoped by `tenant_id`.
+- **Async Pipeline:** Fully asynchronous processing via RabbitMQ with Dead Letter Queue (DLQ) support.
+- **Observability:** Instrumented with Micrometer for processing time, success/failure counts, and confidence analytics.
+
+### Extracted Fields
+- **NTSA Logbook:** Registration Number, Chassis Number, Engine Number, Make, Model, Body Type, Color, Fuel Type, Year of Manufacture, Registered Owner Name, Owner ID, PIN, Date of Registration, Serial Number.
+- **Search Record:** Registration Number, Chassis Number, Engine Number, Owner Name, Owner ID, Make, Model, Vehicle Status, NTSA Search Reference, Search Date.
+
+### Security & Storage
+- Documents are stored in **Private Amazon S3 buckets**.
+- Internal processing uses direct `s3://` URIs.
+- External access is granted via **Time-limited Presigned URLs** (default 30-60 mins).
+
+### API Usage
+- **Submit Document:** `POST /api/v1/ocr/documents` (Multipart file + `tenantId` + `documentType`). Returns `202 Accepted` with a tracking ID.
+- **Get Result:** `GET /api/v1/ocr/documents/{id}`. Returns structured JSON with fields and a 30-min presigned viewing URL.
+- **Renew Link:** `GET /api/v1/ocr/documents/{id}/presigned?minutes=60`. Generates a fresh presigned URL.
+
+---
+
+## 6. Authentication & Roles (Keycloak)
 Authentication and Authorization are handled via **Keycloak**.
 - **Roles:**
     - `ROLE_RETAIL_USER`: Create applications, view own policies.
@@ -77,6 +107,10 @@ Authentication and Authorization are handled via **Keycloak**.
 - `RABBITMQ_HOST` / `RABBITMQ_USER` / `RABBITMQ_PASS`: RabbitMQ connection details.
 - `KEYCLOAK_ISSUER_URI`: OIDC Discovery endpoint.
 - `S3_BUCKET` / `AWS_REGION`: AWS S3 configuration for document storage.
+- `OCR_STORAGE_BUCKET`: (Optional) S3 bucket specifically for OCR documents. Defaults to `S3_BUCKET`.
+- `OCR_STORAGE_KEY_PREFIX`: (Optional) S3 key prefix for OCR uploads. Defaults to `uploads/ocr`.
+- `TESSDATA_PREFIX`: (Optional) Path to Tesseract training data.
+- `OCR_TESSERACT_LANG`: (Optional) Tesseract language code. Defaults to `eng`.
 - `AFRICASTALKING_USERNAME`: Africa's Talking API username.
 - `AFRICASTALKING_API_KEY`: Africa's Talking API key.
 - `AFRICASTALKING_FROM`: Sender ID or Shortcode for SMS.
@@ -333,7 +367,56 @@ docker build -t motor-insurance-platform .
 
 ---
 
-## 15. Postman Collection Usage
+## 17. Testing OCR Extraction (End-to-End)
+The `modules/ocr` provides a robust, asynchronous extraction pipeline. Follow these steps to test it end-to-end.
+
+### 1. Prerequisites
+- **Tesseract OCR:** Ensure `tesseract` is installed on your host or in the Docker container.
+- **Tessdata:** Download English training data (`eng.traineddata`) and set `TESSDATA_PREFIX` or use the default `/usr/local/share/tessdata`.
+- **S3 Bucket:** A private S3 bucket must be accessible (via LocalStack or AWS).
+- **RabbitMQ:** Ensure the `ocr.document.submitted` queue is active.
+
+### 2. Happy Path Flow
+1. **Submit Document:** Use the Postman request "Submit OCR Document" or the following `curl`:
+   ```bash
+   curl -X POST http://localhost:8080/api/v1/ocr/documents \
+     -F "tenantId=SANLAM" \
+     -F "documentType=NTSA_LOGBOOK" \
+     -F "file=@/path/to/logbook.pdf"
+   ```
+   - **Response:** `202 Accepted` with a `SubmissionResponse` containing a UUID `id`.
+   - **Wait:** The extraction happens asynchronously.
+
+2. **Monitor Logs:**
+   - Watch the `app-bootstrap` logs for `[OCR] Received message for document: {id}`.
+   - Look for `[OCR] Extracted {N} fields with overall confidence {X}`.
+
+3. **Retrieve Results:** Use the Postman request "Get OCR Results" or:
+   ```bash
+   curl -G http://localhost:8080/api/v1/ocr/documents/{id}
+   ```
+   - **Response:** A structured JSON object with `fields` (value and confidence) and a 30-min presigned `s3Url`.
+
+4. **Renew Link (Optional):** If the URL expires, get a fresh 60-min link:
+   ```bash
+   curl -G "http://localhost:8080/api/v1/ocr/documents/{id}/presigned?minutes=60"
+   ```
+
+### 3. Simulating Format Variations
+To test the "Layout-Resilient" extraction logic:
+- **Noise:** Use a scanned document with stamps or watermarks.
+- **Label Variations:** Test with documents where "Chassis No." is written as "VIN" or "CHASSIS NUMBER".
+- **Alignment:** Test with a skewed scan (OpenCV preprocessor will attempt to deskew it).
+- **Missing Data:** If a field like "Fuel Type" is missing, the API will return `null` with a `LOW_CONFIDENCE` status.
+
+### 4. Troubleshooting
+- **404 Not Found:** The document is still processing or the UUID is invalid.
+- **Empty Fields:** Check Tesseract logs; ensure the image is not blurry and preprocessing is active.
+- **DLQ:** If processing fails repeatedly, check the `ocr.document.submitted.dlq` in RabbitMQ.
+
+---
+
+## 18. Postman Collection Usage
 Import `isec-insurance-platform.postman_collection.json` into Postman. 
 
 **Authentication Flow:**

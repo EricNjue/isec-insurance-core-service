@@ -39,6 +39,7 @@
         <module>modules/integrations</module>
         <module>modules/customers</module>
         <module>modules/vehicles</module>
+        <module>modules/ocr</module>
         <module>app-bootstrap</module>
     </modules>
 
@@ -137,6 +138,11 @@
             <dependency>
                 <groupId>com.isec</groupId>
                 <artifactId>vehicles</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.isec</groupId>
+                <artifactId>ocr</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
