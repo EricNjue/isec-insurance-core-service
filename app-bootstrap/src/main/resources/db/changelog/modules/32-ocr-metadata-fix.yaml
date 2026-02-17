@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260217-004
+      author: junie
+      changes:
+        - modifyDataType:
+            tableName: ocr_audit_log
+            columnName: metadata
+            newDataType: TEXT

@@ -16,6 +16,8 @@ public class RabbitMQConfig {
     public static final String PAYMENT_RECEIVED_QUEUE = "payment.received.queue";
     public static final String CERTIFICATE_REQUESTED_QUEUE = "certificate.requested.queue";
     public static final String NOTIFICATION_SEND_QUEUE = "notification.send.queue";
+    public static final String OCR_DOCUMENT_SUBMITTED_QUEUE = "ocr.document.submitted.queue";
+    public static final String OCR_DOCUMENT_SUBMITTED_DLQ = OCR_DOCUMENT_SUBMITTED_QUEUE + ".dlq";
     
     // Routing Keys
     public static final String APPLICATION_SUBMITTED_RK = "application.submitted";
@@ -24,6 +26,7 @@ public class RabbitMQConfig {
     public static final String NOTIFICATION_SEND_RK = "notification.send";
     public static final String VALUATION_LETTER_REQUESTED_RK = "valuation.letter.requested";
     public static final String CERTIFICATE_ISSUED_RK = "certificate.issued";
+    public static final String OCR_DOCUMENT_SUBMITTED_RK = "ocr.document.submitted";
 
     // Dead Letter Queues
     public static final String CERTIFICATE_DLX = EXCHANGE_NAME + ".dlx";
@@ -100,6 +103,29 @@ public class RabbitMQConfig {
     @Bean
     public Binding valuationLetterRequestedBinding(Queue valuationLetterRequestedQueue, DirectExchange exchange) {
         return BindingBuilder.bind(valuationLetterRequestedQueue).to(exchange).with(VALUATION_LETTER_REQUESTED_RK);
+    }
+
+    @Bean
+    public Queue ocrDocumentSubmittedQueue() {
+        return QueueBuilder.durable(OCR_DOCUMENT_SUBMITTED_QUEUE)
+                .withArgument("x-dead-letter-exchange", CERTIFICATE_DLX)
+                .withArgument("x-dead-letter-routing-key", OCR_DOCUMENT_SUBMITTED_RK + ".dlq")
+                .build();
+    }
+
+    @Bean
+    public Binding ocrDocumentSubmittedBinding(Queue ocrDocumentSubmittedQueue, DirectExchange exchange) {
+        return BindingBuilder.bind(ocrDocumentSubmittedQueue).to(exchange).with(OCR_DOCUMENT_SUBMITTED_RK);
+    }
+
+    @Bean
+    public Queue ocrDocumentSubmittedDlq() {
+        return QueueBuilder.durable(OCR_DOCUMENT_SUBMITTED_DLQ).build();
+    }
+
+    @Bean
+    public Binding ocrDocumentSubmittedDlqBinding(Queue ocrDocumentSubmittedDlq, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(ocrDocumentSubmittedDlq).to(deadLetterExchange).with(OCR_DOCUMENT_SUBMITTED_RK + ".dlq");
     }
 
     @Bean
