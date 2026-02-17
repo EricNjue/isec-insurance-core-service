@@ -57,3 +57,5 @@ databaseChangeLog:
       file: db/changelog/modules/28-sanlam-rules-redefined.yaml
   - include:
       file: db/changelog/modules/29-sanlam-rules-repopulation.yaml
+  - include:
+      file: db/changelog/modules/30-consolidate-addon-rules.yaml

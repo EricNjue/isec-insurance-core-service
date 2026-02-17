@@ -20,7 +20,7 @@ public class RateBookSnapshotLoader {
 
     private final RateBookRepository rateBookRepository;
 
-    public static final String RATEBOOK_CACHE = "ratebookSnapshots_v5";
+    public static final String RATEBOOK_CACHE = "ratebookSnapshots_v6";
 
     @Cacheable(cacheNames = RATEBOOK_CACHE, key = "#tenantId")
     public Snapshot loadActive(String tenantId) {
