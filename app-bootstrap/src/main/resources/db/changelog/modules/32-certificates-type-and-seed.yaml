@@ -1,0 +1,94 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260223-04-certificate-type
+      author: codex
+      changes:
+        - addColumn:
+            tableName: certificate
+            columns:
+              - column:
+                  name: certificate_type
+                  type: VARCHAR(50)
+      rollback:
+        - dropColumn:
+            tableName: certificate
+            columnName: certificate_type
+
+  - changeSet:
+      id: 20260223-05-provider-seed
+      author: codex
+      preConditions:
+        - onFail: MARK_RAN
+          sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM insurance_provider WHERE provider_code = 'JUBILEE'
+      changes:
+        - insert:
+            tableName: insurance_provider
+            columns:
+              - column: { name: id, value: "11111111-1111-4111-8111-111111111111" }
+              - column: { name: provider_code, value: "JUBILEE" }
+              - column: { name: base_url, value: "https://api.jubilee.example" }
+              - column: { name: auth_type, value: "API_KEY" }
+              - column: { name: timeout_ms, valueNumeric: 10000 }
+              - column: { name: retry_count, valueNumeric: 2 }
+              - column: { name: active, valueBoolean: true }
+        - insert:
+            tableName: insurance_provider
+            columns:
+              - column: { name: id, value: "22222222-2222-4222-9222-222222222222" }
+              - column: { name: provider_code, value: "APA" }
+              - column: { name: base_url, value: "https://api.apa.example" }
+              - column: { name: auth_type, value: "API_KEY" }
+              - column: { name: timeout_ms, valueNumeric: 10000 }
+              - column: { name: retry_count, valueNumeric: 2 }
+              - column: { name: active, valueBoolean: true }
+        - insert:
+            tableName: insurance_provider
+            columns:
+              - column: { name: id, value: "33333333-3333-4333-a333-333333333333" }
+              - column: { name: provider_code, value: "BRITAM" }
+              - column: { name: base_url, value: "https://api.britam.example" }
+              - column: { name: auth_type, value: "API_KEY" }
+              - column: { name: timeout_ms, valueNumeric: 10000 }
+              - column: { name: retry_count, valueNumeric: 2 }
+              - column: { name: active, valueBoolean: true }
+      rollback:
+        - delete:
+            tableName: insurance_provider
+            where: provider_code IN ('JUBILEE','APA','BRITAM')
+
+  - changeSet:
+      id: 20260223-06-tenant-provider-mapping-seed
+      author: codex
+      preConditions:
+        - onFail: MARK_RAN
+          sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM tenant_provider_mapping WHERE tenant_id = 'APA' AND provider_code = 'APA'
+      changes:
+        - insert:
+            tableName: tenant_provider_mapping
+            columns:
+              - column: { name: id, value: "44444444-4444-4444-b444-444444444444" }
+              - column: { name: tenant_id, value: "APA" }
+              - column: { name: provider_code, value: "APA" }
+              - column: { name: active, valueBoolean: true }
+        - insert:
+            tableName: tenant_provider_mapping
+            columns:
+              - column: { name: id, value: "55555555-5555-4555-c555-555555555555" }
+              - column: { name: tenant_id, value: "SANLAM" }
+              - column: { name: provider_code, value: "JUBILEE" }
+              - column: { name: active, valueBoolean: true }
+        - insert:
+            tableName: tenant_provider_mapping
+            columns:
+              - column: { name: id, value: "66666666-6666-4666-d666-666666666666" }
+              - column: { name: tenant_id, value: "ICEA" }
+              - column: { name: provider_code, value: "BRITAM" }
+              - column: { name: active, valueBoolean: true }
+      rollback:
+        - delete:
+            tableName: tenant_provider_mapping
+            where: id IN ('44444444-4444-4444-b444-444444444444','55555555-5555-4555-c555-555555555555','66666666-6666-4666-d666-666666666666')

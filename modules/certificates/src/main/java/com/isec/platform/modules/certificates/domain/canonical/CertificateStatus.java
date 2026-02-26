@@ -1,4 +1,4 @@
-package com.isec.platform.modules.certificates.domain;
+package com.isec.platform.modules.certificates.domain.canonical;
 
 public enum CertificateStatus {
     PENDING,

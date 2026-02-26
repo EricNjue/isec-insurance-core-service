@@ -59,3 +59,7 @@ databaseChangeLog:
       file: db/changelog/modules/29-sanlam-rules-repopulation.yaml
   - include:
       file: db/changelog/modules/30-consolidate-addon-rules.yaml
+  - include:
+      file: db/changelog/modules/31-certificates-multi-provider.yaml
+  - include:
+      file: db/changelog/modules/32-certificates-type-and-seed.yaml

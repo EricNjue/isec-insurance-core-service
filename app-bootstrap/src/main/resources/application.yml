@@ -46,6 +46,33 @@ management:
     health:
       show-details: always
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      jubilee:
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+      apa:
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+      britam:
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+  retry:
+    instances:
+      jubilee:
+        maxAttempts: 3
+        waitDuration: 500ms
+      apa:
+        maxAttempts: 3
+        waitDuration: 500ms
+      britam:
+        maxAttempts: 3
+        waitDuration: 500ms
+
 aws:
   s3:
     bucket-name: ${S3_BUCKET:isecdocuments}

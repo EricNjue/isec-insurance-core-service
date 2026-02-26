@@ -1,0 +1,187 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260223-01-certificates-multi-provider
+      author: codex
+      changes:
+        - createTable:
+            tableName: certificate
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: provider_code
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: certificate_number
+                  type: VARCHAR(255)
+              - column:
+                  name: external_reference
+                  type: VARCHAR(255)
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: premium_amount
+                  type: DECIMAL(19,2)
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+              - column:
+                  name: idempotency_key
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: request_payload
+                  type: JSONB
+              - column:
+                  name: response_payload
+                  type: JSONB
+              - column:
+                  name: issued_at
+                  type: TIMESTAMP
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+        - addUniqueConstraint:
+            tableName: certificate
+            columnNames: idempotency_key
+            constraintName: uk_certificate_idempotency
+        - createIndex:
+            tableName: certificate
+            indexName: idx_certificate_provider_code
+            columns:
+              - column:
+                  name: provider_code
+        - createIndex:
+            tableName: certificate
+            indexName: idx_certificate_tenant_id
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: certificate
+            indexName: idx_certificate_external_reference
+            columns:
+              - column:
+                  name: external_reference
+      rollback:
+        - dropTable:
+            tableName: certificate
+
+  - changeSet:
+      id: 20260223-02-insurance-provider
+      author: codex
+      changes:
+        - createTable:
+            tableName: insurance_provider
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: provider_code
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: base_url
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: auth_type
+                  type: VARCHAR(50)
+              - column:
+                  name: timeout_ms
+                  type: INTEGER
+              - column:
+                  name: retry_count
+                  type: INTEGER
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+      rollback:
+        - dropTable:
+            tableName: insurance_provider
+
+  - changeSet:
+      id: 20260223-03-tenant-provider-mapping
+      author: codex
+      changes:
+        - createTable:
+            tableName: tenant_provider_mapping
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: provider_code
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - createIndex:
+            tableName: tenant_provider_mapping
+            indexName: idx_tenant_provider_tenant
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: tenant_provider_mapping
+            indexName: idx_tenant_provider_provider
+            columns:
+              - column:
+                  name: provider_code
+      rollback:
+        - dropTable:
+            tableName: tenant_provider_mapping

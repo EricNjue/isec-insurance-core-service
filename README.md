@@ -26,7 +26,7 @@ The system follows a **Modular Monolith** architecture style, ensuring strict do
 - **Persistence:** Spring Data JPA, Hibernate, PostgreSQL, Liquibase
 - **Messaging:** Spring AMQP (RabbitMQ)
 - **Build Tool:** Maven (Multi-module project)
-- **Integrations:** M-Pesa STK Push, DMVIC Certificate API
+- **Integrations:** M-Pesa STK Push, Insurance Provider Certificate APIs
 
 ---
 
@@ -42,7 +42,7 @@ The project is structured as a multi-module Maven repository to enforce boundari
 - `modules/documents`: S3 document management & metadata.
 - `modules/payments`: M-Pesa STK Push & Partial Payment logic.
 - `modules/policies`: Policy lifecycle management.
-- `modules/certificates`: DMVIC issuance rules (Monthly vs Annual).
+- `modules/certificates`: Multi-provider insurance certificate issuance (adapter + canonical model).
 - `modules/notifications`: Async email/SMS notifications and reminders.
 - `modules/reporting`: CSV exports & date-range reports.
 - `modules/audit`: Aspect-oriented audit logging.
@@ -91,54 +91,99 @@ Authentication and Authorization are handled via **Keycloak**.
 4. **Get Authenticated Quote**: `POST /api/v1/applications/quote` to see premium breakdown for an existing application.
 5. **Upload Documents**: Use `GET /api/v1/documents/presigned-url` to get a PUT URL, upload your file, then use `GET /api/v1/documents/application/{id}` to see all your associated documents and their download URLs.
 6. **Pay**: `POST /api/v1/payments/stk-push` to initiate M-Pesa.
-7. **Issue Certificate**: `POST /api/v1/certificates/request` after payment callback.
+7. **Issue Certificate**: `POST /api/v1/certificates/issue` with `X-Tenant-Id` header and idempotency key.
 
 ---
 
-## 9. Payment & Certificate Flow
-- User initiates STK Push.
-- System records payment as `PENDING`.
-- Safaricom sends callback; System updates balance and records receipt.
-- If payment reaches 35%, Month 1 certificate is unlocked.
+## 9. Certificate Service (Multi-Provider Architecture)
+The certificate service is now designed as a provider-agnostic integration layer from day one.
+
+### 9.1 Architecture Overview
+- **Canonical Domain Model**: `CertificateRequest`, `CertificateResponse`, `Money`, `VehicleDetails`, `CustomerDetails`, `PolicyDetails`.
+- **Adapter Pattern**: Each provider implements `CertificateProviderAdapter` with its own DTOs, mapper, and WebClient config.
+- **Strategy Resolution**: `CertificateProviderRegistry` resolves the adapter using tenant mapping, explicit provider, and default fallback.
+- **Multi-Tenancy**: Tenant is resolved via `X-Tenant-Id` header and enforced using `TenantContext`.
+
+### 9.2 Sequence Diagram (Issue Certificate)
+```
+Client -> CertificateController: POST /api/v1/certificates/issue
+CertificateController -> CertificateApplicationService: issueCertificate(request)
+CertificateApplicationService -> CertificateProviderRegistry: resolveProvider(tenant, request.providerType)
+CertificateProviderRegistry -> TenantProviderMappingRepository: find active mapping
+CertificateApplicationService -> CertificateRepository: idempotency lookup
+CertificateApplicationService -> ProviderAdapter: issueCertificate(request)
+ProviderAdapter -> External Provider API: issue certificate
+ProviderAdapter -> CertificateApplicationService: CertificateResponse
+CertificateApplicationService -> CertificateRepository: persist aggregate + raw payloads
+CertificateApplicationService -> Client: CertificateResponse
+```
+
+### 9.3 Provider Resolution Logic
+1. If the request specifies `providerType`, it must be mapped for the tenant.
+2. Otherwise, the tenant's default active mapping is used.
+3. If no tenant mapping exists, the first active provider is used as fallback.
+
+### 9.4 Idempotency Strategy
+- Client sends `idempotencyKey` in the request body.
+- Service checks `certificate.idempotency_key` for the tenant.
+- If found, the stored response payload is returned without re-issuing.
+- Both request and provider response are persisted as JSONB.
 
 ---
 
-## 10. Monthly Cover Rules
-- **Month 1 & 2:** Issued if at least 35% (Month 1) or 70% (Month 2) of the annual premium is paid.
-- **Month 3:** Locked until 100% of the annual premium is settled.
-- **Maturity Date:** Calculated as `Policy Start Date + 1 Year - 1 Day`.
+## 10. How To Add A New Provider
+1. Create a new package under `modules/certificates/.../adapters/provider/{provider}`.
+2. Add provider-specific DTOs and a mapper to/from canonical models.
+3. Implement `CertificateProviderAdapter` and register provider WebClient config.
+4. Insert provider configuration in `insurance_provider` table.
+5. Map tenants in `tenant_provider_mapping`.
 
 ---
 
-## 11. Async Processing & Idempotency
-The platform utilizes an event-driven architecture with **RabbitMQ** for critical asynchronous workflows:
-- **Certificate Issuance:** Requests to DMVIC are processed asynchronously to handle external API latency and failures.
-- **Valuation Letters:** Letters are generated and stored in S3 asynchronously.
-- **Notifications:** SMS and Email notifications are triggered by lifecycle events.
-
-### Idempotency Strategy
-To ensure reliability and prevent duplicate side effects (like double-issuing certificates), we use:
-- **Idempotency Keys:** Every async request is assigned a unique key.
-- **Redis Tracking:** A Redis-backed `IdempotencyService` tracks processed keys with a configurable TTL (default 7 days).
-- **Status Tracking:** The `Certificate` entity maintains state (`PENDING`, `PROCESSING`, `ISSUED`, `FAILED`) to ensure we don't re-process completed requests.
+## 11. Multi-Tenancy
+- Every certificate record is tied to `tenant_id`.
+- Tenant resolution happens via `X-Tenant-Id` header or JWT claim (if present).
+- Provider mapping is enforced per tenant through `tenant_provider_mapping`.
 
 ---
 
-## 12. End-to-End Journey (Implementation Details)
+## 12. Example Request Flow
+Example `POST /api/v1/certificates/issue` payload:
+```json
+{
+  "idempotencyKey": "c36b6e1f-7d52-4f88-b9d8-5d7e4d2c1c55",
+  "certificateType": "ANNUAL_FULL",
+  "providerType": "JUBILEE",
+  "policyDetails": {
+    "policyNumber": "POL-2026-0001",
+    "startDate": "2026-02-01",
+    "endDate": "2027-01-31",
+    "productType": "COMPREHENSIVE"
+  },
+  "customerDetails": {
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "email": "jane.doe@example.com",
+    "phoneNumber": "+254711000111",
+    "idNumber": "12345678",
+    "addressLine1": "Nairobi"
+  },
+  "vehicleDetails": {
+    "registrationNumber": "KDA 123A",
+    "make": "Toyota",
+    "model": "RAV4",
+    "chassisNumber": "JT1234567890",
+    "engineNumber": "EN1234567890",
+    "bodyType": "SUV"
+  },
+  "premium": {
+    "amount": 55000.00,
+    "currency": "KES"
+  }
+}
+```
 
-### 1. Request Initiation
-- When a payment is received and meets business rule thresholds, the `CertificateService` creates a `PENDING` certificate record and publishes a `CertificateRequestedEvent`.
-- Users can manually trigger valuation letters via `POST /api/v1/notifications/valuation-letter/{policyId}`.
-
-### 2. Async Certificate Issuance
-- `CertificateRequestConsumer` listens for requests.
-- It checks idempotency in Redis.
-- Updates status to `PROCESSING`.
-- Calls `DmvicClient` (mocked).
-- On success, updates status to `ISSUED`, saves the reference, and triggers a `NotificationSendEvent`.
-- On failure, updates status to `FAILED` and triggers a failure notification.
-
-### 3. Valuation Letter Flow
+### 13. Valuation Letter Flow
 - `ValuationLetterConsumer` listens for requests.
 - Generates a production-grade PDF using **OpenPDF**, uploads it to **Amazon S3** (encrypted at rest), and persists metadata in `valuation_letters`.
 - Triggers a `NotificationSendEvent` with a secure, time-limited **presigned download URL**.

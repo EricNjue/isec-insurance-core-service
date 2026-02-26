@@ -1,5 +1,6 @@
 package com.isec.platform.modules.applications.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.common.exception.ResourceNotFoundException;
 import com.isec.platform.modules.applications.domain.Application;
@@ -14,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,6 +53,9 @@ class UnderwritingServiceTest {
     void shouldApproveApplication() throws Exception {
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
         when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArguments()[0]);
+        doReturn(Map.of("totalPremium", new BigDecimal("50000.00")))
+                .when(objectMapper)
+                .readValue(eq("{\"totalPremium\": 50000.00}"), any(TypeReference.class));
 
         Application approved = underwritingService.approve(1L, "uw1", "Approved");
 
