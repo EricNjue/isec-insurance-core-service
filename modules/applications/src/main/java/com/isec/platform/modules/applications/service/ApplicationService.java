@@ -112,6 +112,9 @@ public class ApplicationService {
 
         Application saved = applicationRepository.save(applicationBuilder.build());
 
+        // Link documents if provided in the request (e.g., from a quote initiation)
+        documentService.linkDocumentsToApplication(saved.getId(), request.getDocuments());
+
         if (saved.getStatus() == ApplicationStatus.APPROVED_PENDING_PAYMENT) {
              QuoteResponse quote = quoteService.getQuote(request.getQuoteId());
              if (quote != null) {

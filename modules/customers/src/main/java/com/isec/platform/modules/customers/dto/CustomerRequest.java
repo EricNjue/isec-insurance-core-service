@@ -17,4 +17,6 @@ public class CustomerRequest {
 
     @NotBlank
     private String phoneNumber;
+
+    private String physicalAddress;
 }

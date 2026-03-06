@@ -59,3 +59,7 @@ databaseChangeLog:
       file: db/changelog/modules/29-sanlam-rules-repopulation.yaml
   - include:
       file: db/changelog/modules/30-consolidate-addon-rules.yaml
+  - include:
+      file: db/changelog/modules/31-customers-physical-address.yaml
+  - include:
+      file: db/changelog/modules/32-application-documents-nullable-appid.yaml

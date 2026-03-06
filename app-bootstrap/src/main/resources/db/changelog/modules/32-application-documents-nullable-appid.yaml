@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240302-01
+      author: junie
+      changes:
+        - dropNotNullConstraint:
+            columnName: application_id
+            tableName: application_documents
+            columnDataType: BIGINT

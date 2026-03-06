@@ -27,4 +27,6 @@ public class ApplicationRequest {
     private String anonymousQuoteId;
     private String quoteId;
     private String phoneNumber;
+    
+    private java.util.List<com.isec.platform.modules.documents.dto.ApplicationDocumentDto> documents;
 }

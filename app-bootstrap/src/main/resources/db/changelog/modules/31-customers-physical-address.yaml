@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260302-add-customer-physical-address
+      author: junie
+      changes:
+        - addColumn:
+            tableName: customers
+            columns:
+              - column:
+                  name: physical_address
+                  type: VARCHAR(255)

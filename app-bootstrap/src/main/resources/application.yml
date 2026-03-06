@@ -66,6 +66,7 @@ tenant:
     - "/api/v1/payments/callback"
     - "/api/v1/sms/delivery-report"
     - "/api/v1/profile"
+    - "/api/v1/*/motor/quotes/initiate"
 branding:
   company:
     name: ${BRANDING_COMPANY_NAME:iSec Insurance Agency}
@@ -100,6 +101,10 @@ rating:
     pcf-rate: ${RATING_PCF_RATE:0.0025}
     itl-rate: ${RATING_ITL_RATE:0.0020}
     cert-charge: ${RATING_CERT_CHARGE:40.00}
+
+quote:
+  cache:
+    duration-minutes: ${QUOTE_CACHE_DURATION_MINUTES:30}
 
 server:
   port: ${SERVER_PORT:8080}

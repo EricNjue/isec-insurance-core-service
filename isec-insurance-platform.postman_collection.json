@@ -13,6 +13,73 @@
 					"name": "Quote",
 					"item": [
 						{
+							"name": "Initiate Quote",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = pm.response.json();",
+											"pm.environment.set(\"quoteId\", jsonData.quoteId);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/{{tenantId}}/motor/quotes/initiate",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"{{tenantId}}",
+										"motor",
+										"quotes",
+										"initiate"
+									]
+								}
+							}
+						},
+						{
+							"name": "Fetch Initiated Quote",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "X-Tenant-Id",
+										"value": "{{tenantId}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/{{tenantId}}/motor/quotes/initiate/{{quoteId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"{{tenantId}}",
+										"motor",
+										"quotes",
+										"initiate",
+										"{{quoteId}}"
+									]
+								}
+							}
+						},
+						{
 							"name": "Create Quote",
 							"event": [
 								{
@@ -37,7 +104,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"category\": \"PRIVATE_CAR\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 500000,\n    \"registrationNumber\": \"KAA 123X\",\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"quoteId\": \"{{quoteId}}\",\n    \"addonRuleIds\": [1, 2],\n    \"additionalData\": {\n        \"courtesyCarDays\": 10\n    }\n}",
+									"raw": "{\n    \"quoteId\": \"{{quoteId}}\",\n    \"insuranceDetails\": {\n        \"category\": \"PRIVATE_CAR\",\n        \"insuranceType\": \"General Insurance\",\n        \"coverType\": \"Comprehensive Cover\",\n        \"insuranceCompany\": \"iSec\",\n        \"insuranceStartDate\": \"2026/12/20\",\n        \"insuranceDuration\": \"ANNUAL\",\n        \"addonRuleIds\": [\n            1,\n            2\n        ],\n        \"additionalData\": {\n            \"courtesyCarDays\": 10\n        }\n    },\n    \"vehicleDetails\": {\n        \"valuationAmount\": 6800000,\n        \"valuationCurrency\": \"KES\",\n        \"licensePlateNumber\": \"KDW553T\",\n        \"yearOfManufacture\": 2018,\n        \"makeCode\": \"Audi\",\n        \"modelCode\": \"Q7\",\n        \"engineCapacity\": \"3000\",\n        \"chassisNumber\": \"WAUZZZ4M9JD051499\",\n        \"vinNumber\": \"WAUZZZ4M9JD051499\",\n        \"engineNumber\": \"CRE-250759\",\n        \"usageType\": \"Personal\"\n    },\n    \"kycDetails\": {\n        \"email\": \"eric.gitonga38@gmail.com\",\n        \"fullName\": \"Eric Gitonga Njue\",\n        \"phoneNumber\": \"0719531872\",\n        \"physicalAddress\": \"Juja, Kenyatta Rd\"\n    }\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -89,7 +156,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"registrationNumber\": \"KAA 123X\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"phoneNumber\": \"254712345678\",\n    \"quoteId\": \"{{quoteId}}\",\n    \"anonymousQuoteId\": \"{{anonymousQuoteId}}\"\n}",
+									"raw": "{\n    \"registrationNumber\": \"KAA 123X\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"phoneNumber\": \"254712345678\",\n    \"quoteId\": \"{{quoteId}}\",\n    \"anonymousQuoteId\": \"{{anonymousQuoteId}}\",\n    \"documents\": [\n        {\n            \"documentType\": \"LOGBOOK\",\n            \"s3Key\": \"quotes/new/logbook-uuid.pdf\",\n            \"presignedUrl\": \"http://s3.com/upload/logbook\"\n        },\n        {\n            \"documentType\": \"NATIONAL_ID\",\n            \"s3Key\": \"quotes/new/national_id-uuid.pdf\",\n            \"presignedUrl\": \"http://s3.com/upload/id\"\n        }\n    ]\n}",
 									"options": {
 										"raw": {
 											"language": "json"
