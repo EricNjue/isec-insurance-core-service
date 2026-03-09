@@ -28,6 +28,7 @@ public class CustomerService {
                     existing.setFullName(request.getFullName());
                     existing.setEmail(request.getEmail());
                     existing.setPhoneNumber(request.getPhoneNumber());
+                    existing.setPhysicalAddress(request.getPhysicalAddress());
                     return customerRepository.save(existing);
                 })
                 .orElseGet(() -> {
@@ -37,6 +38,7 @@ public class CustomerService {
                             .fullName(request.getFullName())
                             .email(request.getEmail())
                             .phoneNumber(request.getPhoneNumber())
+                            .physicalAddress(request.getPhysicalAddress())
                             .build();
                     return customerRepository.save(customer);
                 });

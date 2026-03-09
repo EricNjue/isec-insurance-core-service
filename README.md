@@ -85,10 +85,10 @@ Authentication and Authorization are handled via **Keycloak**.
 ---
 
 ## 8. API Usage Flow (Happy Path)
-1. **Anonymous Quote**: `POST /api/v1/rating/anonymous-quote` (unauthenticated) to see potential premium. Store the returned `id`.
-2. **Get Profile**: `GET /api/v1/profile` after logging in.
-3. **Create Application**: `POST /api/v1/applications` to start a draft. You can provide `anonymousQuoteId` to pre-fill and link your quote.
-4. **Get Authenticated Quote**: `POST /api/v1/applications/quote` to see premium breakdown for an existing application.
+1. **Initiate Quote**: `POST /api/v1/{tenantId}/motor/quotes/initiate` (authenticated) to start a new application process. Returns a `quoteId` (valid for 30 minutes) and a list of required documents.
+2. **Create Quote**: `POST /api/v1/{tenantId}/motor/quotes` with the `quoteId`, insurance details, vehicle details, and KYC details. This calculates the premium and upserts customer/vehicle data.
+3. **Get Profile**: `GET /api/v1/profile` after logging in.
+4. **Create Application**: `POST /api/v1/applications` to start a draft from a `quoteId`.
 5. **Upload Documents**: Use `GET /api/v1/documents/presigned-url` to get a PUT URL, upload your file, then use `GET /api/v1/documents/application/{id}` to see all your associated documents and their download URLs.
 6. **Pay**: `POST /api/v1/payments/stk-push` to initiate M-Pesa.
 7. **Issue Certificate**: `POST /api/v1/certificates/request` after payment callback.

@@ -28,6 +28,9 @@ public class Customer {
     @Column(nullable = false)
     private String phoneNumber;
 
+    @Column(name = "physical_address")
+    private String physicalAddress;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

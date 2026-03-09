@@ -21,15 +21,57 @@ public class ApplicationDocumentService {
     private final S3Service s3Service;
     private final ApplicationDocumentRepository documentRepository;
 
-    private static final List<String> MANDATORY_DOCUMENTS = List.of("LOGBOOK", "NATIONAL_ID", "KRA_PIN", "VALUATION_REPORT");
+    private static final List<String> MANDATORY_DOCUMENTS = List.of("LOGBOOK", "NATIONAL_ID", "KRA_PIN", "VALUATION_REPORT","VEHICLE_PHOTO_1","VEHICLE_PHOTO_2","VEHICLE_PHOTO_3","VEHICLE_PHOTO_4");
 
     @Transactional
     public List<ApplicationDocumentDto> getOrCreatePresignedUrls(Long applicationId) {
         log.debug("Retrieving/Creating presigned URLs for application: {}", applicationId);
+        if (applicationId == null) {
+            // At quote initiation stage, we return presigned PUT URLs for document upload.
+            // These documents are not yet persisted in the database because they are not yet uploaded
+            // and don't have an application ID yet.
+            // The client will upload the documents and then provide the S3 keys back
+            // when creating the application.
+            // Note: The generated keys and URLs are cached in QuoteService via InitiateQuoteResponse,
+            // allowing clients to resume the process by quoteId if needed.
+            return MANDATORY_DOCUMENTS.stream()
+                    .map(type -> {
+                        String s3Key = "quotes/new/" + type.toLowerCase() + "-" + UUID.randomUUID() + ".pdf";
+                        String presignedUrl = s3Service.generatePresignedPutUrl(s3Key, "application/pdf");
+                        return ApplicationDocumentDto.builder()
+                                .documentType(type)
+                                .presignedUrl(presignedUrl)
+                                .s3Key(s3Key)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+        }
         return MANDATORY_DOCUMENTS.stream()
                 .map(type -> getOrCreateDocument(applicationId, type))
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void linkDocumentsToApplication(Long applicationId, List<ApplicationDocumentDto> documentDtos) {
+        if (documentDtos == null || documentDtos.isEmpty()) {
+            log.debug("No documents to link for application: {}", applicationId);
+            return;
+        }
+
+        log.info("Linking {} documents to application: {}", documentDtos.size(), applicationId);
+        List<ApplicationDocument> documents = documentDtos.stream()
+                .map(dto -> ApplicationDocument.builder()
+                        .applicationId(applicationId)
+                        .documentType(dto.getDocumentType())
+                        .s3Key(dto.getS3Key())
+                        .lastPresignedUrl(dto.getPresignedUrl())
+                        .urlExpiryAt(LocalDateTime.now().plusHours(1))
+                        .build())
+                .collect(Collectors.toList());
+
+        documentRepository.saveAll(documents);
+        log.info("Successfully linked documents to application: {}", applicationId);
     }
 
     private ApplicationDocument getOrCreateDocument(Long applicationId, String type) {

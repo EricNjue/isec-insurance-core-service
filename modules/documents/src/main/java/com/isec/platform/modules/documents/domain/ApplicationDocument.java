@@ -16,7 +16,7 @@ public class ApplicationDocument {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "application_id", nullable = false)
+    @Column(name = "application_id")
     private Long applicationId;
 
     @Column(name = "document_type", nullable = false)
