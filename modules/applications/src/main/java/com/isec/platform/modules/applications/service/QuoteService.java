@@ -1,6 +1,7 @@
 package com.isec.platform.modules.applications.service;
 
 import com.isec.platform.common.multitenancy.TenantContext;
+import com.isec.platform.modules.applications.dto.InitiateQuoteRequest;
 import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.QuoteResponse;
@@ -8,6 +9,9 @@ import com.isec.platform.modules.customers.dto.CustomerRequest;
 import com.isec.platform.modules.customers.service.CustomerService;
 import com.isec.platform.modules.documents.dto.ApplicationDocumentDto;
 import com.isec.platform.modules.documents.service.ApplicationDocumentService;
+import com.isec.platform.modules.integrations.common.adapter.InsuranceIntegrationAdapter;
+import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckRequest;
+import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
 import com.isec.platform.modules.vehicles.dto.UserVehicleDto;
 import com.isec.platform.modules.vehicles.service.UserVehicleService;
 import com.isec.platform.modules.rating.dto.PricingResult;
@@ -23,9 +27,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -39,30 +41,86 @@ public class QuoteService {
     private final CustomerService customerService;
     private final UserVehicleService userVehicleService;
     private final SecurityContextService securityContextService;
+    private final Map<String, InsuranceIntegrationAdapter> integrationAdapters;
 
     @Value("${quote.cache.duration-minutes:30}")
     private int quoteCacheDurationMinutes;
 
-    public InitiateQuoteResponse initiateQuote() {
+    public InitiateQuoteResponse initiateQuote(InitiateQuoteRequest request) {
         String quoteId = UUID.randomUUID().toString();
-        log.info("Initiating quote with ID: {}", quoteId);
+        String tenantId = getTenantIdOrThrow();
+
+        log.info("Initiating quote with ID: {}, Tenant: {}, LPN: {}", 
+                quoteId, tenantId, request.getLicensePlateNumber());
+
+        // Resolve adapter and check double insurance
+        DoubleInsuranceCheckResponse doubleInsuranceCheck = performDoubleInsuranceCheck(
+                tenantId, request.getLicensePlateNumber(), request.getChassisNumber());
 
         // Required documents for application
+        log.debug("Fetching required documents for quote initiation");
         List<ApplicationDocumentDto> documents = documentService.getOrCreatePresignedUrls(null); 
 
         InitiateQuoteResponse response = InitiateQuoteResponse.builder()
                 .quoteId(quoteId)
                 .documents(documents)
+                .doubleInsuranceCheck(doubleInsuranceCheck)
                 .build();
 
         // Cache quote initiation for 30 minutes
+        log.info("Caching initiated quote {} for {} minutes", quoteId, quoteCacheDurationMinutes);
         redisTemplate.opsForValue().set("quote_init:" + quoteId, response, Duration.ofMinutes(quoteCacheDurationMinutes));
 
         return response;
     }
 
-    public QuoteResponse calculateQuote(QuoteRequest request) {
+    public DoubleInsuranceCheckResponse checkDoubleInsurance(String registrationNumber, String chassisNumber) {
+        String tenantId = getTenantIdOrThrow();
+        log.info("Direct double insurance check for tenant: {}, registration: {}", tenantId, registrationNumber);
+        return performDoubleInsuranceCheck(tenantId, registrationNumber, chassisNumber);
+    }
+
+    private String getTenantIdOrThrow() {
         String tenantId = TenantContext.getTenantId();
+        if (tenantId == null || tenantId.isBlank()) {
+            log.error("Tenant ID not found in context");
+            throw new com.isec.platform.common.exception.BusinessException("Missing required X-Tenant-Id header");
+        }
+        return tenantId;
+    }
+
+    private DoubleInsuranceCheckResponse performDoubleInsuranceCheck(String tenantId, String registrationNumber, String chassisNumber) {
+        InsuranceIntegrationAdapter adapter = integrationAdapters.get(tenantId.toUpperCase() + "IntegrationAdapter");
+        if (adapter == null) {
+            log.debug("Direct adapter lookup failed for {}. Trying case-insensitive search.", tenantId);
+            adapter = integrationAdapters.values().stream()
+                    .filter(a -> a.getCompanyCode().equalsIgnoreCase(tenantId))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (adapter != null) {
+            log.info("Resolved adapter: {} for tenant: {}", adapter.getClass().getSimpleName(), tenantId);
+            DoubleInsuranceCheckResponse response = adapter.checkDoubleInsurance(DoubleInsuranceCheckRequest.builder()
+                    .registrationNumber(registrationNumber)
+                    .chassisNumber(chassisNumber)
+                    .build());
+            log.info("Double insurance check result for {}: hasDuplicate={}", 
+                    registrationNumber, response.isHasDuplicate());
+            return response;
+        } else {
+            log.warn("No integration adapter found for tenant: {}. Skipping double insurance check.", tenantId);
+            return DoubleInsuranceCheckResponse.builder()
+                    .hasDuplicate(false)
+                    .status("clear")
+                    .message("No integration adapter configured for this tenant")
+                    .build();
+        }
+    }
+
+    public QuoteResponse calculateQuote(QuoteRequest request) {
+        String tenantId = getTenantIdOrThrow();
+        
         String quoteId = request.getQuoteId();
         
         log.info("Calculating quote for tenant: {}, quoteId: {}", tenantId, quoteId);
