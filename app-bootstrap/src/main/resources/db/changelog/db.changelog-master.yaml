@@ -67,3 +67,5 @@ databaseChangeLog:
       file: db/changelog/modules/33-integration-registry.yaml
   - include:
       file: db/changelog/modules/34-integration-seed.yaml
+  - include:
+      file: db/changelog/modules/35-integration-version.yaml
