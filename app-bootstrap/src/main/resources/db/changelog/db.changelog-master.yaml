@@ -65,3 +65,5 @@ databaseChangeLog:
       file: db/changelog/modules/32-application-documents-nullable-appid.yaml
   - include:
       file: db/changelog/modules/33-integration-registry.yaml
+  - include:
+      file: db/changelog/modules/34-integration-seed.yaml
