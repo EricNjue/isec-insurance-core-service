@@ -1,0 +1,35 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260328-2-seed-sanlam-integration
+      author: junie
+      changes:
+        - insert:
+            tableName: integration_companies
+            columns:
+              - column:
+                  name: code
+                  value: SANLAM
+              - column:
+                  name: name
+                  value: Sanlam
+              - column:
+                  name: description
+                  value: Sanlam insurance integration
+              - column:
+                  name: active
+                  valueBoolean: true
+              - column:
+                  name: deleted
+                  valueBoolean: false
+              - column:
+                  name: created_at
+                  valueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  valueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: created_by
+                  value: SYSTEM
+              - column:
+                  name: updated_by
+                  value: SYSTEM

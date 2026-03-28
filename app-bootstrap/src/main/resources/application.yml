@@ -94,17 +94,25 @@ africastalking:
   username: ${AFRICASTALKING_USERNAME}
   api-key: ${AFRICASTALKING_API_KEY}
   from: ${AFRICASTALKING_FROM}
-  base-url: ${AFRICASTALKING_BASE_URL:https://api.sandbox.africastalking.com}
+
+# Integration configurations
+integrations:
+  sanlam:
+    base-url: https://giapiuat-fhapb9ebcvbke6h5.a03.azurefd.net
+    username: ${SANLAM_USERNAME:Alemarc87@gmail.com}
+    password: ${SANLAM_PASSWORD:Password1*}
+    token-cache-key: sanlam_access_token
+    token-expiry-buffer-minutes: 5
+
+quote:
+  cache:
+    duration-minutes: ${QUOTE_CACHE_DURATION_MINUTES:30}
 
 rating:
   charges:
     pcf-rate: ${RATING_PCF_RATE:0.0025}
     itl-rate: ${RATING_ITL_RATE:0.0020}
     cert-charge: ${RATING_CERT_CHARGE:40.00}
-
-quote:
-  cache:
-    duration-minutes: ${QUOTE_CACHE_DURATION_MINUTES:30}
 
 server:
   port: ${SERVER_PORT:8080}

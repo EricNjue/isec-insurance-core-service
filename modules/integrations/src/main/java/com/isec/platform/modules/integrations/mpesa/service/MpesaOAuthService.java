@@ -62,22 +62,24 @@ public class MpesaOAuthService {
     }
 
     private MpesaDtos.OAuthResponse fetchNewToken() {
-        log.info("Generating new M-PESA OAuth token");
+        log.info("Generating new M-PESA OAuth token from Safaricom");
         String authHeader = "Basic " + Base64.getEncoder().encodeToString(
                 (mpesaConfig.getConsumerKey() + ":" + mpesaConfig.getConsumerSecret()).getBytes()
         );
 
-        MpesaDtos.OAuthResponse response = webClientBuilder.build()
+        return webClientBuilder.build()
                 .get()
                 .uri(mpesaConfig.getOauthUrl() + "?grant_type=client_credentials")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(MpesaDtos.OAuthResponse.class)
+                .doOnNext(response -> {
+                    log.info("M-PESA OAuth token generated successfully");
+                    saveLog(response);
+                })
+                .doOnError(error -> log.error("Failed to fetch M-PESA OAuth token: {}", error.getMessage()))
                 .block();
-
-        saveLog(response);
-        return response;
     }
 
     private void saveLog(MpesaDtos.OAuthResponse response) {

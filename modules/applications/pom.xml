@@ -41,5 +41,9 @@
             <groupId>com.isec</groupId>
             <artifactId>vehicles</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>integrations</artifactId>
+        </dependency>
     </dependencies>
 </project>

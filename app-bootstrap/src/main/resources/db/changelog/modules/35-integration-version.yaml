@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260328-2-add-version-column-to-integrations
+      author: junie
+      changes:
+        - addColumn:
+            tableName: integration_companies
+            columns:
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false

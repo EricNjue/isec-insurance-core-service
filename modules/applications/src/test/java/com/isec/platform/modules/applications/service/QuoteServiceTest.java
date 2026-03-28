@@ -1,6 +1,7 @@
 package com.isec.platform.modules.applications.service;
 
 import com.isec.platform.common.multitenancy.TenantContext;
+import com.isec.platform.modules.applications.dto.InitiateQuoteRequest;
 import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.QuoteResponse;
@@ -12,6 +13,8 @@ import com.isec.platform.modules.rating.service.PricingEngine;
 import com.isec.platform.modules.rating.service.RateBookSnapshotLoader;
 import com.isec.platform.common.security.SecurityContextService;
 import com.isec.platform.modules.documents.dto.ApplicationDocumentDto;
+import com.isec.platform.modules.integrations.common.adapter.InsuranceIntegrationAdapter;
+import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +26,9 @@ import org.springframework.data.redis.core.ValueOperations;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -49,13 +54,27 @@ class QuoteServiceTest {
     private UserVehicleService userVehicleService;
     @Mock
     private SecurityContextService securityContextService;
+    @Mock
+    private InsuranceIntegrationAdapter insuranceIntegrationAdapter;
 
-    @InjectMocks
     private QuoteService quoteService;
 
     @BeforeEach
     void setUp() {
         TenantContext.setTenantId("SANLAM");
+        Map<String, InsuranceIntegrationAdapter> adapters = new HashMap<>();
+        adapters.put("SANLAMIntegrationAdapter", insuranceIntegrationAdapter);
+        
+        quoteService = new QuoteService(
+            pricingEngine,
+            rateBookSnapshotLoader,
+            redisTemplate,
+            documentService,
+            customerService,
+            userVehicleService,
+            securityContextService,
+            adapters
+        );
     }
 
     @Test
@@ -69,8 +88,14 @@ class QuoteServiceTest {
                         .build()
         );
         when(documentService.getOrCreatePresignedUrls(null)).thenReturn(mockDocs);
+        when(insuranceIntegrationAdapter.checkDoubleInsurance(any())).thenReturn(DoubleInsuranceCheckResponse.builder()
+                .hasDuplicate(false)
+                .build());
 
-        InitiateQuoteResponse response = quoteService.initiateQuote();
+        InitiateQuoteRequest request = InitiateQuoteRequest.builder()
+                .licensePlateNumber("KAA 123X")
+                .build();
+        InitiateQuoteResponse response = quoteService.initiateQuote(request);
 
         assertNotNull(response.getQuoteId());
         assertFalse(response.getDocuments().isEmpty());
