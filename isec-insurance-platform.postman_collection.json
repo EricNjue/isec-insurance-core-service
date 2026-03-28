@@ -1,1890 +1,2392 @@
 {
-	"info": {
-		"_postman_id": "8a3e9c1d-1234-5678-90ab-cdef12345678",
-		"name": "iSec Motor Insurance Platform MVP",
-		"description": "Production-grade API collection for the Motor Insurance Platform.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "Motor Insurance 2026",
-			"item": [
-				{
-					"name": "Quote",
-					"item": [
-						{
-							"name": "Initiate Quote",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = pm.response.json();",
-											"pm.environment.set(\"quoteId\", jsonData.quoteId);"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/{{tenantId}}/motor/quotes/initiate",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"{{tenantId}}",
-										"motor",
-										"quotes",
-										"initiate"
-									]
-								}
-							}
-						},
-						{
-							"name": "Fetch Initiated Quote",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/{{tenantId}}/motor/quotes/initiate/{{quoteId}}",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"{{tenantId}}",
-										"motor",
-										"quotes",
-										"initiate",
-										"{{quoteId}}"
-									]
-								}
-							}
-						},
-						{
-							"name": "Create Quote",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = pm.response.json();",
-											"pm.environment.set(\"quoteId\", jsonData.quoteId);"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"quoteId\": \"{{quoteId}}\",\n    \"insuranceDetails\": {\n        \"category\": \"PRIVATE_CAR\",\n        \"insuranceType\": \"General Insurance\",\n        \"coverType\": \"Comprehensive Cover\",\n        \"insuranceCompany\": \"iSec\",\n        \"insuranceStartDate\": \"2026/12/20\",\n        \"insuranceDuration\": \"ANNUAL\",\n        \"addonRuleIds\": [\n            1,\n            2\n        ],\n        \"additionalData\": {\n            \"courtesyCarDays\": 10\n        }\n    },\n    \"vehicleDetails\": {\n        \"valuationAmount\": 6800000,\n        \"valuationCurrency\": \"KES\",\n        \"licensePlateNumber\": \"KDW553T\",\n        \"yearOfManufacture\": 2018,\n        \"makeCode\": \"Audi\",\n        \"modelCode\": \"Q7\",\n        \"engineCapacity\": \"3000\",\n        \"chassisNumber\": \"WAUZZZ4M9JD051499\",\n        \"vinNumber\": \"WAUZZZ4M9JD051499\",\n        \"engineNumber\": \"CRE-250759\",\n        \"usageType\": \"Personal\"\n    },\n    \"kycDetails\": {\n        \"email\": \"eric.gitonga38@gmail.com\",\n        \"fullName\": \"Eric Gitonga Njue\",\n        \"phoneNumber\": \"0719531872\",\n        \"physicalAddress\": \"Juja, Kenyatta Rd\"\n    }\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/{{tenantId}}/motor/quotes",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"{{tenantId}}",
-										"motor",
-										"quotes"
-									]
-								}
-							}
-						}
-					]
-				},
-				{
-					"name": "Application",
-					"item": [
-						{
-							"name": "Convert Quote to Application",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"var jsonData = pm.response.json();",
-											"pm.environment.set(\"applicationId\", jsonData.id);"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"registrationNumber\": \"KAA 123X\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"phoneNumber\": \"254712345678\",\n    \"quoteId\": \"{{quoteId}}\",\n    \"anonymousQuoteId\": \"{{anonymousQuoteId}}\",\n    \"documents\": [\n        {\n            \"documentType\": \"LOGBOOK\",\n            \"s3Key\": \"quotes/new/logbook-uuid.pdf\",\n            \"presignedUrl\": \"http://s3.com/upload/logbook\"\n        },\n        {\n            \"documentType\": \"NATIONAL_ID\",\n            \"s3Key\": \"quotes/new/national_id-uuid.pdf\",\n            \"presignedUrl\": \"http://s3.com/upload/id\"\n        }\n    ]\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/applications",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"applications"
-									]
-								}
-							}
-						},
-						{
-							"name": "Get Available Add-ons",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/addons?category=PRIVATE_CAR",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"addons"
-									],
-									"query": [
-										{
-											"key": "category",
-											"value": "PRIVATE_CAR"
-										}
-									]
-								}
-							}
-						},
-						{
-							"name": "Get My Vehicles",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/vehicles/my-vehicles",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"vehicles",
-										"my-vehicles"
-									]
-								}
-							}
-						}
-					]
-				},
-				{
-					"name": "Rate Book Management",
-					"item": [
-						{
-							"name": "List RateBooks",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rate-books",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rate-books"
-									]
-								}
-							}
-						},
-						{
-							"name": "Create RateBook",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"name\": \"New Motor Tariff\",\n    \"versionName\": \"v2.0\",\n    \"effectiveFrom\": \"2026-01-01T00:00:00\",\n    \"active\": false\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rate-books",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rate-books"
-									]
-								}
-							}
-						},
-						{
-							"name": "Update RateBook",
-							"request": {
-								"method": "PUT",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"name\": \"Updated Motor Tariff\",\n    \"versionName\": \"v2.1\",\n    \"effectiveFrom\": \"2026-01-01T00:00:00\",\n    \"active\": true\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rate-books/{{rateBookId}}",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rate-books",
-										"{{rateBookId}}"
-									]
-								}
-							}
-						}
-					]
-				},
-				{
-					"name": "Rate Rule Management",
-					"item": [
-						{
-							"name": "List Rules by RateBook",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rules/book/{{rateBookId}}",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rules",
-										"book",
-										"{{rateBookId}}"
-									]
-								}
-							}
-						},
-						{
-							"name": "Create Rate Rule",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"New Base Rate\",\n    \"priority\": 10,\n    \"conditionExpression\": \"vehicleValue.doubleValue() > 0\",\n    \"valueExpression\": \"0.045\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rules",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rules"
-									]
-								}
-							}
-						},
-						{
-							"name": "Create Courtesy Car Rule (AdditionalData example)",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"ADDON\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"Courtesy Car (3000 per 10 days)\",\n    \"priority\": 35,\n    \"conditionExpression\": \"additionalData != null && additionalData['courtesyCarDays'] != null\",\n    \"valueExpression\": \"(T(java.lang.Integer).parseInt(additionalData['courtesyCarDays'].toString()) / 10) * 3000\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rules",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rules"
-									]
-								}
-							}
-						},
-						{
-							"name": "Update Rate Rule",
-							"request": {
-								"method": "PUT",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"Updated Base Rate\",\n    \"priority\": 5,\n    \"conditionExpression\": \"vehicleValue > 0\",\n    \"valueExpression\": \"0.042\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rules/{{ruleId}}",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rules",
-										"{{ruleId}}"
-									]
-								}
-							}
-						},
-						{
-							"name": "Delete Rate Rule",
-							"request": {
-								"method": "DELETE",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/rating/rules/{{ruleId}}",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"rating",
-										"rules",
-										"{{ruleId}}"
-									]
-								}
-							}
-						}
-					]
-				},
-				{
-					"name": "Underwriting",
-					"item": [
-						{
-							"name": "Approve Application",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/underwriting/approve?underwriterId={{underwriterId}}&comments=Approved via Postman",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"applications",
-										"{{applicationId}}",
-										"underwriting",
-										"approve"
-									],
-									"query": [
-										{
-											"key": "underwriterId",
-											"value": "{{underwriterId}}"
-										},
-										{
-											"key": "comments",
-											"value": "Approved via Postman"
-										}
-									]
-								}
-							}
-						},
-						{
-							"name": "Decline Application",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "X-Tenant-Id",
-										"value": "{{tenantId}}",
-										"type": "text"
-									}
-								],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/underwriting/decline?underwriterId={{underwriterId}}&reason=High risk&comments=Declined via Postman",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"applications",
-										"{{applicationId}}",
-										"underwriting",
-										"decline"
-									],
-									"query": [
-										{
-											"key": "underwriterId",
-											"value": "{{underwriterId}}"
-										},
-										{
-											"key": "reason",
-											"value": "High risk"
-										},
-										{
-											"key": "comments",
-											"value": "Declined via Postman"
-										}
-									]
-								}
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "Authentication",
-			"item": [
-				{
-					"name": "Get Access Token",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"var jsonData = pm.response.json();",
-									"pm.environment.set(\"accessToken\", jsonData.access_token);"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "urlencoded",
-							"urlencoded": [
-								{
-									"key": "grant_type",
-									"value": "password",
-									"type": "text"
-								},
-								{
-									"key": "client_id",
-									"value": "{{clientId}}",
-									"type": "text"
-								},
-								{
-									"key": "username",
-									"value": "{{username}}",
-									"type": "text"
-								},
-								{
-									"key": "password",
-									"value": "{{password}}",
-									"type": "text"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
-							"host": [
-								"{{keycloakUrl}}"
-							],
-							"path": [
-								"realms",
-								"{{realm}}",
-								"protocol",
-								"openid-connect",
-								"token"
-							]
-						},
-						"description": "Obtain an access token from Keycloak using the Resource Owner Password Credentials grant."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Identity",
-			"item": [
-				{
-					"name": "Get Current Profile",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/profile",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"profile"
-							]
-						},
-						"description": "Returns the authenticated user's profile and roles from Keycloak."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Applications",
-			"item": [
-				{
-					"name": "Create Application",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"registrationNumber\": \"KAA 001Z\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"phoneNumber\": \"254712345678\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/applications",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"applications"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get Application by ID",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"applications",
-								"{{applicationId}}"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "List Applications",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/applications",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"applications"
-							]
-						},
-						"description": "Lists all applications for the current user. Admins see all applications."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Authenticated Quote",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/applications/quote?applicationId={{applicationId}}&baseRate=0.045",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"applications",
-								"quote"
-							],
-							"query": [
-								{
-									"key": "applicationId",
-									"value": "{{applicationId}}"
-								},
-								{
-									"key": "baseRate",
-									"value": "0.045"
-								}
-							]
-						},
-						"description": "Calculates the final premium for an application, creates the policy record, and transitions application status to QUOTED."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Rating",
-			"item": [
-				{
-					"name": "Anonymous Quote",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Vitz\",\n    \"yearOfManufacture\": 2018,\n    \"vehicleValue\": 400000,\n    \"baseRate\": 0.06,\n    \"tenantId\": \"SANLAM\",\n    \"category\": \"PRIVATE_CAR\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/rating/anonymous-quote",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"rating",
-								"anonymous-quote"
-							]
-						},
-						"description": "Calculates a quote without requiring authentication or a pre-existing application. Returns an anonymousQuoteId stored in Redis."
-					},
-					"response": []
-				},
-				{
-					"name": "Calculate Premium",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/rating/calculate?vehicleValue=2000000&baseRate=0.045",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"rating",
-								"calculate"
-							],
-							"query": [
-								{
-									"key": "vehicleValue",
-									"value": "2000000"
-								},
-								{
-									"key": "baseRate",
-									"value": "0.045"
-								}
-							]
-						},
-						"description": "Authenticated endpoint to calculate premium breakdown based on provided values."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Documents",
-			"item": [
-				{
-					"name": "Get Application Documents",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/documents/application/{{applicationId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"documents",
-								"application",
-								"{{applicationId}}"
-							]
-						},
-						"description": "Returns all mandatory documents for the application with their current presigned GET URLs."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Upload Presigned URL",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"var jsonData = pm.response.json();",
-									"pm.environment.set(\"presignedUploadUrl\", jsonData.presignedUrl);"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/documents/presigned-url?documentType=LOGBOOK&applicationId={{applicationId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"documents",
-								"presigned-url"
-							],
-							"query": [
-								{
-									"key": "documentType",
-									"value": "LOGBOOK"
-								},
-								{
-									"key": "applicationId",
-									"value": "{{applicationId}}"
-								}
-							]
-						},
- 					"description": "Returns a PUT presigned URL for uploading a specific document type for an application."
-					},
-					"response": []
-				},
-				{
-					"name": "Upload Document to S3",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/pdf",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "file",
-							"file": {
-								"src": ""
-							}
-						},
-						"url": {
-							"raw": "{{presignedUploadUrl}}",
-							"host": [
-								"{{presignedUploadUrl}}"
-							]
-						},
-						"description": "Uses the presigned URL obtained from 'Get Upload Presigned URL' to upload the document directly to S3. Note: The URL is passed as a variable 'presignedUploadUrl' which you should set from the previous request's response."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Payments",
-			"item": [
-				{
-					"name": "Initiate STK Push",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "X-Idempotency-Key",
-								"value": "{{$guid}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"applicationId\": {{applicationId}},\n    \"amount\": 10000,\n    \"phoneNumber\": \"254700000000\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/payments/stk-push",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"payments",
-								"stk-push"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "M-Pesa Callback Mock",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"Body\": {\n        \"stkCallback\": {\n            \"MerchantRequestID\": \"29115-346271-1\",\n            \"CheckoutRequestID\": \"ws_CO_191220191020363925\",\n            \"ResultCode\": 0,\n            \"ResultDesc\": \"The service was accepted successfully\",\n            \"CallbackMetadata\": {\n                \"Item\": [\n                    {\n                        \"Name\": \"Amount\",\n                        \"Value\": 10000.00\n                    },\n                    {\n                        \"Name\": \"MpesaReceiptNumber\",\n                        \"Value\": \"NLJ7RT61AS\"\n                    },\n                    {\n                        \"Name\": \"Balance\",\n                        \"Value\": 0.00\n                    },\n                    {\n                        \"Name\": \"TransactionDate\",\n                        \"Value\": 20191219102022\n                    },\n                    {\n                        \"Name\": \"PhoneNumber\",\n                        \"Value\": 254708374149\n                    }\n                ]\n            }\n        }\n    }\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/payments/callback",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"payments",
-								"callback"
-							]
-						},
-						"description": "Mock request for M-Pesa STK Push callback. This endpoint is typically called by Safaricom asynchronously after an STK push is initiated."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Certificates",
-			"item": [
-				{
-					"name": "Request Issuance",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/certificates/request?policyId={{policyId}}&amount=30000",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"certificates",
-								"request"
-							],
-							"query": [
-								{
-									"key": "policyId",
-									"value": "{{policyId}}"
-								},
-								{
-									"key": "amount",
-									"value": "30000"
-								}
-							]
-						},
-						"description": "Manually triggers the certificate issuance logic for a policy. Note: This is automatically triggered by the M-Pesa callback in a live flow."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Certificates by Policy",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/certificates/policy/{{policyId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"certificates",
-								"policy",
-								"{{policyId}}"
-							]
-						},
-						"description": "Returns all certificates (Month 1, Month 2, Annual) associated with a policy."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Policies",
-			"item": [
-				{
-					"name": "Get Policy by ID",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/policies/{{policyId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"policies",
-								"{{policyId}}"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get Policy by Application ID",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/policies/application/{{applicationId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"policies",
-								"application",
-								"{{applicationId}}"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get Policy by Policy Number",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/policies/number/{{policyNumber}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"policies",
-								"number",
-								"{{policyNumber}}"
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Notifications",
-			"item": [
-				{
-					"name": "Trigger Reminders",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/notifications/reminders/trigger",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"notifications",
-								"reminders",
-								"trigger"
-							]
-						},
-						"description": "Admin-only endpoint to trigger policy expiry reminders."
-					},
-					"response": []
-				},
-				{
-					"name": "Request Valuation Letter",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/notifications/valuation-letter/{{policyId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"notifications",
-								"valuation-letter",
-								"{{policyId}}"
-							]
-						},
-						"description": "Triggers the asynchronous generation and delivery of a valuation letter for a policy."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Reporting",
-			"item": [
-				{
-					"name": "Export CSV Report",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/reports/export?startDate=2024-01-01&endDate=2024-12-31",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"reports",
-								"export"
-							],
-							"query": [
-								{
-									"key": "startDate",
-									"value": "2024-01-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								}
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Valuation Letters",
-			"item": [
-				{
-					"name": "Generate Valuation Letter",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"insuredName\": \"John Doe\",\n    \"registrationNumber\": \"KAA 001Z\",\n    \"recipientEmail\": \"customer@example.com\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/policies/{{policyId}}/valuation-letter?force=false",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"policies",
-								"{{policyId}}",
-								"valuation-letter"
-							],
-							"query": [
-								{
-									"key": "force",
-									"value": "false"
-								}
-							]
-						},
-						"description": "Admin/System endpoint to manually generate a valuation letter. It is idempotent by default for the same day."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Valuation Letter Metadata",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuation-letters/{{valuationLetterId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuation-letters",
-								"{{valuationLetterId}}"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Download Valuation Letter (Signed URL)",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuation-letters/{{valuationLetterId}}/download",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuation-letters",
-								"{{valuationLetterId}}",
-								"download"
-							]
-						},
-						"description": "Returns a time-limited presigned URL to download the valuation letter PDF from S3."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Latest Valuation Letter by Policy ID",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuation-letters/policy/{{policyId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuation-letters",
-								"policy",
-								"{{policyId}}"
-							]
-						},
-						"description": "Returns the most recent valuation letter associated with the given policy ID."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Latest Valuation Letter by Policy Number",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuation-letters/policy-number/{{policyNumber}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuation-letters",
-								"policy-number",
-								"{{policyNumber}}"
-							]
-						},
-						"description": "Returns the most recent valuation letter associated with the given policy number."
-					},
-					"response": []
-				},
-				{
-					"name": "List Active Valuers",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuers",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuers"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Add Authorized Valuer",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"companyName\": \"Auto Valuers Ltd\",\n    \"contactPerson\": \"James Kamau\",\n    \"email\": \"james@autovaluers.com\",\n    \"phoneNumbers\": \"0711223344, 0722334455\",\n    \"locations\": \"Nairobi, Mombasa\",\n    \"active\": true\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuers",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuers"
-							]
-						},
-						"description": "Admin-only endpoint to add a new authorized motor valuer."
-					},
-					"response": []
-				},
-				{
-					"name": "Update Authorized Valuer",
-					"request": {
-						"method": "PUT",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"companyName\": \"Auto Valuers Ltd Updated\",\n    \"contactPerson\": \"James Kamau\",\n    \"email\": \"james.updated@autovaluers.com\",\n    \"phoneNumbers\": \"0711223344\",\n    \"locations\": \"Nairobi\",\n    \"active\": true\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuers/{{valuerId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuers",
-								"{{valuerId}}"
-							]
-						},
-						"description": "Admin-only endpoint to update an existing authorized motor valuer."
-					},
-					"response": []
-				},
-				{
-					"name": "Deactivate Authorized Valuer",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/valuers/{{valuerId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"valuers",
-								"{{valuerId}}"
-							]
-						},
-						"description": "Admin-only endpoint to deactivate an authorized motor valuer."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Audit",
-			"item": [
-				{
-					"name": "Fetch Audit Logs",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/audit?page=0&size=20",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"audit"
-							],
-							"query": [
-								{
-									"key": "page",
-									"value": "0"
-								},
-								{
-									"key": "size",
-									"value": "20"
-								}
-							]
-						},
-						"description": "Returns a paginated list of audit logs. Admin only."
-					},
-					"response": []
-				},
-				{
-					"name": "Fetch Audit Logs by Entity",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/audit/entity/APPLICATION/{{applicationId}}?page=0&size=20",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"audit",
-								"entity",
-								"APPLICATION",
-								"{{applicationId}}"
-							],
-							"query": [
-								{
-									"key": "page",
-									"value": "0"
-								},
-								{
-									"key": "size",
-									"value": "20"
-								}
-							]
-						},
-						"description": "Returns audit logs filtered by entity type and ID. Admin only."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Verification",
-			"item": [
-				{
-					"name": "Verify Document Status",
-					"request": {
-						"auth": {
-							"type": "noauth"
-						},
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/verify/doc/{{documentUuid}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"verify",
-								"doc",
-								"{{documentUuid}}"
-							]
-						},
-						"description": "Public endpoint to verify the status of a document using its UUID. Returns VALID, REVOKED, EXPIRED, or NOT_FOUND."
-					},
-					"response": []
-				},
-				{
-					"name": "Verify PDF Upload",
-					"request": {
-						"auth": {
-							"type": "noauth"
-						},
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "file",
-									"type": "file",
-									"src": []
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/verify/upload",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"verify",
-								"upload"
-							]
-						},
-						"description": "Public endpoint to verify a physical PDF file. Recomputes the SHA-256 hash and compares it with the registered hash for the embedded document ID."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Customers",
-			"item": [
-				{
-					"name": "Create or Update Customer",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"fullName\": \"John Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"phoneNumber\": \"254712345678\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/customers",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"customers"
-							]
-						},
-						"description": "Idempotently creates or updates a customer profile linked to the authenticated user ID."
-					},
-					"response": []
-				},
-				{
-					"name": "Get My Profile",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/customers/me",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"customers",
-								"me"
-							]
-						},
-						"description": "Returns the customer profile for the currently authenticated user."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Customer Profile (Admin)",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/customers/{{userId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"customers",
-								"{{userId}}"
-							]
-						},
-						"description": "Admin endpoint to fetch any customer profile by their User ID."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Vehicles",
-			"item": [
-				{
-					"name": "Makes",
-					"item": [
-						{
-							"name": "Create Make",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"code\": \"TOYOTA\",\n    \"name\": \"Toyota\",\n    \"country\": \"Japan\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/vehicles/makes",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"vehicles",
-										"makes"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "List Makes",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/vehicles/makes?active=true&page=0&size=20",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"vehicles",
-										"makes"
-									],
-									"query": [
-										{
-											"key": "active",
-											"value": "true"
-										},
-										{
-											"key": "page",
-											"value": "0"
-										},
-										{
-											"key": "size",
-											"value": "20"
-										}
-									]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Models",
-					"item": [
-						{
-							"name": "Create Model",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"makeId\": \"{{makeId}}\",\n    \"code\": \"COROLLA\",\n    \"name\": \"Corolla 1.8 Hybrid\",\n    \"yearFrom\": 2018,\n    \"yearTo\": 2024,\n    \"bodyType\": \"Sedan\",\n    \"fuelType\": \"Hybrid\"\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/vehicles/models",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"vehicles",
-										"models"
-									]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "List Models",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/vehicles/models?makeCode=TOYOTA&active=true",
-									"host": [
-										"{{baseUrl}}"
-									],
-									"path": [
-										"api",
-										"v1",
-										"vehicles",
-										"models"
-									],
-									"query": [
-										{
-											"key": "makeCode",
-											"value": "TOYOTA"
-										},
-										{
-											"key": "active",
-											"value": "true"
-										}
-									]
-								}
-							},
-							"response": []
-						}
-					]
-				}
-			]
-		}
-	],
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{accessToken}}",
-				"type": "string"
-			}
-		]
-	},
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		}
-	],
-	"variable": [
-		{
-			"key": "baseUrl",
-			"value": "http://localhost:8080"
-		},
-		{
-			"key": "keycloakUrl",
-			"value": "http://localhost:9050"
-		},
-		{
-			"key": "realm",
-			"value": "isec-insurance"
-		},
-		{
-			"key": "clientId",
-			"value": "motor-insurance-client"
-		},
-		{
-			"key": "username",
-			"value": "retail-user"
-		},
-		{
-			"key": "password",
-			"value": "password"
-		},
-		{
-			"key": "accessToken",
-			"value": "your_jwt_here"
-		},
-		{
-			"key": "applicationId",
-			"value": "1"
-		},
-		{
-			"key": "policyId",
-			"value": "1"
-		},
-		{
-			"key": "documentUuid",
-			"value": "550e8400-e29b-41d4-a716-446655440000"
-		},
-		{
-			"key": "valuationLetterId",
-			"value": "1"
-		},
-		{
-			"key": "policyNumber",
-			"value": "POL-12345"
-		},
-		{
-			"key": "valuerId",
-			"value": "1"
-		},
-		{
-			"key": "makeId",
-			"value": "your-make-uuid-here"
-		},
-		{
-			"key": "presignedUploadUrl",
-			"value": ""
-		},
-		{
-			"key": "tenantId",
-			"value": "SANLAM"
-		},
-		{
-			"key": "quoteId",
-			"value": ""
-		},
-		{
-			"key": "underwriterId",
-			"value": "uw1"
-		}
-	]
+    "info": {
+        "_postman_id": "8a3e9c1d-1234-5678-90ab-cdef12345678",
+        "name": "iSec Motor Insurance Platform MVP",
+        "description": "Production-grade API collection for the Motor Insurance Platform.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Motor Insurance 2026",
+            "item": [
+                {
+                    "name": "Quote",
+                    "item": [
+                        {
+                            "name": "Initiate Quote",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "exec": [
+                                            "var jsonData = pm.response.json();",
+                                            "pm.environment.set(\"quoteId\", jsonData.quoteId);"
+                                        ],
+                                        "type": "text/javascript"
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes/initiate",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes",
+                                        "initiate"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Fetch Initiated Quote",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes/initiate/{{quoteId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes",
+                                        "initiate",
+                                        "{{quoteId}}"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Create Quote",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "exec": [
+                                            "var jsonData = pm.response.json();",
+                                            "pm.environment.set(\"quoteId\", jsonData.quoteId);"
+                                        ],
+                                        "type": "text/javascript"
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"quoteId\": \"{{quoteId}}\",\n    \"insuranceDetails\": {\n        \"category\": \"PRIVATE_CAR\",\n        \"insuranceType\": \"General Insurance\",\n        \"coverType\": \"Comprehensive Cover\",\n        \"insuranceCompany\": \"iSec\",\n        \"insuranceStartDate\": \"2026/12/20\",\n        \"insuranceDuration\": \"ANNUAL\",\n        \"addonRuleIds\": [\n            1,\n            2\n        ],\n        \"additionalData\": {\n            \"courtesyCarDays\": 10\n        }\n    },\n    \"vehicleDetails\": {\n        \"valuationAmount\": 6800000,\n        \"valuationCurrency\": \"KES\",\n        \"licensePlateNumber\": \"KDW553T\",\n        \"yearOfManufacture\": 2018,\n        \"makeCode\": \"Audi\",\n        \"modelCode\": \"Q7\",\n        \"engineCapacity\": \"3000\",\n        \"chassisNumber\": \"WAUZZZ4M9JD051499\",\n        \"vinNumber\": \"WAUZZZ4M9JD051499\",\n        \"engineNumber\": \"CRE-250759\",\n        \"usageType\": \"Personal\"\n    },\n    \"kycDetails\": {\n        \"email\": \"eric.gitonga38@gmail.com\",\n        \"fullName\": \"Eric Gitonga Njue\",\n        \"phoneNumber\": \"0719531872\",\n        \"physicalAddress\": \"Juja, Kenyatta Rd\"\n    }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Application",
+                    "item": [
+                        {
+                            "name": "Convert Quote to Application",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "exec": [
+                                            "var jsonData = pm.response.json();",
+                                            "pm.environment.set(\"applicationId\", jsonData.id);"
+                                        ],
+                                        "type": "text/javascript"
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"registrationNumber\": \"KAA 123X\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"chassisNumber\": \"JTDBR32E330123456\",\n    \"engineNumber\": \"1NZ-1234567\",\n    \"phoneNumber\": \"254712345678\",\n    \"quoteId\": \"{{quoteId}}\",\n    \"anonymousQuoteId\": \"{{anonymousQuoteId}}\",\n    \"documents\": [\n        {\n            \"documentType\": \"LOGBOOK\",\n            \"s3Key\": \"quotes/new/logbook-uuid.pdf\",\n            \"presignedUrl\": \"http://s3.com/upload/logbook\"\n        },\n        {\n            \"documentType\": \"NATIONAL_ID\",\n            \"s3Key\": \"quotes/new/national_id-uuid.pdf\",\n            \"presignedUrl\": \"http://s3.com/upload/id\"\n        }\n    ]\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/applications",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "applications"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Get Available Add-ons",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/addons?category=PRIVATE_CAR",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "addons"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "category",
+                                            "value": "PRIVATE_CAR"
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Get My Vehicles",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/vehicles/my-vehicles",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "vehicles",
+                                        "my-vehicles"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Rate Book Management",
+                    "item": [
+                        {
+                            "name": "List RateBooks",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rate-books",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rate-books"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Create RateBook",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"name\": \"New Motor Tariff\",\n    \"versionName\": \"v2.0\",\n    \"effectiveFrom\": \"2026-01-01T00:00:00\",\n    \"active\": false\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rate-books",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rate-books"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Update RateBook",
+                            "request": {
+                                "method": "PUT",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"name\": \"Updated Motor Tariff\",\n    \"versionName\": \"v2.1\",\n    \"effectiveFrom\": \"2026-01-01T00:00:00\",\n    \"active\": true\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rate-books/{{rateBookId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rate-books",
+                                        "{{rateBookId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Rate Rule Management",
+                    "item": [
+                        {
+                            "name": "List Rules by RateBook",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rules/book/{{rateBookId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rules",
+                                        "book",
+                                        "{{rateBookId}}"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Create Rate Rule",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"New Base Rate\",\n    \"priority\": 10,\n    \"conditionExpression\": \"vehicleValue.doubleValue() > 0\",\n    \"valueExpression\": \"0.045\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rules",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rules"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Create Courtesy Car Rule (AdditionalData example)",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"ADDON\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"Courtesy Car (3000 per 10 days)\",\n    \"priority\": 35,\n    \"conditionExpression\": \"additionalData != null && additionalData['courtesyCarDays'] != null\",\n    \"valueExpression\": \"(T(java.lang.Integer).parseInt(additionalData['courtesyCarDays'].toString()) / 10) * 3000\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rules",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rules"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Update Rate Rule",
+                            "request": {
+                                "method": "PUT",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"rateBookId\": {{rateBookId}},\n    \"ruleType\": \"BASE_PREMIUM\",\n    \"category\": \"PRIVATE_CAR\",\n    \"description\": \"Updated Base Rate\",\n    \"priority\": 5,\n    \"conditionExpression\": \"vehicleValue > 0\",\n    \"valueExpression\": \"0.042\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rules/{{ruleId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rules",
+                                        "{{ruleId}}"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Delete Rate Rule",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/rating/rules/{{ruleId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "rating",
+                                        "rules",
+                                        "{{ruleId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Underwriting",
+                    "item": [
+                        {
+                            "name": "Approve Application",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/underwriting/approve?underwriterId={{underwriterId}}&comments=Approved via Postman",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "applications",
+                                        "{{applicationId}}",
+                                        "underwriting",
+                                        "approve"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "underwriterId",
+                                            "value": "{{underwriterId}}"
+                                        },
+                                        {
+                                            "key": "comments",
+                                            "value": "Approved via Postman"
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Decline Application",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/underwriting/decline?underwriterId={{underwriterId}}&reason=High risk&comments=Declined via Postman",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "applications",
+                                        "{{applicationId}}",
+                                        "underwriting",
+                                        "decline"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "underwriterId",
+                                            "value": "{{underwriterId}}"
+                                        },
+                                        {
+                                            "key": "reason",
+                                            "value": "High risk"
+                                        },
+                                        {
+                                            "key": "comments",
+                                            "value": "Declined via Postman"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Insurance Check",
+                    "item": [
+                        {
+                            "name": "Double Insurance Check",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"licensePlateNumber\": \"KBA 123A\",\n    \"chassisNumber\": \"CH123456789\"\n}"
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/insurance-check/double-insurance",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "insurance-check",
+                                        "double-insurance"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Integration Registry",
+                    "item": [
+                        {
+                            "name": "Public",
+                            "item": [
+                                {
+                                    "name": "List Public Integrations",
+                                    "request": {
+                                        "method": "GET",
+                                        "header": [],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/v1/public/integrations?active=true",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "v1",
+                                                "public",
+                                                "integrations"
+                                            ],
+                                            "query": [
+                                                {
+                                                    "key": "active",
+                                                    "value": "true"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Admin",
+                            "item": [
+                                {
+                                    "name": "Create Integration",
+                                    "request": {
+                                        "method": "POST",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{adminToken}}",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"code\": \"APA\",\n    \"name\": \"APA Insurance\",\n    \"description\": \"APA Insurance integration\",\n    \"active\": true\n}"
+                                        },
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/v1/admin/integrations",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "v1",
+                                                "admin",
+                                                "integrations"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Update Integration",
+                                    "request": {
+                                        "method": "PUT",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{adminToken}}",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"code\": \"APA\",\n    \"name\": \"APA Insurance Updated\",\n    \"description\": \"Updated APA Insurance description\",\n    \"active\": true\n}"
+                                        },
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/v1/admin/integrations/{{integrationId}}",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "v1",
+                                                "admin",
+                                                "integrations",
+                                                "{{integrationId}}"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Update Integration Status",
+                                    "request": {
+                                        "method": "PATCH",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{adminToken}}",
+                                                "type": "text"
+                                            },
+                                            {
+                                                "key": "Content-Type",
+                                                "value": "application/json",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"active\": false\n}"
+                                        },
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/v1/admin/integrations/{{integrationId}}/status",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "v1",
+                                                "admin",
+                                                "integrations",
+                                                "{{integrationId}}",
+                                                "status"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "List All Integrations",
+                                    "request": {
+                                        "method": "GET",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{adminToken}}",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/v1/admin/integrations",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "v1",
+                                                "admin",
+                                                "integrations"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Get Integration by ID",
+                                    "request": {
+                                        "method": "GET",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{adminToken}}",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/v1/admin/integrations/{{integrationId}}",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "v1",
+                                                "admin",
+                                                "integrations",
+                                                "{{integrationId}}"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Delete Integration",
+                                    "request": {
+                                        "method": "DELETE",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{adminToken}}",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/v1/admin/integrations/{{integrationId}}",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "v1",
+                                                "admin",
+                                                "integrations",
+                                                "{{integrationId}}"
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "Get Access Token",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "pm.environment.set(\"accessToken\", jsonData.access_token);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "urlencoded",
+                            "urlencoded": [
+                                {
+                                    "key": "grant_type",
+                                    "value": "password",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "client_id",
+                                    "value": "{{clientId}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "username",
+                                    "value": "{{username}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "password",
+                                    "value": "{{password}}",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+                            "host": [
+                                "{{keycloakUrl}}"
+                            ],
+                            "path": [
+                                "realms",
+                                "{{realm}}",
+                                "protocol",
+                                "openid-connect",
+                                "token"
+                            ]
+                        },
+                        "description": "Obtain an access token from Keycloak using the Resource Owner Password Credentials grant."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Identity",
+            "item": [
+                {
+                    "name": "Get Current Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "profile"
+                            ]
+                        },
+                        "description": "Returns the authenticated user's profile and roles from Keycloak."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Applications",
+            "item": [
+                {
+                    "name": "Create Application",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"registrationNumber\": \"KAA 001Z\",\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Corolla\",\n    \"yearOfManufacture\": 2020,\n    \"vehicleValue\": 2500000,\n    \"phoneNumber\": \"254712345678\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/applications",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "applications"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Application by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "applications",
+                                "{{applicationId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List Applications",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/applications",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "applications"
+                            ]
+                        },
+                        "description": "Lists all applications for the current user. Admins see all applications."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Authenticated Quote",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/applications/quote?applicationId={{applicationId}}&baseRate=0.045",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "applications",
+                                "quote"
+                            ],
+                            "query": [
+                                {
+                                    "key": "applicationId",
+                                    "value": "{{applicationId}}"
+                                },
+                                {
+                                    "key": "baseRate",
+                                    "value": "0.045"
+                                }
+                            ]
+                        },
+                        "description": "Calculates the final premium for an application, creates the policy record, and transitions application status to QUOTED."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Rating",
+            "item": [
+                {
+                    "name": "Anonymous Quote",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"vehicleMake\": \"Toyota\",\n    \"vehicleModel\": \"Vitz\",\n    \"yearOfManufacture\": 2018,\n    \"vehicleValue\": 400000,\n    \"baseRate\": 0.06,\n    \"tenantId\": \"SANLAM\",\n    \"category\": \"PRIVATE_CAR\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/rating/anonymous-quote",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "rating",
+                                "anonymous-quote"
+                            ]
+                        },
+                        "description": "Calculates a quote without requiring authentication or a pre-existing application. Returns an anonymousQuoteId stored in Redis."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Calculate Premium",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/rating/calculate?vehicleValue=2000000&baseRate=0.045",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "rating",
+                                "calculate"
+                            ],
+                            "query": [
+                                {
+                                    "key": "vehicleValue",
+                                    "value": "2000000"
+                                },
+                                {
+                                    "key": "baseRate",
+                                    "value": "0.045"
+                                }
+                            ]
+                        },
+                        "description": "Authenticated endpoint to calculate premium breakdown based on provided values."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Documents",
+            "item": [
+                {
+                    "name": "Get Application Documents",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/documents/application/{{applicationId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "documents",
+                                "application",
+                                "{{applicationId}}"
+                            ]
+                        },
+                        "description": "Returns all mandatory documents for the application with their current presigned GET URLs."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Upload Presigned URL",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "pm.environment.set(\"presignedUploadUrl\", jsonData.presignedUrl);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/documents/presigned-url?documentType=LOGBOOK&applicationId={{applicationId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "documents",
+                                "presigned-url"
+                            ],
+                            "query": [
+                                {
+                                    "key": "documentType",
+                                    "value": "LOGBOOK"
+                                },
+                                {
+                                    "key": "applicationId",
+                                    "value": "{{applicationId}}"
+                                }
+                            ]
+                        },
+                        "description": "Returns a PUT presigned URL for uploading a specific document type for an application."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Upload Document to S3",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/pdf",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "file",
+                            "file": {
+                                "src": ""
+                            }
+                        },
+                        "url": {
+                            "raw": "{{presignedUploadUrl}}",
+                            "host": [
+                                "{{presignedUploadUrl}}"
+                            ]
+                        },
+                        "description": "Uses the presigned URL obtained from 'Get Upload Presigned URL' to upload the document directly to S3. Note: The URL is passed as a variable 'presignedUploadUrl' which you should set from the previous request's response."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Payments",
+            "item": [
+                {
+                    "name": "Initiate STK Push",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Idempotency-Key",
+                                "value": "{{$guid}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"applicationId\": {{applicationId}},\n    \"amount\": 10000,\n    \"phoneNumber\": \"254700000000\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/payments/stk-push",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "payments",
+                                "stk-push"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "M-Pesa Callback Mock",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"Body\": {\n        \"stkCallback\": {\n            \"MerchantRequestID\": \"29115-346271-1\",\n            \"CheckoutRequestID\": \"ws_CO_191220191020363925\",\n            \"ResultCode\": 0,\n            \"ResultDesc\": \"The service was accepted successfully\",\n            \"CallbackMetadata\": {\n                \"Item\": [\n                    {\n                        \"Name\": \"Amount\",\n                        \"Value\": 10000.00\n                    },\n                    {\n                        \"Name\": \"MpesaReceiptNumber\",\n                        \"Value\": \"NLJ7RT61AS\"\n                    },\n                    {\n                        \"Name\": \"Balance\",\n                        \"Value\": 0.00\n                    },\n                    {\n                        \"Name\": \"TransactionDate\",\n                        \"Value\": 20191219102022\n                    },\n                    {\n                        \"Name\": \"PhoneNumber\",\n                        \"Value\": 254708374149\n                    }\n                ]\n            }\n        }\n    }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/payments/callback",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "payments",
+                                "callback"
+                            ]
+                        },
+                        "description": "Mock request for M-Pesa STK Push callback. This endpoint is typically called by Safaricom asynchronously after an STK push is initiated."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Certificates",
+            "item": [
+                {
+                    "name": "Request Issuance",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/certificates/request?policyId={{policyId}}&amount=30000",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "certificates",
+                                "request"
+                            ],
+                            "query": [
+                                {
+                                    "key": "policyId",
+                                    "value": "{{policyId}}"
+                                },
+                                {
+                                    "key": "amount",
+                                    "value": "30000"
+                                }
+                            ]
+                        },
+                        "description": "Manually triggers the certificate issuance logic for a policy. Note: This is automatically triggered by the M-Pesa callback in a live flow."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Certificates by Policy",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/certificates/policy/{{policyId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "certificates",
+                                "policy",
+                                "{{policyId}}"
+                            ]
+                        },
+                        "description": "Returns all certificates (Month 1, Month 2, Annual) associated with a policy."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Policies",
+            "item": [
+                {
+                    "name": "Get Policy by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/policies/{{policyId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "policies",
+                                "{{policyId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Policy by Application ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/policies/application/{{applicationId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "policies",
+                                "application",
+                                "{{applicationId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Policy by Policy Number",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/policies/number/{{policyNumber}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "policies",
+                                "number",
+                                "{{policyNumber}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Notifications",
+            "item": [
+                {
+                    "name": "Trigger Reminders",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/notifications/reminders/trigger",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "notifications",
+                                "reminders",
+                                "trigger"
+                            ]
+                        },
+                        "description": "Admin-only endpoint to trigger policy expiry reminders."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Request Valuation Letter",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/notifications/valuation-letter/{{policyId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "notifications",
+                                "valuation-letter",
+                                "{{policyId}}"
+                            ]
+                        },
+                        "description": "Triggers the asynchronous generation and delivery of a valuation letter for a policy."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Reporting",
+            "item": [
+                {
+                    "name": "Export CSV Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/reports/export?startDate=2024-01-01&endDate=2024-12-31",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "reports",
+                                "export"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2024-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2024-12-31"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Valuation Letters",
+            "item": [
+                {
+                    "name": "Generate Valuation Letter",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"insuredName\": \"John Doe\",\n    \"registrationNumber\": \"KAA 001Z\",\n    \"recipientEmail\": \"customer@example.com\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/policies/{{policyId}}/valuation-letter?force=false",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "policies",
+                                "{{policyId}}",
+                                "valuation-letter"
+                            ],
+                            "query": [
+                                {
+                                    "key": "force",
+                                    "value": "false"
+                                }
+                            ]
+                        },
+                        "description": "Admin/System endpoint to manually generate a valuation letter. It is idempotent by default for the same day."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Valuation Letter Metadata",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuation-letters/{{valuationLetterId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuation-letters",
+                                "{{valuationLetterId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Download Valuation Letter (Signed URL)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuation-letters/{{valuationLetterId}}/download",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuation-letters",
+                                "{{valuationLetterId}}",
+                                "download"
+                            ]
+                        },
+                        "description": "Returns a time-limited presigned URL to download the valuation letter PDF from S3."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Latest Valuation Letter by Policy ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuation-letters/policy/{{policyId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuation-letters",
+                                "policy",
+                                "{{policyId}}"
+                            ]
+                        },
+                        "description": "Returns the most recent valuation letter associated with the given policy ID."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Latest Valuation Letter by Policy Number",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuation-letters/policy-number/{{policyNumber}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuation-letters",
+                                "policy-number",
+                                "{{policyNumber}}"
+                            ]
+                        },
+                        "description": "Returns the most recent valuation letter associated with the given policy number."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List Active Valuers",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuers",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuers"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add Authorized Valuer",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"companyName\": \"Auto Valuers Ltd\",\n    \"contactPerson\": \"James Kamau\",\n    \"email\": \"james@autovaluers.com\",\n    \"phoneNumbers\": \"0711223344, 0722334455\",\n    \"locations\": \"Nairobi, Mombasa\",\n    \"active\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuers",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuers"
+                            ]
+                        },
+                        "description": "Admin-only endpoint to add a new authorized motor valuer."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Authorized Valuer",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"companyName\": \"Auto Valuers Ltd Updated\",\n    \"contactPerson\": \"James Kamau\",\n    \"email\": \"james.updated@autovaluers.com\",\n    \"phoneNumbers\": \"0711223344\",\n    \"locations\": \"Nairobi\",\n    \"active\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuers/{{valuerId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuers",
+                                "{{valuerId}}"
+                            ]
+                        },
+                        "description": "Admin-only endpoint to update an existing authorized motor valuer."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Deactivate Authorized Valuer",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/valuers/{{valuerId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "valuers",
+                                "{{valuerId}}"
+                            ]
+                        },
+                        "description": "Admin-only endpoint to deactivate an authorized motor valuer."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Audit",
+            "item": [
+                {
+                    "name": "Fetch Audit Logs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/audit?page=0&size=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "audit"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "0"
+                                },
+                                {
+                                    "key": "size",
+                                    "value": "20"
+                                }
+                            ]
+                        },
+                        "description": "Returns a paginated list of audit logs. Admin only."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Fetch Audit Logs by Entity",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/audit/entity/APPLICATION/{{applicationId}}?page=0&size=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "audit",
+                                "entity",
+                                "APPLICATION",
+                                "{{applicationId}}"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "0"
+                                },
+                                {
+                                    "key": "size",
+                                    "value": "20"
+                                }
+                            ]
+                        },
+                        "description": "Returns audit logs filtered by entity type and ID. Admin only."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Verification",
+            "item": [
+                {
+                    "name": "Verify Document Status",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/verify/doc/{{documentUuid}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "verify",
+                                "doc",
+                                "{{documentUuid}}"
+                            ]
+                        },
+                        "description": "Public endpoint to verify the status of a document using its UUID. Returns VALID, REVOKED, EXPIRED, or NOT_FOUND."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Verify PDF Upload",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/verify/upload",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "verify",
+                                "upload"
+                            ]
+                        },
+                        "description": "Public endpoint to verify a physical PDF file. Recomputes the SHA-256 hash and compares it with the registered hash for the embedded document ID."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Customers",
+            "item": [
+                {
+                    "name": "Create or Update Customer",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"fullName\": \"John Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"phoneNumber\": \"254712345678\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/customers",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "customers"
+                            ]
+                        },
+                        "description": "Idempotently creates or updates a customer profile linked to the authenticated user ID."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get My Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/customers/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "customers",
+                                "me"
+                            ]
+                        },
+                        "description": "Returns the customer profile for the currently authenticated user."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Customer Profile (Admin)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/customers/{{userId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "customers",
+                                "{{userId}}"
+                            ]
+                        },
+                        "description": "Admin endpoint to fetch any customer profile by their User ID."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Vehicles",
+            "item": [
+                {
+                    "name": "Makes",
+                    "item": [
+                        {
+                            "name": "Create Make",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"code\": \"TOYOTA\",\n    \"name\": \"Toyota\",\n    \"country\": \"Japan\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/vehicles/makes",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "vehicles",
+                                        "makes"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "List Makes",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/vehicles/makes?active=true&page=0&size=20",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "vehicles",
+                                        "makes"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "active",
+                                            "value": "true"
+                                        },
+                                        {
+                                            "key": "page",
+                                            "value": "0"
+                                        },
+                                        {
+                                            "key": "size",
+                                            "value": "20"
+                                        }
+                                    ]
+                                }
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Models",
+                    "item": [
+                        {
+                            "name": "Create Model",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"makeId\": \"{{makeId}}\",\n    \"code\": \"COROLLA\",\n    \"name\": \"Corolla 1.8 Hybrid\",\n    \"yearFrom\": 2018,\n    \"yearTo\": 2024,\n    \"bodyType\": \"Sedan\",\n    \"fuelType\": \"Hybrid\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/vehicles/models",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "vehicles",
+                                        "models"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "List Models",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/vehicles/models?makeCode=TOYOTA&active=true",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "vehicles",
+                                        "models"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "makeCode",
+                                            "value": "TOYOTA"
+                                        },
+                                        {
+                                            "key": "active",
+                                            "value": "true"
+                                        }
+                                    ]
+                                }
+                            },
+                            "response": []
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{accessToken}}",
+                "type": "string"
+            }
+        ]
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:8080"
+        },
+        {
+            "key": "keycloakUrl",
+            "value": "http://localhost:9050"
+        },
+        {
+            "key": "realm",
+            "value": "isec-insurance"
+        },
+        {
+            "key": "clientId",
+            "value": "motor-insurance-client"
+        },
+        {
+            "key": "username",
+            "value": "retail-user"
+        },
+        {
+            "key": "password",
+            "value": "password"
+        },
+        {
+            "key": "accessToken",
+            "value": "your_jwt_here"
+        },
+        {
+            "key": "applicationId",
+            "value": "1"
+        },
+        {
+            "key": "policyId",
+            "value": "1"
+        },
+        {
+            "key": "documentUuid",
+            "value": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        {
+            "key": "valuationLetterId",
+            "value": "1"
+        },
+        {
+            "key": "policyNumber",
+            "value": "POL-12345"
+        },
+        {
+            "key": "valuerId",
+            "value": "1"
+        },
+        {
+            "key": "makeId",
+            "value": "your-make-uuid-here"
+        },
+        {
+            "key": "presignedUploadUrl",
+            "value": ""
+        },
+        {
+            "key": "tenantId",
+            "value": "SANLAM"
+        },
+        {
+            "key": "quoteId",
+            "value": ""
+        },
+        {
+            "key": "underwriterId",
+            "value": "uw1"
+        }
+    ]
 }

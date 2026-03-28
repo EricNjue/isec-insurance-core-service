@@ -63,3 +63,5 @@ databaseChangeLog:
       file: db/changelog/modules/31-customers-physical-address.yaml
   - include:
       file: db/changelog/modules/32-application-documents-nullable-appid.yaml
+  - include:
+      file: db/changelog/modules/33-integration-registry.yaml
