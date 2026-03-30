@@ -57,6 +57,15 @@ public class QuoteService {
         DoubleInsuranceCheckResponse doubleInsuranceCheck = performDoubleInsuranceCheck(
                 tenantId, request.getLicensePlateNumber(), request.getChassisNumber());
 
+        if (doubleInsuranceCheck != null && doubleInsuranceCheck.isHasDuplicate()) {
+            log.warn("Double insurance found for LPN: {}. Skipping document generation and caching.", 
+                    request.getLicensePlateNumber());
+            return InitiateQuoteResponse.builder()
+                    .quoteId(quoteId)
+                    .doubleInsuranceCheck(doubleInsuranceCheck)
+                    .build();
+        }
+
         // Required documents for application
         log.debug("Fetching required documents for quote initiation");
         List<ApplicationDocumentDto> documents = documentService.getOrCreatePresignedUrls(null); 

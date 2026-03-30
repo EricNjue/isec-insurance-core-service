@@ -28,7 +28,14 @@ public class QuoteController {
         String tenantId = TenantContext.getTenantId();
         log.info("Initiate quote request received for tenant: {}, LPN: {}", 
                 tenantId, request.getLicensePlateNumber());
-        return ResponseEntity.ok(quoteService.initiateQuote(request));
+        
+        InitiateQuoteResponse response = quoteService.initiateQuote(request);
+        
+        if (response.getDoubleInsuranceCheck() != null && response.getDoubleInsuranceCheck().isHasDuplicate()) {
+            return ResponseEntity.status(409).body(response);
+        }
+        
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/initiate/{quoteId}")
