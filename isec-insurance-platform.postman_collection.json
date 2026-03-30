@@ -47,7 +47,17 @@
                                         "quotes",
                                         "initiate"
                                     ]
-                                }
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"licensePlateNumber\": \"KAA 123X\",\n    \"chassisNumber\": \"CH123456789\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "description": "Initiates a quote. Returns 409 Conflict if double insurance is found."
                             }
                         },
                         {

@@ -104,6 +104,26 @@ class QuoteServiceTest {
     }
 
     @Test
+    void initiateQuote_WithDuplicate_ShouldReturnEarlyAndNotCache() {
+        when(insuranceIntegrationAdapter.checkDoubleInsurance(any())).thenReturn(DoubleInsuranceCheckResponse.builder()
+                .hasDuplicate(true)
+                .status("double")
+                .message("Active cover found")
+                .build());
+
+        InitiateQuoteRequest request = InitiateQuoteRequest.builder()
+                .licensePlateNumber("KAA 123X")
+                .build();
+        InitiateQuoteResponse response = quoteService.initiateQuote(request);
+
+        assertNotNull(response.getQuoteId());
+        assertTrue(response.getDoubleInsuranceCheck().isHasDuplicate());
+        assertNull(response.getDocuments());
+        verify(documentService, never()).getOrCreatePresignedUrls(any());
+        verify(redisTemplate, never()).opsForValue();
+    }
+
+    @Test
     void getInitiatedQuote_ShouldReturnCachedResponse() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         String quoteId = "test-quote-id";
