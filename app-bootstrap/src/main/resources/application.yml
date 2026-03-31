@@ -103,6 +103,7 @@ integrations:
     password: ${SANLAM_PASSWORD:Password1*}
     token-cache-key: sanlam_access_token
     token-expiry-buffer-minutes: 5
+    double-insurance-cache-expiry-minutes: ${SANLAM_DOUBLE_INSURANCE_CACHE_EXPIRY:15}
 
 quote:
   cache:

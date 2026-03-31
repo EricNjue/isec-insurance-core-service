@@ -1,5 +1,6 @@
 package com.isec.platform.modules.integrations.sanlam.adapter;
 
+import com.isec.platform.common.cache.CachingConfig;
 import com.isec.platform.modules.integrations.common.adapter.InsuranceIntegrationAdapter;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckRequest;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
@@ -7,7 +8,11 @@ import com.isec.platform.modules.integrations.sanlam.client.SanlamClient;
 import com.isec.platform.modules.integrations.sanlam.dto.SanlamDoubleInsuranceResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -15,6 +20,7 @@ import org.springframework.stereotype.Service;
 public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
 
     private final SanlamClient sanlamClient;
+    private final CacheManager cacheManager;
 
     @Override
     public String getCompanyCode() {
@@ -23,7 +29,31 @@ public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
 
     @Override
     public DoubleInsuranceCheckResponse checkDoubleInsurance(DoubleInsuranceCheckRequest request) {
-        log.info("Starting double insurance check for Sanlam. Registration: {}", request.getRegistrationNumber());
+        String cacheKey = String.format("%s-%s", request.getRegistrationNumber(), request.getChassisNumber());
+        
+        return Optional.ofNullable(cacheManager.getCache(CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE))
+                .map(cache -> {
+                    DoubleInsuranceCheckResponse cachedResponse = cache.get(cacheKey, DoubleInsuranceCheckResponse.class);
+                    if (cachedResponse != null) {
+                        log.info("Cache hit for Sanlam double insurance check. Key: {}", cacheKey);
+                        return cachedResponse;
+                    }
+                    
+                    log.info("Cache miss for Sanlam double insurance check. Fetching from API. Key: {}", cacheKey);
+                    DoubleInsuranceCheckResponse apiResponse = fetchDoubleInsuranceFromApi(request);
+                    if (apiResponse != null) {
+                        cache.put(cacheKey, apiResponse);
+                    }
+                    return apiResponse;
+                })
+                .orElseGet(() -> {
+                    log.warn("Cache '{}' not found. Calling API directly.", CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE);
+                    return fetchDoubleInsuranceFromApi(request);
+                });
+    }
+
+    private DoubleInsuranceCheckResponse fetchDoubleInsuranceFromApi(DoubleInsuranceCheckRequest request) {
+        log.info("Starting double insurance API call for Sanlam. Registration: {}", request.getRegistrationNumber());
         try {
             SanlamDoubleInsuranceResponse response = sanlamClient.checkDoubleInsurance(
                     request.getRegistrationNumber(),
