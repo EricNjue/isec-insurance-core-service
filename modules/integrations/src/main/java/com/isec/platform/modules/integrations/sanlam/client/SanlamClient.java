@@ -98,15 +98,18 @@ public class SanlamClient {
         log.info("Calling Sanlam double insurance check for LPN: {}, chassis: {}", registrationNumber, chassisNumber);
         String token = getAccessToken();
         
+        Map<String, String> body = new java.util.HashMap<>();
+        body.put("registration_number", registrationNumber);
+        if (chassisNumber != null && !chassisNumber.isEmpty()) {
+            body.put("chassis_number", chassisNumber);
+        }
+
         return webClientBuilder.build()
                 .post()
                 .uri(baseUrl + "/external_apis/dmvic/check-double-insurance")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(Map.of(
-                        "registration_number", registrationNumber,
-                        "chassis_number", chassisNumber
-                ))
+                .bodyValue(body)
                 .retrieve()
                 .bodyToMono(SanlamDoubleInsuranceResponse.class)
                 .doOnNext(response -> log.info("Sanlam double insurance response: status={}, message={}", 
