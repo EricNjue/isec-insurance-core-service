@@ -126,4 +126,25 @@ class SanlamIntegrationAdapterTest {
         assertEquals("APA", response.getDetails().getInsurer());
         assertEquals("POL123", response.getDetails().getPolicyNumber());
     }
+    
+    @Test
+    void checkDoubleInsurance_WithNullChassis_ShouldCallClientWithNull() {
+        // Prepare
+        DoubleInsuranceCheckRequest request = DoubleInsuranceCheckRequest.builder()
+                .registrationNumber("KAA123X")
+                .chassisNumber(null)
+                .build();
+
+        SanlamDoubleInsuranceResponse sanlamResponse = new SanlamDoubleInsuranceResponse();
+        sanlamResponse.setStatus("clear");
+
+        when(cacheManager.getCache(anyString())).thenReturn(cache);
+        when(sanlamClient.checkDoubleInsurance(anyString(), eq(null))).thenReturn(sanlamResponse);
+
+        // Execute
+        adapter.checkDoubleInsurance(request);
+
+        // Verify
+        verify(sanlamClient).checkDoubleInsurance("KAA123X", null);
+    }
 }
