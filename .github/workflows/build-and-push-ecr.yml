@@ -1,0 +1,98 @@
+name: Build and Push to Amazon ECR
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag (e.g., v1.0.0). For main/develop, this will be overridden to "latest".'
+        required: false
+        default: ''
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  JAVA_VERSION: '17'
+
+jobs:
+  build-and-push:
+    name: Build and Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for OIDC if using configure-aws-credentials with role-to-assume
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.ref }}
+
+      - name: Sanitize Branch Name
+        id: sanitize
+        run: |
+          # Replace all non-alphanumeric characters with hyphens and convert to lowercase
+          BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+          echo "branch_sanitized=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Resolve Image Tag
+        id: resolve_tag
+        run: |
+          REF_NAME="${{ github.ref_name }}"
+          INPUT_TAG="${{ github.event.inputs.image_tag }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          BRANCH_SANITIZED="${{ steps.sanitize.outputs.branch_sanitized }}"
+          
+          if [[ "$REF_NAME" == "main" || "$REF_NAME" == "develop" ]]; then
+            FINAL_TAG="latest"
+            echo "Branch is $REF_NAME. Overriding tag to 'latest'."
+          elif [[ -n "$INPUT_TAG" ]]; then
+            FINAL_TAG="$INPUT_TAG"
+            echo "Using provided image tag: $FINAL_TAG"
+          else
+            FINAL_TAG="${BRANCH_SANITIZED}-${SHORT_SHA}"
+            echo "No tag provided. Generated tag: $FINAL_TAG"
+          fi
+          
+          echo "image_tag=${FINAL_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Application with Maven
+        run: ./mvnw clean package -DskipTests
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.resolve_tag.outputs.image_tag }}
+        run: |
+          # Build a docker container and push it to ECR
+          IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "### Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Resolved Tag:** ${{ steps.resolve_tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Final Image URI:** \`${{ steps.build-image.outputs.image_uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully pushed image to Amazon ECR."
+          echo "Final Image URI: ${{ steps.build-image.outputs.image_uri }}"
