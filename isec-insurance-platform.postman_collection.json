@@ -10,6 +10,124 @@
             "name": "Motor Insurance 2026",
             "item": [
                 {
+                    "name": "Reference Data",
+                    "item": [
+                        {
+                            "name": "Fetch All Master Reference Data",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/public/integrations/{{tenantId}}/reference-data?productCode=1",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "public",
+                                        "integrations",
+                                        "{{tenantId}}",
+                                        "reference-data"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "productCode",
+                                            "value": "1"
+                                        }
+                                    ]
+                                },
+                                "description": "Fetches all master reference data categories for a partner and product."
+                            }
+                        },
+                        {
+                            "name": "Fetch Single Master Category",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/public/integrations/{{tenantId}}/reference-data/VEHICLE_MAKE?productCode=1",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "public",
+                                        "integrations",
+                                        "{{tenantId}}",
+                                        "reference-data",
+                                        "VEHICLE_MAKE"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "productCode",
+                                            "value": "1"
+                                        }
+                                    ]
+                                },
+                                "description": "Fetches a single master reference data category."
+                            }
+                        },
+                        {
+                            "name": "Fetch Dependent Category (e.g. Models)",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Accept",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/public/integrations/{{tenantId}}/reference-data/dependent?productCode=1&parentCategoryKey=VEHICLE_MAKE&parentValue=B.M.W.&childCategoryKey=VEHICLE_MODEL",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "public",
+                                        "integrations",
+                                        "{{tenantId}}",
+                                        "reference-data",
+                                        "dependent"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "productCode",
+                                            "value": "1"
+                                        },
+                                        {
+                                            "key": "parentCategoryKey",
+                                            "value": "VEHICLE_MAKE"
+                                        },
+                                        {
+                                            "key": "parentValue",
+                                            "value": "B.M.W."
+                                        },
+                                        {
+                                            "key": "childCategoryKey",
+                                            "value": "VEHICLE_MODEL"
+                                        }
+                                    ]
+                                },
+                                "description": "Fetches dependent reference data (e.g., Models for a Make)."
+                            }
+                        }
+                    ]
+                },
+                {
                     "name": "Quote",
                     "item": [
                         {
