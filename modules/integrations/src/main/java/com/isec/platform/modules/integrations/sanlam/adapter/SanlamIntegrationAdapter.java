@@ -4,15 +4,25 @@ import com.isec.platform.common.cache.CachingConfig;
 import com.isec.platform.modules.integrations.common.adapter.InsuranceIntegrationAdapter;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckRequest;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
+import com.isec.platform.modules.integrations.common.dto.referencedata.ReferenceDataItem;
+import com.isec.platform.modules.integrations.common.enums.ReferenceCategory;
 import com.isec.platform.modules.integrations.sanlam.client.SanlamClient;
+import com.isec.platform.modules.integrations.sanlam.dto.SanlamDependentReferenceDataResponse;
 import com.isec.platform.modules.integrations.sanlam.dto.SanlamDoubleInsuranceResponse;
+import com.isec.platform.modules.integrations.sanlam.dto.SanlamMasterReferenceDataResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -25,6 +35,95 @@ public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
     @Override
     public String getCompanyCode() {
         return "SANLAM";
+    }
+
+    private static final Map<String, ReferenceCategory> LABEL_TO_CATEGORY = Map.of(
+            "Policy Type", ReferenceCategory.POLICY_TYPE,
+            "Cover Type", ReferenceCategory.COVER_TYPE,
+            "Body Type", ReferenceCategory.BODY_TYPE,
+            "Vehicle Usage (Type)", ReferenceCategory.VEHICLE_USAGE,
+            "Vehicle Make", ReferenceCategory.VEHICLE_MAKE,
+            "Vehicle Model", ReferenceCategory.VEHICLE_MODEL,
+            "City", ReferenceCategory.CITY,
+            "Branch", ReferenceCategory.BRANCH
+    );
+
+    private static final Map<ReferenceCategory, String> CATEGORY_TO_LABEL = LABEL_TO_CATEGORY.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+
+    @Override
+    public Map<ReferenceCategory, List<ReferenceDataItem>> fetchMasterReferenceData(String productCode) {
+        log.info("SanlamAdapter: Fetching master reference data for product code: {}", productCode);
+        SanlamMasterReferenceDataResponse response = sanlamClient.fetchMasterReferenceData(productCode);
+        if (response == null || response.getData() == null) {
+            log.warn("SanlamAdapter: Received empty or null master reference data response");
+            return Collections.emptyMap();
+        }
+
+        Map<ReferenceCategory, List<ReferenceDataItem>> result = new HashMap<>();
+        
+        // Sanlam returns data keyed by some ID (e.g., "1" for products, "999" for others)
+        response.getData().forEach((groupId, categoryMap) -> {
+            log.debug("SanlamAdapter: Processing reference data group: {}", groupId);
+            categoryMap.forEach((label, items) -> {
+                ReferenceCategory category = LABEL_TO_CATEGORY.get(label);
+                if (category != null) {
+                    List<ReferenceDataItem> canonicalItems = items.stream()
+                            .map(this::toCanonicalItem)
+                            .collect(Collectors.toList());
+                    log.debug("SanlamAdapter: Mapped label '{}' to canonical category '{}' ({} items)", 
+                            label, category, canonicalItems.size());
+                    result.merge(category, canonicalItems, (oldList, newList) -> {
+                        List<ReferenceDataItem> merged = new ArrayList<>(oldList);
+                        merged.addAll(newList);
+                        return merged;
+                    });
+                } else {
+                    log.debug("SanlamAdapter: Unknown Sanlam reference data label: {}", label);
+                }
+            });
+        });
+
+        log.info("SanlamAdapter: Master reference data mapping completed. Categories found: {}", result.keySet());
+        return result;
+    }
+
+    @Override
+    public List<ReferenceDataItem> fetchDependentReferenceData(String productCode,
+                                                              ReferenceCategory parentCategory,
+                                                              String parentValue,
+                                                              ReferenceCategory childCategory) {
+        String parentLabel = CATEGORY_TO_LABEL.get(parentCategory);
+        String childLabel = CATEGORY_TO_LABEL.get(childCategory);
+
+        log.info("SanlamAdapter: Fetching dependent data. Product: {}, Parent: {} ({}) -> Child: {} ({})", 
+                productCode, parentCategory, parentLabel, childCategory, childLabel);
+
+        if (parentLabel == null || childLabel == null) {
+            log.warn("SanlamAdapter: Unsupported category mapping for dependent lookup: {} -> {}", parentCategory, childCategory);
+            return Collections.emptyList();
+        }
+
+        SanlamDependentReferenceDataResponse response = sanlamClient.fetchDependentReferenceData(parentLabel, parentValue, childLabel);
+        if (response == null || response.getData() == null || !response.getData().containsKey(childLabel)) {
+            log.warn("SanlamAdapter: No dependent data found for child label: {}", childLabel);
+            return Collections.emptyList();
+        }
+
+        List<ReferenceDataItem> items = response.getData().get(childLabel).stream()
+                .map(this::toCanonicalItem)
+                .collect(Collectors.toList());
+        
+        log.info("SanlamAdapter: Found {} dependent items for {}", items.size(), childLabel);
+        return items;
+    }
+
+    private ReferenceDataItem toCanonicalItem(SanlamMasterReferenceDataResponse.SanlamReferenceDataItem item) {
+        return ReferenceDataItem.builder()
+                .code(item.getValueCode())
+                .label(item.getValue())
+                .sourceId(item.getStrAttrSysId())
+                .build();
     }
 
     @Override

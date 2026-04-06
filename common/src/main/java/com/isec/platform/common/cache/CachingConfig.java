@@ -28,9 +28,17 @@ import java.util.Map;
 public class CachingConfig {
 
     public static final String SANLAM_DOUBLE_INSURANCE_CACHE = "sanlamDoubleInsurance";
+    public static final String MASTER_REFERENCE_DATA_CACHE = "masterReferenceData";
+    public static final String DEPENDENT_REFERENCE_DATA_CACHE = "dependentReferenceData";
 
     @Value("${integrations.sanlam.double-insurance-cache-expiry-minutes:15}")
     private long sanlamDoubleInsuranceExpiry;
+
+    @Value("${integrations.reference-data.master-cache-expiry-hours:24}")
+    private long masterReferenceDataExpiry;
+
+    @Value("${integrations.reference-data.dependent-cache-expiry-hours:24}")
+    private long dependentReferenceDataExpiry;
 
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
@@ -58,6 +66,8 @@ public class CachingConfig {
 
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
         cacheConfigurations.put(SANLAM_DOUBLE_INSURANCE_CACHE, defaultConfig.entryTtl(Duration.ofMinutes(sanlamDoubleInsuranceExpiry)));
+        cacheConfigurations.put(MASTER_REFERENCE_DATA_CACHE, defaultConfig.entryTtl(Duration.ofHours(masterReferenceDataExpiry)));
+        cacheConfigurations.put(DEPENDENT_REFERENCE_DATA_CACHE, defaultConfig.entryTtl(Duration.ofHours(dependentReferenceDataExpiry)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

@@ -104,6 +104,13 @@ integrations:
     token-cache-key: sanlam_access_token
     token-expiry-buffer-minutes: 5
     double-insurance-cache-expiry-minutes: ${SANLAM_DOUBLE_INSURANCE_CACHE_EXPIRY:15}
+    reference-data:
+      master-endpoint: ${SANLAM_REFERENCE_DATA_MASTER_ENDPOINT:/masters/product_lovs/{productCode}}
+      dependent-endpoint: ${SANLAM_REFERENCE_DATA_DEPENDENT_ENDPOINT:/masters/child_lov}
+
+  reference-data:
+    master-cache-expiry-hours: ${MASTER_REFERENCE_DATA_CACHE_EXPIRY_HOURS:24}
+    dependent-cache-expiry-hours: ${DEPENDENT_REFERENCE_DATA_CACHE_EXPIRY_HOURS:24}
 
 quote:
   cache:

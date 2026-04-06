@@ -3,8 +3,12 @@ package com.isec.platform.modules.integrations.sanlam.adapter;
 import com.isec.platform.common.cache.CachingConfig;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckRequest;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
+import com.isec.platform.modules.integrations.common.dto.referencedata.ReferenceDataItem;
+import com.isec.platform.modules.integrations.common.enums.ReferenceCategory;
 import com.isec.platform.modules.integrations.sanlam.client.SanlamClient;
+import com.isec.platform.modules.integrations.sanlam.dto.SanlamDependentReferenceDataResponse;
 import com.isec.platform.modules.integrations.sanlam.dto.SanlamDoubleInsuranceResponse;
+import com.isec.platform.modules.integrations.sanlam.dto.SanlamMasterReferenceDataResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +16,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -146,5 +153,61 @@ class SanlamIntegrationAdapterTest {
 
         // Verify
         verify(sanlamClient).checkDoubleInsurance("KAA123X", null);
+    }
+
+    @Test
+    void fetchMasterReferenceData_ShouldReturnMappedCategories() {
+        // Prepare
+        String productCode = "1";
+        SanlamMasterReferenceDataResponse.SanlamReferenceDataItem item = new SanlamMasterReferenceDataResponse.SanlamReferenceDataItem();
+        item.setValue("Motor Commercial");
+        item.setValueCode("1001");
+        item.setStrAttrSysId("5");
+
+        Map<String, List<SanlamMasterReferenceDataResponse.SanlamReferenceDataItem>> categoryMap = Map.of(
+                "Policy Type", List.of(item)
+        );
+        SanlamMasterReferenceDataResponse sanlamResponse = new SanlamMasterReferenceDataResponse(Map.of("1", categoryMap));
+
+        when(sanlamClient.fetchMasterReferenceData(productCode)).thenReturn(sanlamResponse);
+
+        // Execute
+        Map<ReferenceCategory, List<ReferenceDataItem>> result = adapter.fetchMasterReferenceData(productCode);
+
+        // Verify
+        assertNotNull(result);
+        assertTrue(result.containsKey(ReferenceCategory.POLICY_TYPE));
+        List<ReferenceDataItem> items = result.get(ReferenceCategory.POLICY_TYPE);
+        assertEquals(1, items.size());
+        assertEquals("1001", items.get(0).getCode());
+        assertEquals("Motor Commercial", items.get(0).getLabel());
+        assertEquals("5", items.get(0).getSourceId());
+    }
+
+    @Test
+    void fetchDependentReferenceData_ShouldReturnMappedItems() {
+        // Prepare
+        String productCode = "1";
+        SanlamMasterReferenceDataResponse.SanlamReferenceDataItem item = new SanlamMasterReferenceDataResponse.SanlamReferenceDataItem();
+        item.setValue("X5");
+        item.setValueCode("X002");
+        item.setStrAttrSysId("272");
+
+        SanlamDependentReferenceDataResponse sanlamResponse = new SanlamDependentReferenceDataResponse(Map.of(
+                "Vehicle Model", List.of(item)
+        ));
+
+        when(sanlamClient.fetchDependentReferenceData("Vehicle Make", "B.M.W.", "Vehicle Model")).thenReturn(sanlamResponse);
+
+        // Execute
+        List<ReferenceDataItem> result = adapter.fetchDependentReferenceData(productCode, 
+                ReferenceCategory.VEHICLE_MAKE, "B.M.W.", ReferenceCategory.VEHICLE_MODEL);
+
+        // Verify
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("X002", result.get(0).getCode());
+        assertEquals("X5", result.get(0).getLabel());
+        assertEquals("272", result.get(0).getSourceId());
     }
 }
