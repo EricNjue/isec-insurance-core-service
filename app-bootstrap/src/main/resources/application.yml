@@ -11,7 +11,7 @@ spring:
     show-sql: false
   liquibase:
     enabled: true
-    change-log: classpath:db/changelog/db.changelog-master.yaml
+    change-log: classpath:/db/changelog/db.changelog-master.yaml
   flyway:
     enabled: false
   rabbitmq:
@@ -36,6 +36,15 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9050/realms/isec-insurance}
+
+security:
+  cors:
+    allowed-origins:
+      - "http://localhost:3000"
+      - "http://localhost:4200"
+      - "http://localhost:5173"
+      - "http://localhost:8080"
+      - "https://giapiuat-fhapb9ebcvbke6h5.a03.azurefd.net"
 
 management:
   endpoints:
