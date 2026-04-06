@@ -34,5 +34,21 @@
             <groupId>com.isec</groupId>
             <artifactId>customers</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-integration</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.integration</groupId>
+            <artifactId>spring-integration-mail</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>documents</artifactId>
+        </dependency>
     </dependencies>
 </project>

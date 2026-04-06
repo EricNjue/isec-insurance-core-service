@@ -116,6 +116,17 @@ quote:
   cache:
     duration-minutes: ${QUOTE_CACHE_DURATION_MINUTES:30}
 
+ingestion:
+  email:
+    host: ${INGESTION_EMAIL_HOST:kraaltech.com}
+    port: ${INGESTION_EMAIL_PORT:993}
+    username: ${INGESTION_EMAIL_USERNAME:certificates@kraaltech.com}
+    password: ${INGESTION_EMAIL_PASSWORD:Y8vQbxSR7v2Dt32v}
+    protocol: ${INGESTION_EMAIL_PROTOCOL:imaps}
+    folder: ${INGESTION_EMAIL_FOLDER:INBOX}
+    poll-interval: ${INGESTION_EMAIL_POLL_INTERVAL:300000} # default 5 minutes
+    s3-bucket: ${INGESTION_S3_BUCKET:isecdocuments}
+
 rating:
   charges:
     pcf-rate: ${RATING_PCF_RATE:0.0025}
