@@ -1,6 +1,7 @@
 package com.isec.platform.modules.certificates.service.ingestion;
 
 import com.isec.platform.modules.certificates.dto.ExtractedCertificateMetadata;
+import jakarta.mail.Address;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
@@ -8,6 +9,18 @@ import java.io.IOException;
 
 public interface EmailParser {
     boolean canParse(MimeMessage message) throws MessagingException;
+    
+    default boolean isCandidate(MimeMessage message) throws MessagingException {
+        Address[] from = message.getFrom();
+        if (from == null || from.length == 0) return false;
+        String sender = from[0].toString();
+        String subject = message.getSubject();
+        return isSenderValid(sender) && isSubjectMatch(subject);
+    }
+
+    boolean isSenderValid(String sender);
+    boolean isSubjectMatch(String subject);
+
     ExtractedCertificateMetadata parse(MimeMessage message) throws MessagingException, IOException;
     String getPartnerCode();
     

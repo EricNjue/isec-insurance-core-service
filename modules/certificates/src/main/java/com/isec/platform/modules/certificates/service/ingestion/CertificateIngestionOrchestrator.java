@@ -15,6 +15,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
@@ -39,36 +40,68 @@ public class CertificateIngestionOrchestrator {
     @Value("${ingestion.email.s3-bucket:isecdocuments}")
     private String defaultBucket;
 
+    /**
+     * Light-weight check to see if we should even bother downloading the email content.
+     */
+    public boolean isCandidate(MimeMessage message) {
+        return parsers.stream().anyMatch(p -> {
+            try {
+                return p.isCandidate(message);
+            } catch (MessagingException e) {
+                return false;
+            }
+        });
+    }
+
     @Transactional
-    public void processEmail(MimeMessage message) {
+    public void enqueueProcessing(MimeMessage message) {
         String messageId = null;
-        String sender;
-        String subject;
         try {
             messageId = message.getMessageID();
-            sender = message.getFrom()[0].toString();
-            subject = message.getSubject();
+            String sender = message.getFrom()[0].toString();
+            String subject = message.getSubject();
 
             if (auditRepository.existsByEmailMessageId(messageId)) {
-                log.info("Email {} already processed, skipping", messageId);
+                log.info("Email {} already processed or enqueued, skipping", messageId);
                 return;
             }
 
-            CertificateIngestionAudit audit = auditRepository.save(CertificateIngestionAudit.builder()
+            auditRepository.save(CertificateIngestionAudit.builder()
                     .emailMessageId(messageId)
                     .sender(sender)
                     .subject(subject)
                     .status(IngestionStatus.RECEIVED)
                     .build());
 
-            processInternal(message, audit);
+            // The actual processing will happen asynchronously
+            processEmailAsync(message, messageId);
 
         } catch (Exception e) {
-            log.error("Failed to process email", e);
+            log.error("Failed to enqueue email for processing", e);
             if (messageId != null) {
-                updateAuditStatus(messageId, IngestionStatus.FAILED, e.getMessage());
+                updateAuditStatus(messageId, IngestionStatus.FAILED, "Enqueue failed: " + e.getMessage());
             }
         }
+    }
+
+    @Async
+    @Transactional
+    public void processEmailAsync(MimeMessage message, String messageId) {
+        log.info("Starting async processing for email {}", messageId);
+        try {
+            CertificateIngestionAudit audit = auditRepository.findByEmailMessageId(messageId)
+                    .orElseThrow(() -> new RuntimeException("Audit record not found for " + messageId));
+
+            processInternal(message, audit);
+        } catch (Exception e) {
+            log.error("Async processing failed for email {}", messageId, e);
+            updateAuditStatus(messageId, IngestionStatus.FAILED, "Async processing error: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void processEmail(MimeMessage message) {
+        enqueueProcessing(message);
     }
 
     private void processInternal(MimeMessage message, CertificateIngestionAudit audit) throws MessagingException, IOException {

@@ -26,10 +26,20 @@ public class SanlamEmailParser implements EmailParser {
 
     @Override
     public boolean canParse(MimeMessage message) throws MessagingException {
-        Address[] from = message.getFrom();
-        if (from == null || from.length == 0) return false;
-        String sender = from[0].toString();
-        return sender.toLowerCase().contains(SENDER_DOMAIN);
+        return isCandidate(message);
+    }
+
+    @Override
+    public boolean isSenderValid(String sender) {
+        return sender != null && sender.toLowerCase().contains(SENDER_DOMAIN);
+    }
+
+    @Override
+    public boolean isSubjectMatch(String subject) {
+        // Sanlam emails usually have subjects like "Motor Certificate Issued: ..." or "New Certificate Issued - C33981151"
+        if (subject == null) return false;
+        String lowerSubject = subject.toLowerCase();
+        return lowerSubject.contains("certificate") && (lowerSubject.contains("issued") || lowerSubject.contains("new"));
     }
 
     @Override

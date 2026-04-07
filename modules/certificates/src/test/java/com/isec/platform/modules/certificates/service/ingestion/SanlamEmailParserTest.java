@@ -26,14 +26,26 @@ class SanlamEmailParserTest {
     }
 
     @Test
-    void canParse_ShouldReturnTrueForSanlamSender() throws MessagingException {
+    void canParse_ShouldReturnTrueForSanlamSenderAndSubject() throws MessagingException {
         when(mockMessage.getFrom()).thenReturn(new Address[]{new InternetAddress("certificates@dmvic.com")});
+        when(mockMessage.getSubject()).thenReturn("Motor Certificate Issued: C33981153");
+        assertTrue(parser.canParse(mockMessage));
+
+        when(mockMessage.getSubject()).thenReturn("New Certificate Issued - C33981151");
         assertTrue(parser.canParse(mockMessage));
     }
 
     @Test
     void canParse_ShouldReturnFalseForOtherSender() throws MessagingException {
         when(mockMessage.getFrom()).thenReturn(new Address[]{new InternetAddress("info@other.com")});
+        when(mockMessage.getSubject()).thenReturn("Motor Certificate Issued: C33981153");
+        assertFalse(parser.canParse(mockMessage));
+    }
+
+    @Test
+    void canParse_ShouldReturnFalseForOtherSubject() throws MessagingException {
+        when(mockMessage.getFrom()).thenReturn(new Address[]{new InternetAddress("certificates@dmvic.com")});
+        when(mockMessage.getSubject()).thenReturn("Spam message");
         assertFalse(parser.canParse(mockMessage));
     }
 
