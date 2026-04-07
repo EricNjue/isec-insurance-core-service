@@ -7,5 +7,7 @@ import java.util.Optional;
 
 public interface CertificateRepository extends JpaRepository<Certificate, Long> {
     List<Certificate> findByPolicyId(Long policyId);
+    Optional<Certificate> findByPolicyNumber(String policyNumber);
+    Optional<Certificate> findByPartnerCodeAndCertificateNumber(String partnerCode, String certificateNumber);
     Optional<Certificate> findByIdempotencyKey(String idempotencyKey);
 }

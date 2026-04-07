@@ -5,11 +5,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication(scanBasePackages = "com.isec.platform")
 @EntityScan(basePackages = "com.isec.platform.modules")
 @EnableJpaRepositories(basePackages = "com.isec.platform.modules")
 @EnableAspectJAutoProxy
+@EnableScheduling
+@EnableAsync
 public class InsurancePlatformApplication {
     public static void main(String[] args) {
         SpringApplication.run(InsurancePlatformApplication.class, args);

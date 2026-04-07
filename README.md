@@ -115,12 +115,82 @@ The platform utilizes an event-driven architecture with **RabbitMQ** for critica
 - **Certificate Issuance:** Requests to DMVIC are processed asynchronously to handle external API latency and failures.
 - **Valuation Letters:** Letters are generated and stored in S3 asynchronously.
 - **Notifications:** SMS and Email notifications are triggered by lifecycle events.
+- **Email Ingestion:** IMAP polling identifies new certificates and enqueues them for asynchronous processing.
 
 ### Idempotency Strategy
 To ensure reliability and prevent duplicate side effects (like double-issuing certificates), we use:
 - **Idempotency Keys:** Every async request is assigned a unique key.
 - **Redis Tracking:** A Redis-backed `IdempotencyService` tracks processed keys with a configurable TTL (default 7 days).
 - **Status Tracking:** The `Certificate` entity maintains state (`PENDING`, `PROCESSING`, `ISSUED`, `FAILED`) to ensure we don't re-process completed requests.
+
+---
+
+## 12. 📬 Certificate Email Ingestion Scheduler
+
+The system includes an optimized IMAP-based ingestion service to automatically process insurance certificates sent via email (e.g., from Sanlam/DMVIC).
+
+### How it works
+
+The scheduler uses an **Adaptive Polling Strategy** to balance responsiveness and resource usage:
+
+*   **IDLE Mode:** When no new emails are being received, the system polls at a slower rate (e.g., every 60-120s) to save resources.
+*   **ACTIVE Mode:** Upon detecting a relevant email, the system switches to an aggressive polling rate (e.g., every 15-30s). It stays in this mode for a configurable "active duration" (e.g., 5 minutes) before reverting to IDLE.
+*   **Metadata-First Approach:** The poller initially fetches only headers (Message-ID, Subject, Sender). It only downloads the full email body and attachments if the email matches specific "candidate" criteria (valid sender and subject pattern).
+*   **Decoupled Processing:** Polling is fast and lightweight. It only identifies candidates and enqueues them for **asynchronous processing**. The actual parsing, S3 upload, and DB persistence happen in a separate thread pool.
+
+## 🚀 Multi-Pod & Scalability Coordination
+
+The certificate ingestion system is designed to run safely in multi-pod (distributed) environments.
+
+### Distributed Locking
+To prevent multiple instances from polling the same IMAP mailbox simultaneously:
+- A Redis-based distributed lock (`lock:email-ingestion`) is used.
+- Only one instance can hold the lock at a time.
+- If an instance cannot acquire the lock, it skips the current polling cycle.
+- The lock has a TTL to ensure it's released if a pod crashes.
+
+### Atomic Claiming
+Even with a polling lock, asynchronous processing could potentially be picked up by multiple pods if not for atomic claiming:
+- Before processing an email, a pod must atomically transition its status from `RECEIVED` to `PROCESSING` in the database.
+- If the transition fails (status was already changed), the pod skips processing that email.
+
+### Idempotency & Database Constraints
+Strong idempotency is enforced at multiple layers:
+1. **Email Message ID**: A unique constraint on `email_message_id` in `certificate_ingestion_audit` prevents the same email from being enqueued twice.
+2. **Certificate Identity**: A unique constraint on `(partner_code, certificate_number)` in the `certificates` table prevents duplicate certificate records from being created, even if an email is processed again.
+3. **S3 Storage**: Files are stored using a deterministic path based on policy and certificate numbers.
+
+### Failure Recovery
+- If a pod crashes while processing an email (leaving it in `PROCESSING` status), a background recovery task identifies these "stuck" items after 30 minutes and reverts them to `RECEIVED` status for retry.
+
+### Flow
+
+1.  **Poll:** Check the INBOX for `UNSEEN` emails.
+2.  **Fetch Metadata:** Retrieve headers for a batch of emails (bounded by `max-batch-size`).
+3.  **Filter:** Identify "candidate" emails using lightweight rules (Sender domain, Subject keywords).
+4.  **Enqueue:** Create an audit record and trigger an `@Async` task for each candidate.
+5.  **Mark SEEN:** The email is marked as `SEEN` immediately after enqueuing (or if it's not a candidate) to avoid re-processing.
+6.  **Async Process:** The worker thread downloads the full message, parses content, extracts the PDF, uploads to S3, and updates the database.
+
+### Configuration
+
+Properties are externalized in `application.yml` under `email.polling`:
+
+| Property | Default | Description |
+| :--- | :--- | :--- |
+| `idle-interval-seconds` | 60 | Polling interval when no activity is detected. |
+| `active-interval-seconds` | 20 | Polling interval during active ingestion. |
+| `active-mode-duration-seconds` | 300 | How long to stay in ACTIVE mode after the last detected email. |
+| `max-batch-size` | 10 | Maximum number of emails to process in a single polling cycle. |
+| `jitter-percentage` | 15 | Random jitter added to intervals (e.g., 15 means ±15%) to prevent spikes. |
+| `lock-enabled` | true | Prevents overlapping polling runs if a previous cycle is still active. |
+
+### Performance & Reliability
+
+*   **Batching:** Prevents memory exhaustion when handling a large backlog.
+*   **Jitter:** Avoids synchronized load spikes across multiple instances.
+*   **Locking:** Ensures only one polling thread runs at a time (in-memory lock).
+*   **Metadata-first:** Significantly reduces bandwidth and CPU usage by avoiding unnecessary downloads of large attachments.
 
 ---
 

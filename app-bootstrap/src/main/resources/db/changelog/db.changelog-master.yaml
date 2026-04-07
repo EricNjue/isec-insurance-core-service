@@ -69,3 +69,7 @@ databaseChangeLog:
       file: db/changelog/modules/34-integration-seed.yaml
   - include:
       file: db/changelog/modules/35-integration-version.yaml
+  - include:
+      file: db/changelog/modules/36-certificate-ingestion.yaml
+  - include:
+      file: db/changelog/modules/37-certificate-unique-constraint.yaml
