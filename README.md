@@ -138,6 +138,31 @@ The scheduler uses an **Adaptive Polling Strategy** to balance responsiveness an
 *   **Metadata-First Approach:** The poller initially fetches only headers (Message-ID, Subject, Sender). It only downloads the full email body and attachments if the email matches specific "candidate" criteria (valid sender and subject pattern).
 *   **Decoupled Processing:** Polling is fast and lightweight. It only identifies candidates and enqueues them for **asynchronous processing**. The actual parsing, S3 upload, and DB persistence happen in a separate thread pool.
 
+## 🚀 Multi-Pod & Scalability Coordination
+
+The certificate ingestion system is designed to run safely in multi-pod (distributed) environments.
+
+### Distributed Locking
+To prevent multiple instances from polling the same IMAP mailbox simultaneously:
+- A Redis-based distributed lock (`lock:email-ingestion`) is used.
+- Only one instance can hold the lock at a time.
+- If an instance cannot acquire the lock, it skips the current polling cycle.
+- The lock has a TTL to ensure it's released if a pod crashes.
+
+### Atomic Claiming
+Even with a polling lock, asynchronous processing could potentially be picked up by multiple pods if not for atomic claiming:
+- Before processing an email, a pod must atomically transition its status from `RECEIVED` to `PROCESSING` in the database.
+- If the transition fails (status was already changed), the pod skips processing that email.
+
+### Idempotency & Database Constraints
+Strong idempotency is enforced at multiple layers:
+1. **Email Message ID**: A unique constraint on `email_message_id` in `certificate_ingestion_audit` prevents the same email from being enqueued twice.
+2. **Certificate Identity**: A unique constraint on `(partner_code, certificate_number)` in the `certificates` table prevents duplicate certificate records from being created, even if an email is processed again.
+3. **S3 Storage**: Files are stored using a deterministic path based on policy and certificate numbers.
+
+### Failure Recovery
+- If a pod crashes while processing an email (leaving it in `PROCESSING` status), a background recovery task identifies these "stuck" items after 30 minutes and reverts them to `RECEIVED` status for retry.
+
 ### Flow
 
 1.  **Poll:** Check the INBOX for `UNSEEN` emails.

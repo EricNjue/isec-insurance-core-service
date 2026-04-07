@@ -8,13 +8,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +25,10 @@ public class EmailIngestionScheduler {
     private final CertificateIngestionOrchestrator orchestrator;
     private final EmailPollingProperties pollingProperties;
     private final TaskScheduler taskScheduler;
+    private final StringRedisTemplate redisTemplate;
     private final Random random = new Random();
+    private final String lockValue = UUID.randomUUID().toString();
+    private static final String LOCK_KEY = "lock:email-ingestion";
 
     @Value("${ingestion.email.host}")
     private String host;
@@ -44,7 +48,6 @@ public class EmailIngestionScheduler {
     @Value("${ingestion.email.folder:INBOX}")
     private String folderName;
 
-    private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private Instant lastActivityTime = Instant.MIN;
     private boolean isActiveMode = false;
 
@@ -53,18 +56,32 @@ public class EmailIngestionScheduler {
         scheduleNext(Duration.ofSeconds(1)); // Start almost immediately
     }
 
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 600000) // Every 10 mins
+    public void runRecovery() {
+        log.info("Running recovery for stuck ingestion items");
+        orchestrator.recoverStuckItems();
+    }
+
     private void scheduleNext(Duration delay) {
         taskScheduler.schedule(this::pollEmails, Instant.now().plus(delay));
     }
 
     public void pollEmails() {
-        if (pollingProperties.isLockEnabled()) {
-            if (!isRunning.compareAndSet(false, true)) {
-                log.warn("Skipping email poll: previous run still in progress");
-                return;
+        try {
+            if (pollingProperties.isLockEnabled()) {
+                Boolean acquired = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, lockValue, Duration.ofSeconds(pollingProperties.getLockTtlSeconds()));
+                if (acquired == null || !acquired) {
+                    log.info("Skipping email poll: lock already held by another instance");
+                    return;
+                }
             }
+            performPoll();
+        } finally {
+            scheduleNext(calculateNextDelay());
         }
+    }
 
+    private void performPoll() {
         long startTime = System.currentTimeMillis();
         int foundCount = 0;
         int processedCount = 0;
@@ -131,14 +148,17 @@ public class EmailIngestionScheduler {
             log.error("Error during email polling", e);
         } finally {
             if (pollingProperties.isLockEnabled()) {
-                isRunning.set(false);
+                String currentLock = redisTemplate.opsForValue().get(LOCK_KEY);
+                if (lockValue.equals(currentLock)) {
+                    redisTemplate.delete(LOCK_KEY);
+                }
             }
             
-            updateModeAndScheduleNext(foundCount, startTime);
+            updateModeAfterPoll(foundCount, startTime);
         }
     }
 
-    private void updateModeAndScheduleNext(int foundCount, long startTime) {
+    private void updateModeAfterPoll(int foundCount, long startTime) {
         // Check if we should revert to IDLE mode
         if (isActiveMode && Instant.now().isAfter(lastActivityTime.plusSeconds(pollingProperties.getActiveModeDurationSeconds()))) {
             log.info("Quiet period exceeded, reverting to IDLE mode");
@@ -146,6 +166,11 @@ public class EmailIngestionScheduler {
         }
 
         long duration = System.currentTimeMillis() - startTime;
+        log.info("Poll finished in {}ms. Found: {}, Mode: {}", 
+                duration, foundCount, isActiveMode ? "ACTIVE" : "IDLE");
+    }
+
+    private Duration calculateNextDelay() {
         int baseInterval = isActiveMode ? pollingProperties.getActiveIntervalSeconds() : pollingProperties.getIdleIntervalSeconds();
         
         // Add jitter
@@ -153,9 +178,7 @@ public class EmailIngestionScheduler {
         long nextDelaySeconds = Math.round(baseInterval * jitterFactor);
         if (nextDelaySeconds < 1) nextDelaySeconds = 1;
 
-        log.info("Poll finished in {}ms. Found: {}, Mode: {}. Next poll in {}s", 
-                duration, foundCount, isActiveMode ? "ACTIVE" : "IDLE", nextDelaySeconds);
-        
-        scheduleNext(Duration.ofSeconds(nextDelaySeconds));
+        log.debug("Next poll in {}s", nextDelaySeconds);
+        return Duration.ofSeconds(nextDelaySeconds);
     }
 }

@@ -37,4 +37,9 @@ public class EmailPollingProperties {
      * Whether to enable locking to prevent overlapping runs.
      */
     private boolean lockEnabled = true;
+
+    /**
+     * TTL for the distributed lock (seconds).
+     */
+    private int lockTtlSeconds = 300;
 }

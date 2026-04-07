@@ -6,7 +6,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "certificates")
+@Table(name = "certificates", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_partner_certificate", columnNames = {"partner_code", "certificate_number"})
+})
 @Getter
 @Setter
 @NoArgsConstructor

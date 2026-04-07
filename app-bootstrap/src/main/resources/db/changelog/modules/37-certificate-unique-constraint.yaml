@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260407-37-certificate-unique-constraint
+      author: junie
+      changes:
+        - addUniqueConstraint:
+            columnNames: partner_code, certificate_number
+            constraintName: uk_partner_certificate
+            tableName: certificates

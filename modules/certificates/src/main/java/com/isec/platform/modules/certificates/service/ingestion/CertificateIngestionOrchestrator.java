@@ -89,6 +89,13 @@ public class CertificateIngestionOrchestrator {
     public void processEmailAsync(MimeMessage message, String messageId) {
         log.info("Starting async processing for email {}", messageId);
         try {
+            // Atomic claim: only one pod should move it from RECEIVED to PROCESSING
+            int updated = auditRepository.updateStatusAtomic(messageId, IngestionStatus.RECEIVED, IngestionStatus.PROCESSING);
+            if (updated == 0) {
+                log.info("Email {} already claimed or processed by another instance", messageId);
+                return;
+            }
+
             CertificateIngestionAudit audit = auditRepository.findByEmailMessageId(messageId)
                     .orElseThrow(() -> new RuntimeException("Audit record not found for " + messageId));
 
@@ -205,6 +212,19 @@ public class CertificateIngestionOrchestrator {
         auditRepository.save(audit);
         
         log.info("Successfully ingested certificate {} for policy {}", metadata.getCertificateNumber(), policy.getPolicyNumber());
+    }
+
+    @Transactional
+    public void recoverStuckItems() {
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(30);
+        List<CertificateIngestionAudit> stuckItems = auditRepository.findByStatusAndCreatedAtBefore(IngestionStatus.PROCESSING, threshold);
+        
+        for (CertificateIngestionAudit item : stuckItems) {
+            log.warn("Recovering stuck ingestion item: {}", item.getEmailMessageId());
+            item.setStatus(IngestionStatus.RECEIVED); // Allow retry
+            item.setFailureReason("Recovered from stuck PROCESSING state");
+            auditRepository.save(item);
+        }
     }
 
     private void updateAuditStatus(String messageId, IngestionStatus status, String reason) {
