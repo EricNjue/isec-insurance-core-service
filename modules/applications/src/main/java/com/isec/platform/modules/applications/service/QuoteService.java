@@ -1,5 +1,6 @@
 package com.isec.platform.modules.applications.service;
 
+import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.common.multitenancy.TenantContext;
 import com.isec.platform.modules.applications.dto.InitiateQuoteRequest;
 import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
@@ -93,7 +94,7 @@ public class QuoteService {
         String tenantId = TenantContext.getTenantId();
         if (tenantId == null || tenantId.isBlank()) {
             log.error("Tenant ID not found in context");
-            throw new com.isec.platform.common.exception.BusinessException("Missing required X-Tenant-Id header");
+            throw new BusinessException("Missing required X-Tenant-Id header");
         }
         return tenantId;
     }
@@ -118,12 +119,9 @@ public class QuoteService {
                     registrationNumber, response.isHasDuplicate());
             return response;
         } else {
-            log.warn("No integration adapter found for tenant: {}. Skipping double insurance check.", tenantId);
-            return DoubleInsuranceCheckResponse.builder()
-                    .hasDuplicate(false)
-                    .status("clear")
-                    .message("No integration adapter configured for this tenant")
-                    .build();
+            log.error("No integration adapter found for tenant: {}. This is a terminal error.", tenantId);
+            throw new BusinessException(
+                    "No integration adapter configured for tenant: " + tenantId);
         }
     }
 
