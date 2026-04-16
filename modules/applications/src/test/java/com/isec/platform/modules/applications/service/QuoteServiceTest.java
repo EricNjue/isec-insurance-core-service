@@ -139,6 +139,19 @@ class QuoteServiceTest {
     }
 
     @Test
+    void checkDoubleInsurance_ShouldThrowException_WhenNoAdapterFound() {
+        TenantContext.setTenantId("UNKNOWN");
+        when(insuranceIntegrationAdapter.getCompanyCode()).thenReturn("SANLAM");
+        
+        com.isec.platform.common.exception.BusinessException exception = assertThrows(
+            com.isec.platform.common.exception.BusinessException.class,
+            () -> quoteService.checkDoubleInsurance("KAA 123X", "CHASSIS123")
+        );
+        
+        assertEquals("No integration adapter configured for tenant: UNKNOWN", exception.getMessage());
+    }
+
+    @Test
     void calculateQuote_ShouldReturnResponseAndUpsertData() {
         QuoteRequest request = createSampleRequest();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
