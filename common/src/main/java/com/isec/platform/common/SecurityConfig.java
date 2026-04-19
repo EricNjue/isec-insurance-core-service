@@ -29,7 +29,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "**/motor/quotes/initiate/**", "/verify/**", "/api/v1/sms/delivery-report", "/api/v1/public/integrations").permitAll()
+                .requestMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "/api/v1/motor/quotes/initiate/**", "/verify/**", "/api/v1/sms/delivery-report", "/api/v1/public/integrations").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
