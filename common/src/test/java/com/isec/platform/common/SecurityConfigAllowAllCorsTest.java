@@ -36,12 +36,15 @@ public class SecurityConfigAllowAllCorsTest {
     private JwtDecoder jwtDecoder;
 
     @Test
-    public void testCorsDisabled() throws Exception {
+    public void testAllowLocalhost8081() throws Exception {
         mockMvc.perform(options("/api/test")
-                        .header("Origin", "http://localhost:3000")
-                        .header("Access-Control-Request-Method", "POST"))
+                        .header("Origin", "http://localhost:8081")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "X-Tenant-Id, Authorization, Content-Type"))
                 .andExpect(status().isOk())
-                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:8081"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
+                .andExpect(header().string("Access-Control-Allow-Headers", "X-Tenant-Id, Authorization, Content-Type"));
     }
 
     @RestController
