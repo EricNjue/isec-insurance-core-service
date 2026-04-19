@@ -15,7 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -47,23 +47,38 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource(SecurityProperties securityProperties) {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(securityProperties.getAllowedOrigins());
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList(
-            "Authorization",
-            "Content-Type",
-            "Accept",
-            "Origin",
-            "X-Requested-With",
-            "x-auth-token",
-            "x-tenant-id"
-        ));
-        configuration.setExposedHeaders(List.of("x-auth-token"));
-        configuration.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
+        return request -> {
+            String origin = request.getHeader("Origin");
+            CorsConfiguration configuration = new CorsConfiguration();
+            
+            List<String> allowedOrigins = securityProperties.getAllowedOrigins();
+            boolean isLocalhost = origin != null && (
+                origin.equals("http://localhost") || 
+                origin.startsWith("http://localhost:") || 
+                origin.equals("http://127.0.0.1") || 
+                origin.startsWith("http://127.0.0.1:")
+            );
+            
+            if (isLocalhost) {
+                configuration.setAllowedOrigins(List.of(origin));
+            } else {
+                configuration.setAllowedOrigins(allowedOrigins);
+            }
+            
+            configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+            configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With",
+                "x-auth-token",
+                "x-tenant-id"
+            ));
+            configuration.setExposedHeaders(List.of("x-auth-token"));
+            configuration.setAllowCredentials(true);
+            return configuration;
+        };
     }
 
     @Bean
