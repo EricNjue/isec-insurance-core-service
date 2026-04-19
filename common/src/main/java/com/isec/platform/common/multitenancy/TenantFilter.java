@@ -40,7 +40,7 @@ public class TenantFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         // Let CORS preflight pass through untouched
-        if (CorsUtils.isPreFlightRequest(request) || HttpMethod.OPTIONS.matches(request.getMethod())) {
+        if (CorsUtils.isPreFlightRequest(request)) {
             filterChain.doFilter(request, response);
             return;
         }

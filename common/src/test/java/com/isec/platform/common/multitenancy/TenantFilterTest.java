@@ -123,4 +123,19 @@ class TenantFilterTest {
         verify(filterChain).doFilter(request, response);
         verify(response, never()).setStatus(anyInt());
     }
+
+    @Test
+    void doFilterInternal_preflightRequest_proceedsWithoutValidation() throws Exception {
+        // given
+        when(request.getMethod()).thenReturn("OPTIONS");
+        when(request.getHeader("Access-Control-Request-Method")).thenReturn("POST");
+        when(request.getHeader("Origin")).thenReturn("http://localhost:3000");
+
+        // when
+        tenantFilter.doFilterInternal(request, response, filterChain);
+
+        // then
+        verify(filterChain).doFilter(request, response);
+        verify(response, never()).setStatus(anyInt());
+    }
 }

@@ -36,22 +36,31 @@ public class SecurityConfigAllowAllCorsTest {
     private JwtDecoder jwtDecoder;
 
     @Test
-    public void testAllowAllOrigins() throws Exception {
+    public void testAllowLocalhost3000() throws Exception {
         mockMvc.perform(options("/api/test")
-                        .header("Origin", "http://any-random-domain.com")
-                        .header("Access-Control-Request-Method", "GET"))
+                        .header("Origin", "http://localhost:3000")
+                        .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://any-random-domain.com"))
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
                 .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
     @Test
-    public void testAllowLocalhost() throws Exception {
+    public void testAllowLocalhost5173() throws Exception {
         mockMvc.perform(options("/api/test")
-                        .header("Origin", "http://localhost:1234")
+                        .header("Origin", "http://localhost:5173")
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:1234"));
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    public void testForbiddenOrigin() throws Exception {
+        mockMvc.perform(options("/api/test")
+                        .header("Origin", "http://any-random-domain.com")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
     }
 
     @RestController
