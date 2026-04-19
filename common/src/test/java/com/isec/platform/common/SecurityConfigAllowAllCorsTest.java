@@ -36,42 +36,12 @@ public class SecurityConfigAllowAllCorsTest {
     private JwtDecoder jwtDecoder;
 
     @Test
-    public void testAllowLocalhost3000() throws Exception {
+    public void testCorsDisabled() throws Exception {
         mockMvc.perform(options("/api/test")
                         .header("Origin", "http://localhost:3000")
-                        .header("Access-Control-Request-Method", "POST")
-                        .header("Access-Control-Request-Headers", "Custom-Header"))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
-                .andExpect(header().string("Access-Control-Allow-Credentials", "true"))
-                .andExpect(header().string("Access-Control-Allow-Headers", "Custom-Header"));
-    }
-
-    @Test
-    public void testAllow127001() throws Exception {
-        mockMvc.perform(options("/api/test")
-                        .header("Origin", "http://127.0.0.1:3000")
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:3000"));
-    }
-
-    @Test
-    public void testAllowLocalhost5173() throws Exception {
-        mockMvc.perform(options("/api/test")
-                        .header("Origin", "http://localhost:5173")
-                        .header("Access-Control-Request-Method", "POST"))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
-                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
-    }
-
-    @Test
-    public void testForbiddenOrigin() throws Exception {
-        mockMvc.perform(options("/api/test")
-                        .header("Origin", "http://any-random-domain.com")
-                        .header("Access-Control-Request-Method", "GET"))
-                .andExpect(status().isForbidden());
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 
     @RestController
