@@ -15,8 +15,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -25,12 +23,12 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, TenantFilter tenantFilter, SecurityProperties securityProperties) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, TenantFilter tenantFilter) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource(securityProperties)))
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "/api/v1/*/motor/quotes/initiate", "/verify/**", "/api/v1/sms/delivery-report", "/api/v1/public/integrations").permitAll()
+                .requestMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "**/motor/quotes/initiate/**", "/verify/**", "/api/v1/sms/delivery-report", "/api/v1/public/integrations").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -46,39 +44,16 @@ public class SecurityConfig {
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource(SecurityProperties securityProperties) {
-        return request -> {
-            String origin = request.getHeader("Origin");
-            CorsConfiguration configuration = new CorsConfiguration();
-            
-            List<String> allowedOrigins = securityProperties.getAllowedOrigins();
-            boolean isLocalhost = origin != null && (
-                origin.equals("http://localhost") || 
-                origin.startsWith("http://localhost:") || 
-                origin.equals("http://127.0.0.1") || 
-                origin.startsWith("http://127.0.0.1:")
-            );
-            
-            if (isLocalhost) {
-                configuration.setAllowedOrigins(List.of(origin));
-            } else {
-                configuration.setAllowedOrigins(allowedOrigins);
-            }
-            
-            configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-            configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization",
-                "Content-Type",
-                "Accept",
-                "Origin",
-                "X-Requested-With",
-                "x-auth-token",
-                "x-tenant-id"
-            ));
-            configuration.setExposedHeaders(List.of("x-auth-token"));
-            configuration.setAllowCredentials(true);
-            return configuration;
-        };
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedMethods(List.of("*"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of("x-auth-token"));
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean
