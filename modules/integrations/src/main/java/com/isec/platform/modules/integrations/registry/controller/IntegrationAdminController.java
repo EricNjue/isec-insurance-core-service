@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -22,38 +24,41 @@ public class IntegrationAdminController {
     private final IntegrationCompanyService service;
 
     @PostMapping
-    public ResponseEntity<IntegrationCompanyResponse> createIntegration(@Valid @RequestBody IntegrationCompanyRequest request) {
-        return new ResponseEntity<>(service.createIntegration(request), HttpStatus.CREATED);
+    public Mono<ResponseEntity<IntegrationCompanyResponse>> createIntegration(@Valid @RequestBody IntegrationCompanyRequest request) {
+        return service.createIntegration(request)
+                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<IntegrationCompanyResponse> updateIntegration(
+    public Mono<ResponseEntity<IntegrationCompanyResponse>> updateIntegration(
             @PathVariable Long id, 
             @Valid @RequestBody IntegrationCompanyRequest request) {
-        return ResponseEntity.ok(service.updateIntegration(id, request));
+        return service.updateIntegration(id, request)
+                .map(ResponseEntity::ok);
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<Void> updateStatus(
+    public Mono<ResponseEntity<Void>> updateStatus(
             @PathVariable Long id, 
             @Valid @RequestBody IntegrationStatusRequest request) {
-        service.updateStatus(id, request);
-        return ResponseEntity.noContent().build();
+        return service.updateStatus(id, request)
+                .then(Mono.just(ResponseEntity.noContent().build()));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteIntegration(@PathVariable Long id) {
-        service.deleteIntegration(id);
-        return ResponseEntity.noContent().build();
+    public Mono<ResponseEntity<Void>> deleteIntegration(@PathVariable Long id) {
+        return service.deleteIntegration(id)
+                .then(Mono.just(ResponseEntity.noContent().build()));
     }
 
     @GetMapping
-    public ResponseEntity<List<IntegrationCompanyResponse>> listAllIntegrations() {
-        return ResponseEntity.ok(service.getAllIntegrations());
+    public Flux<IntegrationCompanyResponse> listAllIntegrations() {
+        return service.getAllIntegrations();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<IntegrationCompanyResponse> getIntegration(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getIntegrationById(id));
+    public Mono<ResponseEntity<IntegrationCompanyResponse>> getIntegration(@PathVariable Long id) {
+        return service.getIntegrationById(id)
+                .map(ResponseEntity::ok);
     }
 }

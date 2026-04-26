@@ -13,6 +13,9 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import java.math.BigDecimal;
 import java.util.Collections;
 
@@ -56,15 +59,20 @@ class ApplicationControllerTest {
                 .vehicleValue(new BigDecimal("2500000"))
                 .build();
 
-        when(applicationService.createApplication(eq(request))).thenReturn(expectedResponse);
+        when(applicationService.createApplication(eq(request))).thenReturn(Mono.just(expectedResponse));
 
         // Act
-        ResponseEntity<ApplicationResponse> response = applicationController.createApplication(request);
+        Mono<ResponseEntity<ApplicationResponse>> result = applicationController.createApplication(request);
 
         // Assert
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCode().value());
-        assertEquals(expectedResponse, response.getBody());
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals(200, response.getStatusCode().value());
+                    assertEquals(expectedResponse, response.getBody());
+                })
+                .verifyComplete();
+
         verify(applicationService, times(1)).createApplication(eq(request));
     }
 
@@ -82,15 +90,19 @@ class ApplicationControllerTest {
                 new BigDecimal("50265")
         );
 
-        when(applicationService.getQuote(appId, baseRate)).thenReturn(breakdown);
+        when(applicationService.getQuote(appId, baseRate)).thenReturn(Mono.just(breakdown));
 
         // Act
-        ResponseEntity<RatingService.PremiumBreakdown> response = applicationController.getQuote(appId, baseRate);
+        Mono<ResponseEntity<RatingService.PremiumBreakdown>> result = applicationController.getQuote(appId, baseRate);
 
         // Assert
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCode().value());
-        assertEquals(breakdown, response.getBody());
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals(200, response.getStatusCode().value());
+                    assertEquals(breakdown, response.getBody());
+                })
+                .verifyComplete();
         
         verify(applicationService, times(1)).getQuote(eq(appId), eq(baseRate));
     }

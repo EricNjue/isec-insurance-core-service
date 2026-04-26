@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -34,41 +35,40 @@ public class PricingEngine {
     private final RateBookSnapshotLoader rateBookSnapshotLoader;
     private final RuleMatcher ruleMatcher;
 
-    public PricingResult price(RatingContext context) {
-        RateBookSnapshotLoader.Snapshot snapshot = rateBookSnapshotLoader.loadActive(context.getTenantId());
-        if (snapshot == null) {
-            throw new IllegalStateException("No active ratebook for tenant: " + context.getTenantId());
-        }
+    public Mono<PricingResult> price(RatingContext context) {
+        return rateBookSnapshotLoader.loadActive(context.getTenantId())
+                .switchIfEmpty(Mono.error(new IllegalStateException("No active ratebook for tenant: " + context.getTenantId())))
+                .map(snapshot -> {
+                    RateBookDto rateBook = snapshot.rateBook();
+                    List<RateBookDto.RateRuleDto> sortedRules = rateBook.getRules().stream()
+                            .sorted(Comparator.comparingInt(RateBookDto.RateRuleDto::getPriority))
+                            .toList();
 
-        RateBookDto rateBook = snapshot.rateBook();
-        List<RateBookDto.RateRuleDto> sortedRules = rateBook.getRules().stream()
-                .sorted(Comparator.comparingInt(RateBookDto.RateRuleDto::getPriority))
-                .toList();
+                    List<Long> appliedRuleIds = new ArrayList<>();
 
-        List<Long> appliedRuleIds = new ArrayList<>();
+                    // 1. Eligibility
+                    checkEligibility(context, sortedRules, appliedRuleIds);
 
-        // 1. Eligibility
-        checkEligibility(context, sortedRules, appliedRuleIds);
+                    // 2. Referral
+                    ReferralInfo referralInfo = checkReferral(context, sortedRules, appliedRuleIds);
 
-        // 2. Referral
-        ReferralInfo referralInfo = checkReferral(context, sortedRules, appliedRuleIds);
+                    // 3. Base premium
+                    BigDecimal basePremium = calculateBasePremium(context, sortedRules, appliedRuleIds);
 
-        // 3. Base premium
-        BigDecimal basePremium = calculateBasePremium(context, sortedRules, appliedRuleIds);
+                    // 4. Minimum premium
+                    boolean minApplied = false;
+                    BigDecimal adjustedBasePremium = applyMinimumPremium(context, sortedRules, appliedRuleIds, basePremium);
+                    if (adjustedBasePremium.compareTo(basePremium) > 0) {
+                        minApplied = true;
+                        basePremium = adjustedBasePremium;
+                    }
 
-        // 4. Minimum premium
-        boolean minApplied = false;
-        BigDecimal adjustedBasePremium = applyMinimumPremium(context, sortedRules, appliedRuleIds, basePremium);
-        if (adjustedBasePremium.compareTo(basePremium) > 0) {
-            minApplied = true;
-            basePremium = adjustedBasePremium;
-        }
+                    // 5. Add-ons
+                    List<AddonBreakdown> addons = calculateAddons(context, sortedRules, appliedRuleIds);
 
-        // 5. Add-ons
-        List<AddonBreakdown> addons = calculateAddons(context, sortedRules, appliedRuleIds);
-
-        // 6. Statutory charges & Total
-        return buildPricingResult(basePremium, addons, referralInfo, minApplied, appliedRuleIds);
+                    // 6. Statutory charges & Total
+                    return buildPricingResult(basePremium, addons, referralInfo, minApplied, appliedRuleIds);
+                });
     }
 
     private void checkEligibility(RatingContext context, List<RateBookDto.RateRuleDto> rules, List<Long> appliedRuleIds) {

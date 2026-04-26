@@ -7,10 +7,7 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfigurat
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootConfiguration
-@EnableAutoConfiguration(exclude = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class
-})
+@EnableAutoConfiguration
 @ComponentScan(basePackages = "com.isec.platform.modules.integrations.registry")
 public class TestApplication {
 }

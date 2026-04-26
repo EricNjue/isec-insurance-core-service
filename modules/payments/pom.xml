@@ -38,5 +38,13 @@
             <groupId>com.isec</groupId>
             <artifactId>customers</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>reactive-commons-infra</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-r2dbc</artifactId>
+        </dependency>
     </dependencies>
 </project>

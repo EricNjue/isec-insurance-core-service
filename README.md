@@ -21,10 +21,13 @@ The system follows a **Modular Monolith** architecture style, ensuring strict do
 ---
 
 ## 3. Tech Stack
-- **Core:** Java 17, Spring Boot 3.3
-- **Security:** Spring Security 6, Keycloak, JWT-based RBAC
-- **Persistence:** Spring Data JPA, Hibernate, PostgreSQL, Liquibase
-- **Messaging:** Spring AMQP (RabbitMQ)
+- **Core:** Java 21, Spring Boot 3.3
+- **Security:** Spring Security 6 (Reactive), Keycloak, JWT-based RBAC
+- **API:** Spring WebFlux (Fully Non-blocking)
+- **Persistence:** Spring Data R2DBC, PostgreSQL, Liquibase
+- **Infrastructure:** `reactive-commons-infra` (Reusable utilities for HTTP, TX, Outbox)
+- **Messaging:** Spring AMQP (RabbitMQ, Reactive Integration)
+- **Caching:** Redis (Reactive)
 - **Build Tool:** Maven (Multi-module project)
 - **Integrations:** M-Pesa STK Push, DMVIC Certificate API
 

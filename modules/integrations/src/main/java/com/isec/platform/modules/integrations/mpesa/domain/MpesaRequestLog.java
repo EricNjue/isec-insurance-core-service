@@ -1,11 +1,11 @@
 package com.isec.platform.modules.integrations.mpesa.domain;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 import lombok.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "mpesa_request_logs")
+@Table("mpesa_request_logs")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -13,16 +13,12 @@ import java.time.LocalDateTime;
 @Builder
 public class MpesaRequestLog {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private String requestType; // STK_PUSH, STK_QUERY, OAUTH
 
-    @Column(columnDefinition = "TEXT")
     private String requestPayload;
 
-    @Column(columnDefinition = "TEXT")
     private String responsePayload;
 
     private String checkoutRequestId;
@@ -32,9 +28,4 @@ public class MpesaRequestLog {
     private String responseCode;
 
     private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 }

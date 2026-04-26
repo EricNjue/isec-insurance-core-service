@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -23,28 +24,41 @@ public class ProfileService {
     private final CustomerService customerService;
     private final SecurityContextService securityContextService;
 
-    public UserProfile getUserProfile() {
-        String userId = securityContextService.getCurrentUserId()
-                .orElseThrow(() -> new IllegalStateException("User not authenticated"));
+    public Mono<UserProfile> getUserProfile() {
+        return securityContextService.getCurrentUserId()
+                .switchIfEmpty(Mono.error(new IllegalStateException("User not authenticated")))
+                .flatMap(userId -> {
+                    log.debug("Fetching profile for user: {}", userId);
+                    return securityContextService.getCurrentJwt()
+                            .switchIfEmpty(Mono.error(new IllegalStateException("JWT not found in security context")))
+                            .flatMap(jwt -> {
+                                List<String> roles = extractRoles(jwt);
+                                List<OrganizationProfile> organizations = extractOrganizations(jwt);
 
-        log.debug("Fetching profile for user: {}", userId);
-        
-        Jwt jwt = securityContextService.getCurrentJwt()
-                .orElseThrow(() -> new IllegalStateException("JWT not found in security context"));
+                                return customerService.getCustomerByUserId(userId)
+                                        .map(Optional::of)
+                                        .defaultIfEmpty(Optional.empty())
+                                        .flatMap(customer -> {
+                                            Mono<String> emailMono = customer.map(Customer::getEmail)
+                                                    .map(Mono::just)
+                                                    .orElseGet(() -> securityContextService.getCurrentUserEmail().defaultIfEmpty("N/A"));
 
-        List<String> roles = extractRoles(jwt);
-        List<OrganizationProfile> organizations = extractOrganizations(jwt);
+                                            Mono<String> fullNameMono = customer.map(Customer::getFullName)
+                                                    .map(Mono::just)
+                                                    .orElseGet(() -> securityContextService.getCurrentUserFullName().defaultIfEmpty("N/A"));
 
-        Optional<Customer> customer = customerService.getCustomerByUserId(userId);
-
-        return UserProfile.builder()
-                .userId(userId)
-                .email(customer.map(Customer::getEmail).orElse(securityContextService.getCurrentUserEmail().orElse("N/A")))
-                .fullName(customer.map(Customer::getFullName).orElse(securityContextService.getCurrentUserFullName().orElse("N/A")))
-                .phoneNumber(customer.map(Customer::getPhoneNumber).orElse(null))
-                .roles(roles)
-                .organizations(organizations)
-                .build();
+                                            return Mono.zip(emailMono, fullNameMono)
+                                                    .map(tuple -> UserProfile.builder()
+                                                            .userId(userId)
+                                                            .email(tuple.getT1())
+                                                            .fullName(tuple.getT2())
+                                                            .phoneNumber(customer.map(Customer::getPhoneNumber).orElse(null))
+                                                            .roles(roles)
+                                                            .organizations(organizations)
+                                                            .build());
+                                        });
+                            });
+                });
     }
 
     private List<String> extractRoles(Jwt jwt) {

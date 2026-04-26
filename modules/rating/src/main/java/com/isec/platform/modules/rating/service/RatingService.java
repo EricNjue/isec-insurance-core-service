@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
+import reactor.core.publisher.Mono;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -36,7 +38,7 @@ public class RatingService {
         return new PremiumBreakdown(basePremium, pcf, itl, CERT_CHARGE, total);
     }
 
-    public AnonymousQuote createAnonymousQuote(AnonymousQuoteRequest request) {
+    public Mono<AnonymousQuote> createAnonymousQuote(AnonymousQuoteRequest request) {
         log.info("Creating anonymous quote for vehicle: {} {}", request.getVehicleMake(), request.getVehicleModel());
 
         String tenantId = request.getTenantId() != null ? request.getTenantId() : "SANLAM";
@@ -51,27 +53,27 @@ public class RatingService {
                 .vehicleAge(calculateVehicleAge(request.getYearOfManufacture()))
                 .build();
 
-        PricingResult pricingResult = pricingEngine.price(context);
+        return pricingEngine.price(context)
+                .map(pricingResult -> {
+                    PremiumBreakdown breakdown = new PremiumBreakdown(
+                            pricingResult.getBasePremium(),
+                            pricingResult.getPcf(),
+                            pricingResult.getItl(),
+                            pricingResult.getCertificateCharge(),
+                            pricingResult.getTotalPremium()
+                    );
 
-        PremiumBreakdown breakdown = new PremiumBreakdown(
-                pricingResult.getBasePremium(),
-                pricingResult.getPcf(),
-                pricingResult.getItl(),
-                pricingResult.getCertificateCharge(),
-                pricingResult.getTotalPremium()
-        );
-
-        AnonymousQuote quote = AnonymousQuote.builder()
-                .id(UUID.randomUUID().toString())
-                .vehicleMake(request.getVehicleMake())
-                .vehicleModel(request.getVehicleModel())
-                .yearOfManufacture(request.getYearOfManufacture())
-                .vehicleValue(request.getVehicleValue())
-                .baseRate(request.getBaseRate())
-                .premiumBreakdown(breakdown)
-                .build();
-
-        return anonymousQuoteRepository.save(quote);
+                    return AnonymousQuote.builder()
+                            .id(UUID.randomUUID().toString())
+                            .vehicleMake(request.getVehicleMake())
+                            .vehicleModel(request.getVehicleModel())
+                            .yearOfManufacture(request.getYearOfManufacture())
+                            .vehicleValue(request.getVehicleValue())
+                            .baseRate(request.getBaseRate())
+                            .premiumBreakdown(breakdown)
+                            .build();
+                })
+                .flatMap(quote -> anonymousQuoteRepository.save(quote));
     }
 
     private Integer calculateVehicleAge(Integer yearOfManufacture) {
@@ -79,7 +81,7 @@ public class RatingService {
         return LocalDate.now().getYear() - yearOfManufacture;
     }
 
-    public Optional<AnonymousQuote> getAnonymousQuote(String id) {
+    public Mono<AnonymousQuote> getAnonymousQuote(String id) {
         return anonymousQuoteRepository.findById(id);
     }
 

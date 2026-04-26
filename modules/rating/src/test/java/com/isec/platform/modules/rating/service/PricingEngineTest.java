@@ -9,6 +9,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.util.List;
@@ -59,29 +62,29 @@ class PricingEngineTest {
                 .rules(List.of(baseRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(any(), any())).thenReturn(true);
-        // 1,000,000 * 0.045678 = 45,600.00 exactly if 0.0456? 
-        // Let's use a value that definitely has decimals: 1,000,000 * 0.04567 = 45,670
-        // Or 1,000,005 * 0.04 = 40,000.2 -> shd be 40,001
+        // 1,000,005 * 0.04 = 40,000.2 -> shd be 40,001
         context.setVehicleValue(new BigDecimal("1000005"));
         when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.04"));
 
-        // when
-        PricingResult result = pricingEngine.price(context);
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    // base = 1000005 * 0.04 = 40000.2 -> 40001
+                    assertThat(result.getBasePremium()).isEqualByComparingTo("40001");
 
-        // then
-        // base = 1000005 * 0.04 = 40000.2 -> 40001
-        assertThat(result.getBasePremium()).isEqualByComparingTo("40001");
-        
-        // pcf = 40001 * 0.0025 = 100.0025 -> 101
-        assertThat(result.getPcf()).isEqualByComparingTo("101");
-        
-        // itl = 40001 * 0.0020 = 80.002 -> 81
-        assertThat(result.getItl()).isEqualByComparingTo("81");
-        
-        // total = 40001 + 101 + 81 + 40 = 40223
-        assertThat(result.getTotalPremium()).isEqualByComparingTo("40223");
+                    // pcf = 40001 * 0.0025 = 100.0025 -> 101
+                    assertThat(result.getPcf()).isEqualByComparingTo("101");
+
+                    // itl = 40001 * 0.0020 = 80.002 -> 81
+                    assertThat(result.getItl()).isEqualByComparingTo("81");
+
+                    // total = 40001 + 101 + 81 + 40 = 40223
+                    assertThat(result.getTotalPremium()).isEqualByComparingTo("40223");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -114,17 +117,19 @@ class PricingEngineTest {
                 .rules(List.of(baseRule, minRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(any(), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05")); // 5000
         when(ruleMatcher.evaluateBigDecimal(eq(minRule), any())).thenReturn(new BigDecimal("15000")); // Min 15000
 
-        // when
-        PricingResult result = pricingEngine.price(context);
-
-        // then
-        assertThat(result.getBasePremium()).isEqualByComparingTo("15000");
-        assertThat(result.isMinimumPremiumApplied()).isTrue();
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getBasePremium()).isEqualByComparingTo("15000");
+                    assertThat(result.isMinimumPremiumApplied()).isTrue();
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -158,16 +163,18 @@ class PricingEngineTest {
                 .rules(List.of(baseRule, referralRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(eq(referralRule), any())).thenReturn(true);
         when(ruleMatcher.matches(eq(baseRule), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("0.05"));
 
-        // when
-        PricingResult result = pricingEngine.price(context);
-
-        // then
-        assertThat(result.getReferralDecision()).isEqualTo(ReferralDecision.REFERRED);
-        assertThat(result.getReferralReason()).isEqualTo("Refer old cars");
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getReferralDecision()).isEqualTo(ReferralDecision.REFERRED);
+                    assertThat(result.getReferralReason()).isEqualTo("Refer old cars");
+                })
+                .verifyComplete();
     }
 }

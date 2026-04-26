@@ -9,10 +9,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.test.util.ReflectionTestUtils;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -46,12 +47,15 @@ class DocumentVerificationServiceTest {
                 .documentType("VALUATION_LETTER")
                 .build();
 
-        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Optional.of(letter));
+        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Mono.just(letter));
 
-        VerificationResult result = verificationService.verifyByUuid(uuid);
-
-        assertEquals("VALID", result.getStatus());
-        assertEquals(uuid.toString(), result.getDocumentId());
+        StepVerifier.create(verificationService.verifyByUuid(uuid))
+                .assertNext(result -> {
+                    assertEquals("VALID", result.getStatus());
+                    assertEquals(uuid.toString(), result.getDocumentId());
+                })
+                .expectComplete()
+                .verify();
         verify(letterRepository, never()).save(any());
     }
 
@@ -65,11 +69,14 @@ class DocumentVerificationServiceTest {
                 .documentType("VALUATION_LETTER")
                 .build();
 
-        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Optional.of(letter));
+        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Mono.just(letter));
+        when(letterRepository.save(any())).thenReturn(Mono.just(letter));
 
-        VerificationResult result = verificationService.verifyByUuid(uuid);
-
-        assertEquals("EXPIRED", result.getStatus());
+        StepVerifier.create(verificationService.verifyByUuid(uuid))
+                .assertNext(result -> {
+                    assertEquals("EXPIRED", result.getStatus());
+                })
+                .verifyComplete();
         verify(letterRepository, times(1)).save(letter);
         assertEquals(ValuationLetter.ValuationLetterStatus.EXPIRED, letter.getStatus());
     }
@@ -77,11 +84,13 @@ class DocumentVerificationServiceTest {
     @Test
     void testVerifyByUuid_NotFound() {
         UUID uuid = UUID.randomUUID();
-        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Optional.empty());
+        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Mono.empty());
 
-        VerificationResult result = verificationService.verifyByUuid(uuid);
-
-        assertEquals("NOT_FOUND", result.getStatus());
+        StepVerifier.create(verificationService.verifyByUuid(uuid))
+                .assertNext(result -> {
+                    assertEquals("NOT_FOUND", result.getStatus());
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -99,12 +108,14 @@ class DocumentVerificationServiceTest {
 
         when(pdfSecurityService.calculateHash(content)).thenReturn(hash);
         when(pdfSecurityService.extractMetadata(content)).thenReturn(Map.of("documentId", uuid.toString()));
-        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Optional.of(letter));
+        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Mono.just(letter));
 
-        VerificationResult result = verificationService.verifyByPdfContent(content, "test.pdf");
-
-        assertEquals("VALID", result.getStatus());
-        assertEquals("Cryptographic hash matches record", result.getMessage());
+        StepVerifier.create(verificationService.verifyByPdfContent(content, "test.pdf"))
+                .assertNext(result -> {
+                    assertEquals("VALID", result.getStatus());
+                    assertEquals("Cryptographic hash matches record", result.getMessage());
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -118,11 +129,13 @@ class DocumentVerificationServiceTest {
 
         when(pdfSecurityService.calculateHash(content)).thenReturn("different-hash");
         when(pdfSecurityService.extractMetadata(content)).thenReturn(Map.of("documentId", uuid.toString()));
-        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Optional.of(letter));
+        when(letterRepository.findByDocumentUuid(uuid)).thenReturn(Mono.just(letter));
 
-        VerificationResult result = verificationService.verifyByPdfContent(content, "test.pdf");
-
-        assertEquals("MODIFIED", result.getStatus());
-        assertEquals("PDF content does not match the original hash", result.getMessage());
+        StepVerifier.create(verificationService.verifyByPdfContent(content, "test.pdf"))
+                .assertNext(result -> {
+                    assertEquals("MODIFIED", result.getStatus());
+                    assertEquals("PDF content does not match the original hash", result.getMessage());
+                })
+                .verifyComplete();
     }
 }

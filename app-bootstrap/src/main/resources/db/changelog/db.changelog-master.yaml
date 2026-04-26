@@ -73,3 +73,5 @@ databaseChangeLog:
       file: db/changelog/modules/36-certificate-ingestion.yaml
   - include:
       file: db/changelog/modules/37-certificate-unique-constraint.yaml
+  - include:
+      file: db/changelog/modules/38-reactive-commons.yaml

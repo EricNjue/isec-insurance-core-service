@@ -17,6 +17,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import java.util.List;
 import java.util.Map;
 
@@ -63,15 +66,17 @@ class SanlamIntegrationAdapterTest {
 
         when(cacheManager.getCache(CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE)).thenReturn(cache);
         when(cache.get(cacheKey, DoubleInsuranceCheckResponse.class)).thenReturn(null);
-        when(sanlamClient.checkDoubleInsurance(anyString(), anyString())).thenReturn(sanlamResponse);
+        when(sanlamClient.checkDoubleInsurance(anyString(), anyString())).thenReturn(Mono.just(sanlamResponse));
 
-        // Execute
-        DoubleInsuranceCheckResponse response = adapter.checkDoubleInsurance(request);
+        // Execute & Verify
+        StepVerifier.create(adapter.checkDoubleInsurance(request))
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertFalse(response.isHasDuplicate());
+                    assertEquals("clear", response.getStatus());
+                })
+                .verifyComplete();
 
-        // Verify
-        assertNotNull(response);
-        assertFalse(response.isHasDuplicate());
-        assertEquals("clear", response.getStatus());
         verify(sanlamClient).checkDoubleInsurance("KAA123X", "CH123");
         verify(cache).put(eq(cacheKey), any(DoubleInsuranceCheckResponse.class));
     }
@@ -93,12 +98,11 @@ class SanlamIntegrationAdapterTest {
         when(cacheManager.getCache(CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE)).thenReturn(cache);
         when(cache.get(cacheKey, DoubleInsuranceCheckResponse.class)).thenReturn(cachedResponse);
 
-        // Execute
-        DoubleInsuranceCheckResponse response = adapter.checkDoubleInsurance(request);
+        // Execute & Verify
+        StepVerifier.create(adapter.checkDoubleInsurance(request))
+                .expectNext(cachedResponse)
+                .verifyComplete();
 
-        // Verify
-        assertNotNull(response);
-        assertEquals(cachedResponse, response);
         verifyNoInteractions(sanlamClient);
     }
 
@@ -121,17 +125,18 @@ class SanlamIntegrationAdapterTest {
         sanlamResponse.setEvidence(evidence);
 
         when(cacheManager.getCache(anyString())).thenReturn(cache);
-        when(sanlamClient.checkDoubleInsurance(anyString(), anyString())).thenReturn(sanlamResponse);
+        when(sanlamClient.checkDoubleInsurance(anyString(), anyString())).thenReturn(Mono.just(sanlamResponse));
 
-        // Execute
-        DoubleInsuranceCheckResponse response = adapter.checkDoubleInsurance(request);
-
-        // Verify
-        assertNotNull(response);
-        assertTrue(response.isHasDuplicate());
-        assertNotNull(response.getDetails());
-        assertEquals("APA", response.getDetails().getInsurer());
-        assertEquals("POL123", response.getDetails().getPolicyNumber());
+        // Execute & Verify
+        StepVerifier.create(adapter.checkDoubleInsurance(request))
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertTrue(response.isHasDuplicate());
+                    assertNotNull(response.getDetails());
+                    assertEquals("APA", response.getDetails().getInsurer());
+                    assertEquals("POL123", response.getDetails().getPolicyNumber());
+                })
+                .verifyComplete();
     }
     
     @Test
@@ -146,12 +151,13 @@ class SanlamIntegrationAdapterTest {
         sanlamResponse.setStatus("clear");
 
         when(cacheManager.getCache(anyString())).thenReturn(cache);
-        when(sanlamClient.checkDoubleInsurance(anyString(), eq(null))).thenReturn(sanlamResponse);
+        when(sanlamClient.checkDoubleInsurance(anyString(), eq(null))).thenReturn(Mono.just(sanlamResponse));
 
-        // Execute
-        adapter.checkDoubleInsurance(request);
+        // Execute & Verify
+        StepVerifier.create(adapter.checkDoubleInsurance(request))
+                .expectNextCount(1)
+                .verifyComplete();
 
-        // Verify
         verify(sanlamClient).checkDoubleInsurance("KAA123X", null);
     }
 
@@ -169,19 +175,20 @@ class SanlamIntegrationAdapterTest {
         );
         SanlamMasterReferenceDataResponse sanlamResponse = new SanlamMasterReferenceDataResponse(Map.of("1", categoryMap));
 
-        when(sanlamClient.fetchMasterReferenceData(productCode)).thenReturn(sanlamResponse);
+        when(sanlamClient.fetchMasterReferenceData(productCode)).thenReturn(Mono.just(sanlamResponse));
 
-        // Execute
-        Map<ReferenceCategory, List<ReferenceDataItem>> result = adapter.fetchMasterReferenceData(productCode);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(ReferenceCategory.POLICY_TYPE));
-        List<ReferenceDataItem> items = result.get(ReferenceCategory.POLICY_TYPE);
-        assertEquals(1, items.size());
-        assertEquals("1001", items.get(0).getCode());
-        assertEquals("Motor Commercial", items.get(0).getLabel());
-        assertEquals("5", items.get(0).getSourceId());
+        // Execute & Verify
+        StepVerifier.create(adapter.fetchMasterReferenceData(productCode))
+                .assertNext(result -> {
+                    assertNotNull(result);
+                    assertTrue(result.containsKey(ReferenceCategory.POLICY_TYPE));
+                    List<ReferenceDataItem> items = result.get(ReferenceCategory.POLICY_TYPE);
+                    assertEquals(1, items.size());
+                    assertEquals("1001", items.get(0).getCode());
+                    assertEquals("Motor Commercial", items.get(0).getLabel());
+                    assertEquals("5", items.get(0).getSourceId());
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -197,17 +204,18 @@ class SanlamIntegrationAdapterTest {
                 "Vehicle Model", List.of(item)
         ));
 
-        when(sanlamClient.fetchDependentReferenceData("Vehicle Make", "B.M.W.", "Vehicle Model")).thenReturn(sanlamResponse);
+        when(sanlamClient.fetchDependentReferenceData("Vehicle Make", "B.M.W.", "Vehicle Model")).thenReturn(Mono.just(sanlamResponse));
 
-        // Execute
-        List<ReferenceDataItem> result = adapter.fetchDependentReferenceData(productCode, 
-                ReferenceCategory.VEHICLE_MAKE, "B.M.W.", ReferenceCategory.VEHICLE_MODEL);
-
-        // Verify
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals("X002", result.get(0).getCode());
-        assertEquals("X5", result.get(0).getLabel());
-        assertEquals("272", result.get(0).getSourceId());
+        // Execute & Verify
+        StepVerifier.create(adapter.fetchDependentReferenceData(productCode, 
+                ReferenceCategory.VEHICLE_MAKE, "B.M.W.", ReferenceCategory.VEHICLE_MODEL))
+                .assertNext(result -> {
+                    assertNotNull(result);
+                    assertEquals(1, result.size());
+                    assertEquals("X002", result.get(0).getCode());
+                    assertEquals("X5", result.get(0).getLabel());
+                    assertEquals("272", result.get(0).getSourceId());
+                })
+                .verifyComplete();
     }
 }

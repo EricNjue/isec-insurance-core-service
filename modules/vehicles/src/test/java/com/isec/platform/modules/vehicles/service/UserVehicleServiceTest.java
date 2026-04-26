@@ -8,6 +8,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -34,7 +37,7 @@ public class UserVehicleServiceTest {
     @Test
     void getMyVehicles_returnsMappedDtos() {
         // given
-        when(securityContextService.getCurrentUserId()).thenReturn(Optional.of("user-123"));
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user-123"));
         UserVehicle v = UserVehicle.builder()
                 .id(UUID.randomUUID())
                 .userId("user-123")
@@ -46,21 +49,20 @@ public class UserVehicleServiceTest {
                 .chassisNumber("JTDBR32E330123456")
                 .engineNumber("1NZ-1234567")
                 .build();
-        when(userVehicleRepository.findAllByUserId("user-123")).thenReturn(List.of(v));
+        when(userVehicleRepository.findAllByUserId("user-123")).thenReturn(Flux.just(v));
 
-        // when
-        List<UserVehicleDto> result = userVehicleService.getMyVehicles();
-
-        // then
-        assertThat(result).hasSize(1);
-        UserVehicleDto dto = result.get(0);
-        assertThat(dto.getRegistrationNumber()).isEqualTo("KAA 123X");
-        assertThat(dto.getVehicleMake()).isEqualTo("Toyota");
-        assertThat(dto.getVehicleModel()).isEqualTo("Corolla");
-        assertThat(dto.getYearOfManufacture()).isEqualTo(2020);
-        assertThat(dto.getVehicleValue()).isEqualByComparingTo("2500000");
-        assertThat(dto.getChassisNumber()).isEqualTo("JTDBR32E330123456");
-        assertThat(dto.getEngineNumber()).isEqualTo("1NZ-1234567");
+        // when & then
+        StepVerifier.create(userVehicleService.getMyVehicles())
+                .assertNext(dto -> {
+                    assertThat(dto.getRegistrationNumber()).isEqualTo("KAA 123X");
+                    assertThat(dto.getVehicleMake()).isEqualTo("Toyota");
+                    assertThat(dto.getVehicleModel()).isEqualTo("Corolla");
+                    assertThat(dto.getYearOfManufacture()).isEqualTo(2020);
+                    assertThat(dto.getVehicleValue()).isEqualByComparingTo("2500000");
+                    assertThat(dto.getChassisNumber()).isEqualTo("JTDBR32E330123456");
+                    assertThat(dto.getEngineNumber()).isEqualTo("1NZ-1234567");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -79,7 +81,8 @@ public class UserVehicleServiceTest {
                 .engineNumber("OLD-ENGINE")
                 .build();
         when(userVehicleRepository.findByRegistrationNumberAndUserId("KAA 123X", userId))
-                .thenReturn(Optional.of(existing));
+                .thenReturn(Mono.just(existing));
+        when(userVehicleRepository.save(any(UserVehicle.class))).thenAnswer(i -> Mono.just(i.getArgument(0)));
 
         UserVehicleDto dto = UserVehicleDto.builder()
                 .registrationNumber("KAA 123X")
@@ -91,16 +94,18 @@ public class UserVehicleServiceTest {
                 .engineNumber("1NZ-1234567")
                 .build();
 
-        // when
-        userVehicleService.saveOrUpdateVehicle(userId, dto);
+        // when & then
+        StepVerifier.create(userVehicleService.saveOrUpdateVehicle(userId, dto))
+                .assertNext(saved -> {
+                    assertThat(saved.getVehicleModel()).isEqualTo("Corolla");
+                    assertThat(saved.getYearOfManufacture()).isEqualTo(2020);
+                    assertThat(saved.getVehicleValue()).isEqualByComparingTo("2500000");
+                    assertThat(saved.getChassisNumber()).isEqualTo("JTDBR32E330123456");
+                    assertThat(saved.getEngineNumber()).isEqualTo("1NZ-1234567");
+                })
+                .verifyComplete();
 
-        // then
         verify(userVehicleRepository, times(1)).save(any(UserVehicle.class));
-        assertThat(existing.getVehicleModel()).isEqualTo("Corolla");
-        assertThat(existing.getYearOfManufacture()).isEqualTo(2020);
-        assertThat(existing.getVehicleValue()).isEqualByComparingTo("2500000");
-        assertThat(existing.getChassisNumber()).isEqualTo("JTDBR32E330123456");
-        assertThat(existing.getEngineNumber()).isEqualTo("1NZ-1234567");
     }
 
     @Test
@@ -108,7 +113,8 @@ public class UserVehicleServiceTest {
         // given
         String userId = "user-123";
         when(userVehicleRepository.findByRegistrationNumberAndUserId("KBB 987Y", userId))
-                .thenReturn(Optional.empty());
+                .thenReturn(Mono.empty());
+        when(userVehicleRepository.save(any(UserVehicle.class))).thenAnswer(i -> Mono.just(i.getArgument(0)));
 
         UserVehicleDto dto = UserVehicleDto.builder()
                 .registrationNumber("KBB 987Y")
@@ -122,19 +128,20 @@ public class UserVehicleServiceTest {
 
         ArgumentCaptor<UserVehicle> captor = ArgumentCaptor.forClass(UserVehicle.class);
 
-        // when
-        userVehicleService.saveOrUpdateVehicle(userId, dto);
+        // when & then
+        StepVerifier.create(userVehicleService.saveOrUpdateVehicle(userId, dto))
+                .assertNext(saved -> {
+                    assertThat(saved.getUserId()).isEqualTo(userId);
+                    assertThat(saved.getRegistrationNumber()).isEqualTo("KBB 987Y");
+                    assertThat(saved.getVehicleMake()).isEqualTo("Mazda");
+                    assertThat(saved.getVehicleModel()).isEqualTo("Demio");
+                    assertThat(saved.getYearOfManufacture()).isEqualTo(2019);
+                    assertThat(saved.getVehicleValue()).isEqualByComparingTo("1500000");
+                    assertThat(saved.getChassisNumber()).isEqualTo("JM1DE2H2A01234567");
+                    assertThat(saved.getEngineNumber()).isEqualTo("ZJ-1234567");
+                })
+                .verifyComplete();
 
-        // then
         verify(userVehicleRepository, times(1)).save(captor.capture());
-        UserVehicle saved = captor.getValue();
-        assertThat(saved.getUserId()).isEqualTo(userId);
-        assertThat(saved.getRegistrationNumber()).isEqualTo("KBB 987Y");
-        assertThat(saved.getVehicleMake()).isEqualTo("Mazda");
-        assertThat(saved.getVehicleModel()).isEqualTo("Demio");
-        assertThat(saved.getYearOfManufacture()).isEqualTo(2019);
-        assertThat(saved.getVehicleValue()).isEqualByComparingTo("1500000");
-        assertThat(saved.getChassisNumber()).isEqualTo("JM1DE2H2A01234567");
-        assertThat(saved.getEngineNumber()).isEqualTo("ZJ-1234567");
     }
 }

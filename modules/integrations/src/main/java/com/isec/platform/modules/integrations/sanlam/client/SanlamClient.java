@@ -52,38 +52,30 @@ public class SanlamClient {
     @Value("${integrations.sanlam.reference-data.dependent-endpoint:/masters/child_lov}")
     private String dependentEndpoint;
 
-    public String getAccessToken() {
-        String cachedToken = redisTemplate.opsForValue().get(tokenCacheKey);
-        if (cachedToken != null) {
-            log.debug("Sanlam access token retrieved from cache");
-            return cachedToken;
-        }
-
-        synchronized (this) {
-            cachedToken = redisTemplate.opsForValue().get(tokenCacheKey);
+    public Mono<String> getAccessToken() {
+        return Mono.defer(() -> {
+            String cachedToken = redisTemplate.opsForValue().get(tokenCacheKey);
             if (cachedToken != null) {
-                log.debug("Sanlam access token retrieved from cache (sync)");
-                return cachedToken;
+                log.debug("Sanlam access token retrieved from cache");
+                return Mono.just(cachedToken);
             }
 
             log.info("Sanlam access token expired or not found. Fetching new token from Sanlam...");
-            AccessTokenResponse response = fetchNewToken().block();
-            if (response != null && response.getAccessToken() != null) {
-                // Sanlam tokens are valid for 24 hours (86400 seconds)
-                // We cache for 24 hours minus buffer
-                long expiresIn = 86400; // Default if not provided
-                log.info("Sanlam access token fetched successfully. Caching for {} seconds (minus {} min buffer)", 
-                        expiresIn, tokenExpiryBufferMinutes);
-                redisTemplate.opsForValue().set(
-                        tokenCacheKey,
-                        response.getAccessToken(),
-                        Duration.ofSeconds(expiresIn).minusMinutes(tokenExpiryBufferMinutes)
-                );
-                return response.getAccessToken();
-            }
-        }
-        log.error("Failed to fetch Sanlam access token from {}", baseUrl);
-        throw new RuntimeException("Failed to fetch Sanlam access token");
+            return fetchNewToken()
+                .flatMap(response -> {
+                    if (response != null && response.getAccessToken() != null) {
+                        long expiresIn = 86400;
+                        log.info("Sanlam access token fetched successfully. Caching for {} seconds", expiresIn);
+                        redisTemplate.opsForValue().set(
+                                tokenCacheKey,
+                                response.getAccessToken(),
+                                Duration.ofSeconds(expiresIn).minusMinutes(tokenExpiryBufferMinutes)
+                        );
+                        return Mono.just(response.getAccessToken());
+                    }
+                    return Mono.error(new RuntimeException("Failed to fetch Sanlam access token"));
+                });
+        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
     }
 
     private Mono<AccessTokenResponse> fetchNewToken() {
@@ -103,62 +95,55 @@ public class SanlamClient {
                 .doOnError(error -> log.error("Error fetching Sanlam token: {}", error.getMessage()));
     }
 
-    public SanlamDoubleInsuranceResponse checkDoubleInsurance(String registrationNumber, String chassisNumber) {
+    public Mono<SanlamDoubleInsuranceResponse> checkDoubleInsurance(String registrationNumber, String chassisNumber) {
         log.info("Calling Sanlam double insurance check for LPN: {}, chassis: {}", registrationNumber, chassisNumber);
-        String token = getAccessToken();
         
-        Map<String, String> body = new java.util.HashMap<>();
-        body.put("registration_number", registrationNumber);
-        if (chassisNumber != null && !chassisNumber.isEmpty()) {
-            body.put("chassis_number", chassisNumber);
-        }
+        return getAccessToken()
+            .flatMap(token -> {
+                Map<String, String> body = new java.util.HashMap<>();
+                body.put("registration_number", registrationNumber);
+                if (chassisNumber != null && !chassisNumber.isEmpty()) {
+                    body.put("chassis_number", chassisNumber);
+                }
 
-        return webClientBuilder.build()
-                .post()
-                .uri(baseUrl + "/external_apis/dmvic/check-double-insurance")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(body)
-                .retrieve()
-                .bodyToMono(SanlamDoubleInsuranceResponse.class)
-                .doOnNext(response -> log.info("Sanlam double insurance response: status={}, message={}", 
-                        response.getStatus(), response.getMessage()))
-                .doOnError(error -> log.error("Sanlam double insurance check failed: {}", error.getMessage()))
-                .block();
+                return webClientBuilder.build()
+                        .post()
+                        .uri(baseUrl + "/external_apis/dmvic/check-double-insurance")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(body)
+                        .retrieve()
+                        .bodyToMono(SanlamDoubleInsuranceResponse.class)
+                        .doOnNext(response -> log.info("Sanlam double insurance response: status={}, message={}", 
+                                response.getStatus(), response.getMessage()))
+                        .doOnError(error -> log.error("Sanlam double insurance check failed: {}", error.getMessage()));
+            });
     }
 
-    public SanlamMasterReferenceDataResponse fetchMasterReferenceData(String productCode) {
+    public Mono<SanlamMasterReferenceDataResponse> fetchMasterReferenceData(String productCode) {
         String path = masterEndpoint.replace("{productCode}", productCode);
         String fullUrl = baseUrl + path;
         log.info("SanlamClient: Fetching master reference data. URL: {}", fullUrl);
         
-        String token = getAccessToken();
-
-        Map<String, Map<String, List<SanlamMasterReferenceDataResponse.SanlamReferenceDataItem>>> rawResponse = webClientBuilder.build()
+        return getAccessToken()
+            .flatMap(token -> webClientBuilder.build()
                 .get()
                 .uri(fullUrl)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Map<String, List<SanlamMasterReferenceDataResponse.SanlamReferenceDataItem>>>>() {})
-                .doOnNext(resp -> {
-                    if (resp != null) {
-                        log.info("SanlamClient: Master reference data fetched successfully. Groups found: {}", resp.keySet());
-                    }
-                })
-                .doOnError(error -> log.error("SanlamClient: Failed to fetch master reference data from {}. Error: {}", fullUrl, error.getMessage()))
-                .block();
-
-        return new SanlamMasterReferenceDataResponse(rawResponse);
+                .map(SanlamMasterReferenceDataResponse::new)
+                .doOnNext(resp -> log.info("SanlamClient: Master reference data fetched successfully"))
+                .doOnError(error -> log.error("SanlamClient: Failed to fetch master reference data from {}. Error: {}", fullUrl, error.getMessage())));
     }
 
-    public SanlamDependentReferenceDataResponse fetchDependentReferenceData(String parentAttrName, String parentValue, String childAttrName) {
+    public Mono<SanlamDependentReferenceDataResponse> fetchDependentReferenceData(String parentAttrName, String parentValue, String childAttrName) {
         log.info("SanlamClient: Fetching dependent reference data. Base URL: {}, Path: {}, Parent: {}={}, Child: {}", 
                 baseUrl, dependentEndpoint, parentAttrName, parentValue, childAttrName);
         
-        String token = getAccessToken();
-
-        Map<String, List<SanlamMasterReferenceDataResponse.SanlamReferenceDataItem>> rawResponse = webClientBuilder.build()
+        return getAccessToken()
+            .flatMap(token -> webClientBuilder.build()
                 .post()
                 .uri(uriBuilder -> uriBuilder
                         .scheme(baseUrl.split("://")[0])
@@ -174,15 +159,9 @@ public class SanlamClient {
                 .bodyValue("{}")
                 .retrieve()
                 .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, List<SanlamMasterReferenceDataResponse.SanlamReferenceDataItem>>>() {})
-                .doOnNext(resp -> {
-                    if (resp != null) {
-                        log.info("SanlamClient: Dependent reference data fetched successfully. Child categories found: {}", resp.keySet());
-                    }
-                })
-                .doOnError(error -> log.error("SanlamClient: Failed to fetch dependent reference data from {}. Error: {}", baseUrl + dependentEndpoint, error.getMessage()))
-                .block();
-
-        return new SanlamDependentReferenceDataResponse(rawResponse);
+                .map(SanlamDependentReferenceDataResponse::new)
+                .doOnNext(resp -> log.info("SanlamClient: Dependent reference data fetched successfully"))
+                .doOnError(error -> log.error("SanlamClient: Failed to fetch dependent reference data. Error: {}", error.getMessage())));
     }
 
     @Data

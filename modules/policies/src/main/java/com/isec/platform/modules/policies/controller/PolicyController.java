@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/policies")
@@ -18,28 +19,28 @@ public class PolicyController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<Policy> getPolicy(@PathVariable Long id) {
+    public Mono<ResponseEntity<Policy>> getPolicy(@PathVariable Long id) {
         log.debug("Fetching policy by id={}", id);
         return policyRepository.findById(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/application/{applicationId}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<Policy> getPolicyByApplication(@PathVariable Long applicationId) {
+    public Mono<ResponseEntity<Policy>> getPolicyByApplication(@PathVariable Long applicationId) {
         log.debug("Fetching policy by applicationId={}", applicationId);
         return policyRepository.findByApplicationId(applicationId)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
     
     @GetMapping("/number/{policyNumber}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<Policy> getPolicyByPolicyNumber(@PathVariable String policyNumber) {
+    public Mono<ResponseEntity<Policy>> getPolicyByPolicyNumber(@PathVariable String policyNumber) {
         log.debug("Fetching policy by policyNumber={}", policyNumber);
         return policyRepository.findByPolicyNumber(policyNumber)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 }

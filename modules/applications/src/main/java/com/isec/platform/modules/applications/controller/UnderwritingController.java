@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/applications/{applicationId}/underwriting")
@@ -19,20 +20,22 @@ public class UnderwritingController {
 
     @PostMapping("/approve")
     @PreAuthorize("hasAnyRole('UNDERWRITER','ADMIN')")
-    public ResponseEntity<Application> approve(@PathVariable Long applicationId,
+    public Mono<ResponseEntity<Application>> approve(@PathVariable Long applicationId,
                                                @RequestParam @NotBlank String underwriterId,
                                                @RequestParam(required = false) String comments) {
         log.info("Underwriting approve for application {} by {}", applicationId, underwriterId);
-        return ResponseEntity.ok(underwritingService.approve(applicationId, underwriterId, comments));
+        return underwritingService.approve(applicationId, underwriterId, comments)
+                .map(ResponseEntity::ok);
     }
 
     @PostMapping("/decline")
     @PreAuthorize("hasAnyRole('UNDERWRITER','ADMIN')")
-    public ResponseEntity<Application> decline(@PathVariable Long applicationId,
+    public Mono<ResponseEntity<Application>> decline(@PathVariable Long applicationId,
                                                @RequestParam @NotBlank String underwriterId,
                                                @RequestParam(required = false) String comments,
                                                @RequestParam @NotBlank String reason) {
         log.info("Underwriting decline for application {} by {}", applicationId, underwriterId);
-        return ResponseEntity.ok(underwritingService.decline(applicationId, underwriterId, comments, reason));
+        return underwritingService.decline(applicationId, underwriterId, comments, reason)
+                .map(ResponseEntity::ok);
     }
 }

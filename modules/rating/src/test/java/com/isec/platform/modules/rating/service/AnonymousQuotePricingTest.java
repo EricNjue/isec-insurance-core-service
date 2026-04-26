@@ -8,6 +8,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import java.math.BigDecimal;
 import java.util.Optional;
 
@@ -47,14 +50,16 @@ class AnonymousQuotePricingTest {
                 .totalPremium(new BigDecimal("37708.75"))
                 .build();
 
-        when(pricingEngine.price(any())).thenReturn(pricingResult);
-        when(anonymousQuoteRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pricingEngine.price(any())).thenReturn(Mono.just(pricingResult));
+        when(anonymousQuoteRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        // when
-        AnonymousQuote result = ratingService.createAnonymousQuote(request);
-
-        // then
-        assertThat(result.getPremiumBreakdown().basePremium()).isEqualByComparingTo("37500");
-        assertThat(result.getPremiumBreakdown().totalPremium()).isEqualByComparingTo("37708.75");
+        // when & then
+        ratingService.createAnonymousQuote(request)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getPremiumBreakdown().basePremium()).isEqualByComparingTo("37500");
+                    assertThat(result.getPremiumBreakdown().totalPremium()).isEqualByComparingTo("37708.75");
+                })
+                .verifyComplete();
     }
 }

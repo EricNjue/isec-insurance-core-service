@@ -13,6 +13,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,38 +55,48 @@ class IntegrationCompanyServiceTest {
 
     @Test
     void createIntegration_Success() {
-        when(repository.existsByCode("SANLAM")).thenReturn(false);
+        when(repository.existsByCode("SANLAM")).thenReturn(Mono.just(false));
         when(mapper.toEntity(request)).thenReturn(entity);
-        when(repository.save(any(IntegrationCompany.class))).thenReturn(entity);
+        when(repository.save(any(IntegrationCompany.class))).thenReturn(Mono.just(entity));
         when(mapper.toResponse(entity)).thenReturn(IntegrationCompanyResponse.builder().code("SANLAM").build());
 
-        IntegrationCompanyResponse response = service.createIntegration(request);
+        StepVerifier.create(service.createIntegration(request))
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals("SANLAM", response.getCode());
+                })
+                .verifyComplete();
 
-        assertNotNull(response);
-        assertEquals("SANLAM", response.getCode());
         verify(repository).save(any(IntegrationCompany.class));
     }
 
     @Test
     void createIntegration_DuplicateCode_ThrowsException() {
-        when(repository.existsByCode("SANLAM")).thenReturn(true);
+        when(repository.existsByCode("SANLAM")).thenReturn(Mono.just(true));
 
-        assertThrows(BusinessException.class, () -> service.createIntegration(request));
+        StepVerifier.create(service.createIntegration(request))
+                .expectError(BusinessException.class)
+                .verify();
+
         verify(repository, never()).save(any());
     }
 
     @Test
     void getIntegrationById_NotFound_ThrowsException() {
-        when(repository.findById(1L)).thenReturn(Optional.empty());
+        when(repository.findById(1L)).thenReturn(Mono.empty());
 
-        assertThrows(BusinessException.class, () -> service.getIntegrationById(1L));
+        StepVerifier.create(service.getIntegrationById(1L))
+                .expectError(BusinessException.class)
+                .verify();
     }
 
     @Test
     void deleteIntegration_Success() {
-        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.findById(1L)).thenReturn(Mono.just(entity));
+        when(repository.save(entity)).thenReturn(Mono.just(entity));
 
-        service.deleteIntegration(1L);
+        StepVerifier.create(service.deleteIntegration(1L))
+                .verifyComplete();
 
         assertTrue(entity.isDeleted());
         assertFalse(entity.isActive());

@@ -28,7 +28,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import reactor.test.StepVerifier;
+import reactor.core.publisher.Mono;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -78,84 +79,111 @@ class PaymentServiceTest {
 
     @Test
     void initiateSTKPush_PolicyNotFound_ThrowsException() {
-        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Optional.empty());
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user-123"));
+        when(securityContextService.getCurrentUserFullName()).thenReturn(Mono.just("Test User"));
+        when(securityContextService.getCurrentUserEmail()).thenReturn(Mono.just("user@example.com"));
+        when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
+        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Mono.empty());
 
-        assertThrows(PolicyNotFoundException.class, () -> 
-            paymentService.initiateSTKPush(applicationId, amount, phoneNumber)
-        );
+        StepVerifier.create(paymentService.initiateSTKPush(applicationId, amount, phoneNumber))
+            .expectError(PolicyNotFoundException.class)
+            .verify();
     }
 
     @Test
     void initiateSTKPush_FirstPaymentBelowThreshold_ThrowsException() {
-        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Optional.of(testPolicy));
-        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(false);
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user-123"));
+        when(securityContextService.getCurrentUserFullName()).thenReturn(Mono.just("Test User"));
+        when(securityContextService.getCurrentUserEmail()).thenReturn(Mono.just("user@example.com"));
+        when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
+        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Mono.just(testPolicy));
+        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(Mono.just(false));
 
         // 35% of 4000 is 1400. 1000 is below.
         BigDecimal lowAmount = new BigDecimal("1000");
 
-        assertThrows(BusinessException.class, () -> 
-            paymentService.initiateSTKPush(applicationId, lowAmount, phoneNumber)
-        );
+        StepVerifier.create(paymentService.initiateSTKPush(applicationId, lowAmount, phoneNumber))
+            .expectError(BusinessException.class)
+            .verify();
     }
 
     @Test
     void initiateSTKPush_PolicyFullyPaid_ThrowsException() {
         testPolicy.setBalance(BigDecimal.ZERO);
-        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Optional.of(testPolicy));
-        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(true);
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user-123"));
+        when(securityContextService.getCurrentUserFullName()).thenReturn(Mono.just("Test User"));
+        when(securityContextService.getCurrentUserEmail()).thenReturn(Mono.just("user@example.com"));
+        when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
+        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Mono.just(testPolicy));
+        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(Mono.just(true));
 
-        assertThrows(IllegalStateException.class, () -> 
-            paymentService.initiateSTKPush(applicationId, amount, phoneNumber)
-        );
+        StepVerifier.create(paymentService.initiateSTKPush(applicationId, amount, phoneNumber))
+            .expectError(IllegalStateException.class)
+            .verify();
     }
 
     @Test
     void initiateSTKPush_MpesaFailure_ThrowsException() {
-        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Optional.of(testPolicy));
-        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(true);
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user-123"));
+        when(securityContextService.getCurrentUserFullName()).thenReturn(Mono.just("Test User"));
+        when(securityContextService.getCurrentUserEmail()).thenReturn(Mono.just("user@example.com"));
+        when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
+        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Mono.just(testPolicy));
+        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(Mono.just(true));
         
         MpesaClient.MpesaResponse errorResponse = new MpesaClient.MpesaResponse("1", "Internal Error", null);
-        when(mpesaClient.initiateStkPush(anyString(), any(BigDecimal.class), anyString())).thenReturn(errorResponse);
+        when(mpesaClient.initiateStkPush(anyString(), any(BigDecimal.class), anyString())).thenReturn(Mono.just(errorResponse));
 
-        assertThrows(RuntimeException.class, () -> 
-            paymentService.initiateSTKPush(applicationId, amount, phoneNumber)
-        );
+        StepVerifier.create(paymentService.initiateSTKPush(applicationId, amount, phoneNumber))
+            .expectError(RuntimeException.class)
+            .verify();
     }
 
     @Test
     void initiateSTKPush_Success() {
-        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Optional.of(testPolicy));
-        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(false);
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user-123"));
+        when(securityContextService.getCurrentUserFullName()).thenReturn(Mono.just("Test User"));
+        when(securityContextService.getCurrentUserEmail()).thenReturn(Mono.just("user@example.com"));
+        when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
+        when(policyService.getPolicyByApplicationId(applicationId)).thenReturn(Mono.just(testPolicy));
+        when(paymentRepository.existsByApplicationIdAndStatus(applicationId, "COMPLETED")).thenReturn(Mono.just(false));
         
         MpesaClient.MpesaResponse successResponse = new MpesaClient.MpesaResponse("0", "Success", "ws_123");
-        when(mpesaClient.initiateStkPush(anyString(), any(BigDecimal.class), anyString())).thenReturn(successResponse);
+        when(mpesaClient.initiateStkPush(anyString(), any(BigDecimal.class), anyString())).thenReturn(Mono.just(successResponse));
         
         Payment savedPayment = Payment.builder().id(1L).status("PENDING").build();
-        when(paymentRepository.save(any(Payment.class))).thenReturn(savedPayment);
+        when(paymentRepository.save(any(Payment.class))).thenReturn(Mono.just(savedPayment));
 
-        Payment result = paymentService.initiateSTKPush(applicationId, amount, phoneNumber);
+        StepVerifier.create(paymentService.initiateSTKPush(applicationId, amount, phoneNumber))
+            .assertNext(result -> {
+                assertNotNull(result);
+                assertEquals(1L, result.getId());
+            })
+            .verifyComplete();
 
-        assertNotNull(result);
         verify(paymentRepository).save(any(Payment.class));
     }
 
     @Test
     void handleCallback_PaymentNotFound_ThrowsException() {
         MpesaCallbackRequest request = createCallbackRequest("ws_123", 0);
-        when(paymentRepository.findByCheckoutRequestId("ws_123")).thenReturn(Optional.empty());
+        when(mpesaRequestLogRepository.save(any())).thenReturn(Mono.empty());
+        when(paymentRepository.findByCheckoutRequestId("ws_123")).thenReturn(Mono.empty());
 
-        assertThrows(PaymentNotFoundException.class, () -> 
-            paymentService.handleCallback(request)
-        );
+        StepVerifier.create(paymentService.handleCallback(request))
+            .expectError(PaymentNotFoundException.class)
+            .verify();
     }
 
     @Test
     void handleCallback_AlreadyCompleted_ReturnsEarly() {
         MpesaCallbackRequest request = createCallbackRequest("ws_123", 0);
         Payment payment = Payment.builder().status("COMPLETED").build();
-        when(paymentRepository.findByCheckoutRequestId("ws_123")).thenReturn(Optional.of(payment));
+        when(mpesaRequestLogRepository.save(any())).thenReturn(Mono.empty());
+        when(paymentRepository.findByCheckoutRequestId("ws_123")).thenReturn(Mono.just(payment));
 
-        paymentService.handleCallback(request);
+        StepVerifier.create(paymentService.handleCallback(request))
+            .verifyComplete();
 
         verify(paymentRepository, never()).save(any(Payment.class));
         verify(policyService, never()).updateBalance(anyLong(), any(BigDecimal.class));
@@ -174,19 +202,23 @@ class PaymentServiceTest {
                 .checkoutRequestId(checkoutRequestId)
                 .build();
         
-        when(paymentRepository.findByCheckoutRequestId(checkoutRequestId)).thenReturn(Optional.of(payment));
-        when(paymentRepository.existsByMpesaReceiptNumberAndIdNot(anyString(), anyLong())).thenReturn(false);
-        when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(Application.builder().userId("user@example.com").build()));
+        when(mpesaRequestLogRepository.save(any())).thenReturn(Mono.empty());
+        when(paymentRepository.findByCheckoutRequestId(checkoutRequestId)).thenReturn(Mono.just(payment));
+        when(paymentRepository.existsByMpesaReceiptNumberAndIdNot(anyString(), anyLong())).thenReturn(Mono.just(false));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(applicationRepository.findById(applicationId)).thenReturn(Mono.just(Application.builder().userId("user@example.com").build()));
         
         Customer customer = Customer.builder()
                 .email("user@example.com")
                 .phoneNumber("254712345678")
                 .build();
-        when(customerService.getCustomerByUserId("user@example.com")).thenReturn(Optional.of(customer));
+        when(customerService.getCustomerByUserId("user@example.com")).thenReturn(Mono.just(customer));
         
-        when(policyService.updateBalance(eq(applicationId), eq(amount))).thenReturn(testPolicy);
+        when(policyService.updateBalance(eq(applicationId), eq(amount))).thenReturn(Mono.just(testPolicy));
+        when(certificateService.processCertificateIssuance(any(), any(), any(), any())).thenReturn(Mono.empty());
 
-        paymentService.handleCallback(request);
+        StepVerifier.create(paymentService.handleCallback(request))
+            .verifyComplete();
 
         assertEquals("COMPLETED", payment.getStatus());
         assertEquals("QK12345", payment.getMpesaReceiptNumber());
@@ -208,10 +240,13 @@ class PaymentServiceTest {
                 .checkoutRequestId(checkoutRequestId)
                 .build();
         
-        when(paymentRepository.findByCheckoutRequestId(checkoutRequestId)).thenReturn(Optional.of(payment));
-        when(paymentRepository.existsByMpesaReceiptNumberAndIdNot("QK12345", 1L)).thenReturn(true);
+        when(mpesaRequestLogRepository.save(any())).thenReturn(Mono.empty());
+        when(paymentRepository.findByCheckoutRequestId(checkoutRequestId)).thenReturn(Mono.just(payment));
+        when(paymentRepository.existsByMpesaReceiptNumberAndIdNot("QK12345", 1L)).thenReturn(Mono.just(true));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        paymentService.handleCallback(request);
+        StepVerifier.create(paymentService.handleCallback(request))
+            .verifyComplete();
 
         assertEquals("FAILED", payment.getStatus());
         verify(paymentRepository, atLeastOnce()).save(payment);
@@ -231,9 +266,12 @@ class PaymentServiceTest {
                 .checkoutRequestId(checkoutRequestId)
                 .build();
         
-        when(paymentRepository.findByCheckoutRequestId(checkoutRequestId)).thenReturn(Optional.of(payment));
+        when(mpesaRequestLogRepository.save(any())).thenReturn(Mono.empty());
+        when(paymentRepository.findByCheckoutRequestId(checkoutRequestId)).thenReturn(Mono.just(payment));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        paymentService.handleCallback(request);
+        StepVerifier.create(paymentService.handleCallback(request))
+            .verifyComplete();
 
         assertEquals("FAILED", payment.getStatus());
         verify(paymentRepository).save(payment);

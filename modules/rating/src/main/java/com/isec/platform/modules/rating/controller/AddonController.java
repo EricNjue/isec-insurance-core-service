@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -18,10 +19,14 @@ public class AddonController {
     private final AddonService addonService;
 
     @GetMapping
-    public ResponseEntity<List<AddonDto>> getAvailableAddons(@RequestParam(required = false) String category) {
+    public Mono<ResponseEntity<List<AddonDto>>> getAvailableAddons(@RequestParam(required = false) String category) {
         if (category != null && !category.isBlank()) {
-            return ResponseEntity.ok(addonService.getAddonsByCategory(category));
+            return addonService.getAddonsByCategory(category)
+                    .collectList()
+                    .map(ResponseEntity::ok);
         }
-        return ResponseEntity.ok(addonService.getAvailableAddons());
+        return addonService.getAvailableAddons()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 }

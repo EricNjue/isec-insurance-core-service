@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import reactor.core.publisher.Mono;
+
 @RestController
 @RequestMapping("/api/v1/customers")
 @RequiredArgsConstructor
@@ -22,32 +24,36 @@ public class CustomerController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT')")
-    public ResponseEntity<Customer> createOrUpdateCustomer(
+    public Mono<ResponseEntity<Customer>> createOrUpdateCustomer(
             @Valid @RequestBody CustomerRequest request) {
-        String userId = securityContextService.getCurrentUserId()
-                .orElseThrow(() -> new IllegalStateException("User not authenticated"));
-        log.info("Request to create/update customer profile for userId: {}", userId);
-        Customer customer = customerService.createOrUpdateCustomer(userId, request);
-        return ResponseEntity.ok(customer);
+        return securityContextService.getCurrentUserId()
+                .switchIfEmpty(Mono.error(new IllegalStateException("User not authenticated")))
+                .flatMap(userId -> {
+                    log.info("Request to create/update customer profile for userId: {}", userId);
+                    return customerService.createOrUpdateCustomer(userId, request);
+                })
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Customer> getMyProfile() {
-        String userId = securityContextService.getCurrentUserId()
-                .orElseThrow(() -> new IllegalStateException("User not authenticated"));
-        log.debug("Fetching customer profile for userId: {}", userId);
-        return customerService.getCustomerByUserId(userId)
+    public Mono<ResponseEntity<Customer>> getMyProfile() {
+        return securityContextService.getCurrentUserId()
+                .switchIfEmpty(Mono.error(new IllegalStateException("User not authenticated")))
+                .flatMap(userId -> {
+                    log.debug("Fetching customer profile for userId: {}", userId);
+                    return customerService.getCustomerByUserId(userId);
+                })
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Customer> getCustomerProfile(@PathVariable String userId) {
+    public Mono<ResponseEntity<Customer>> getCustomerProfile(@PathVariable String userId) {
         log.debug("Admin fetching customer profile for userId: {}", userId);
         return customerService.getCustomerByUserId(userId)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 }

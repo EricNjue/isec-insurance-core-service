@@ -52,25 +52,26 @@ public class MpesaStkService {
                 .build();
 
         log.debug("Fetching M-PESA access token for STK Push");
-        String accessToken = oAuthService.getAccessToken();
-
-        log.info("Sending STK Push request to Safaricom for reference: {}", accountReference);
-        return webClientBuilder.build()
-                .post()
-                .uri(mpesaConfig.getStkPushUrl())
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(MpesaDtos.StkPushResponse.class)
-                .doOnNext(response -> {
-                    log.info("M-PESA STK Push Response: MerchantRequestID={}, CheckoutRequestID={}, ResponseCode={}, ResponseDescription={}", 
-                            response.getMerchantRequestID(), response.getCheckoutRequestID(), response.getResponseCode(), response.getResponseDescription());
-                    saveLog("STK_PUSH", request, response);
-                })
-                .doOnError(error -> {
-                    log.error("M-PESA STK Push failed for phone {}: {}", maskedPhone, error.getMessage());
-                    saveLog("STK_PUSH", request, error.getMessage());
+        return oAuthService.getAccessToken()
+                .flatMap(accessToken -> {
+                    log.info("Sending STK Push request to Safaricom for reference: {}", accountReference);
+                    return webClientBuilder.build()
+                            .post()
+                            .uri(mpesaConfig.getStkPushUrl())
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(request)
+                            .retrieve()
+                            .bodyToMono(MpesaDtos.StkPushResponse.class)
+                            .flatMap(response -> {
+                                log.info("M-PESA STK Push Response: MerchantRequestID={}, CheckoutRequestID={}, ResponseCode={}, ResponseDescription={}", 
+                                        response.getMerchantRequestID(), response.getCheckoutRequestID(), response.getResponseCode(), response.getResponseDescription());
+                                return saveLog("STK_PUSH", request, response).thenReturn(response);
+                            })
+                            .doOnError(error -> {
+                                log.error("M-PESA STK Push failed for phone {}: {}", maskedPhone, error.getMessage());
+                                saveLog("STK_PUSH", request, error.getMessage()).subscribe();
+                            });
                 });
     }
 
@@ -88,29 +89,30 @@ public class MpesaStkService {
                 .build();
 
         log.debug("Fetching M-PESA access token for STK Query");
-        String accessToken = oAuthService.getAccessToken();
-
-        log.info("Sending STK Query request to Safaricom for CheckoutRequestID: {}", checkoutRequestId);
-        return webClientBuilder.build()
-                .post()
-                .uri(mpesaConfig.getStkQueryUrl())
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(MpesaDtos.StkQueryResponse.class)
-                .doOnNext(response -> {
-                    log.info("M-PESA STK Query Response: ResultCode={}, ResultDesc={}", 
-                            response.getResultCode(), response.getResultDesc());
-                    saveLog("STK_QUERY", request, response);
-                })
-                .doOnError(error -> {
-                    log.error("M-PESA STK Query failed for ID {}: {}", checkoutRequestId, error.getMessage());
-                    saveLog("STK_QUERY", request, error.getMessage());
+        return oAuthService.getAccessToken()
+                .flatMap(accessToken -> {
+                    log.info("Sending STK Query request to Safaricom for CheckoutRequestID: {}", checkoutRequestId);
+                    return webClientBuilder.build()
+                            .post()
+                            .uri(mpesaConfig.getStkQueryUrl())
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(request)
+                            .retrieve()
+                            .bodyToMono(MpesaDtos.StkQueryResponse.class)
+                            .flatMap(response -> {
+                                log.info("M-PESA STK Query Response: ResultCode={}, ResultDesc={}", 
+                                        response.getResultCode(), response.getResultDesc());
+                                return saveLog("STK_QUERY", request, response).thenReturn(response);
+                            })
+                            .doOnError(error -> {
+                                log.error("M-PESA STK Query failed for ID {}: {}", checkoutRequestId, error.getMessage());
+                                saveLog("STK_QUERY", request, error.getMessage()).subscribe();
+                            });
                 });
     }
 
-    private void saveLog(String type, Object request, Object response) {
+    private Mono<Void> saveLog(String type, Object request, Object response) {
         try {
             MpesaRequestLog.MpesaRequestLogBuilder logBuilder = MpesaRequestLog.builder()
                     .requestType(type)
@@ -132,9 +134,10 @@ public class MpesaStkService {
                 }
             }
 
-            logRepository.save(logBuilder.build());
+            return logRepository.save(logBuilder.build()).then();
         } catch (Exception e) {
             log.error("Failed to save M-PESA request log", e);
+            return Mono.empty();
         }
     }
 

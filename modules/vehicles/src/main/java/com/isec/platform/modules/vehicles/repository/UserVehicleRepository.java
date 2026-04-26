@@ -1,15 +1,15 @@
 package com.isec.platform.modules.vehicles.repository;
 
 import com.isec.platform.modules.vehicles.domain.UserVehicle;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface UserVehicleRepository extends JpaRepository<UserVehicle, UUID> {
-    List<UserVehicle> findAllByUserId(String userId);
-    Optional<UserVehicle> findByRegistrationNumberAndUserId(String registrationNumber, String userId);
+public interface UserVehicleRepository extends ReactiveCrudRepository<UserVehicle, UUID> {
+    Flux<UserVehicle> findAllByUserId(String userId);
+    Mono<UserVehicle> findByRegistrationNumberAndUserId(String registrationNumber, String userId);
 }

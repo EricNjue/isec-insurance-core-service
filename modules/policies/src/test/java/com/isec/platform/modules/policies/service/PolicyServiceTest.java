@@ -9,8 +9,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import java.math.BigDecimal;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -35,28 +37,37 @@ class PolicyServiceTest {
                 .policyNumber("POL-EXISTING")
                 .build();
         
-        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(existingPolicy));
+        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Mono.just(existingPolicy));
 
-        Policy result = policyService.createPolicy(applicationId, totalPremium);
+        Mono<Policy> result = policyService.createPolicy(applicationId, totalPremium);
 
-        assertEquals(existingPolicy.getPolicyNumber(), result.getPolicyNumber());
+        StepVerifier.create(result)
+                .assertNext(policy -> {
+                    assertEquals(existingPolicy.getPolicyNumber(), policy.getPolicyNumber());
+                })
+                .verifyComplete();
+        
         verify(policyRepository, never()).save(any(Policy.class));
     }
 
     @Test
     void createPolicy_NewPolicy_CreatesAndSaves() {
-        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
-        when(policyRepository.save(any(Policy.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Mono.empty());
+        when(policyRepository.save(any(Policy.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        Policy result = policyService.createPolicy(applicationId, totalPremium);
+        Mono<Policy> result = policyService.createPolicy(applicationId, totalPremium);
 
-        assertNotNull(result);
-        assertEquals(applicationId, result.getApplicationId());
-        assertEquals(totalPremium, result.getTotalAnnualPremium());
-        assertEquals(totalPremium, result.getBalance());
-        assertTrue(result.getIsActive());
-        assertNotNull(result.getPolicyNumber());
-        assertTrue(result.getPolicyNumber().startsWith("POL-"));
+        StepVerifier.create(result)
+                .assertNext(policy -> {
+                    assertNotNull(policy);
+                    assertEquals(applicationId, policy.getApplicationId());
+                    assertEquals(totalPremium, policy.getTotalAnnualPremium());
+                    assertEquals(totalPremium, policy.getBalance());
+                    assertTrue(policy.getIsActive());
+                    assertNotNull(policy.getPolicyNumber());
+                    assertTrue(policy.getPolicyNumber().startsWith("POL-"));
+                })
+                .verifyComplete();
         
         verify(policyRepository).save(any(Policy.class));
     }
@@ -64,21 +75,25 @@ class PolicyServiceTest {
     @Test
     void getPolicyByApplicationId_Found() {
         Policy policy = Policy.builder().applicationId(applicationId).build();
-        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(policy));
+        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Mono.just(policy));
 
-        Optional<Policy> result = policyService.getPolicyByApplicationId(applicationId);
+        Mono<Policy> result = policyService.getPolicyByApplicationId(applicationId);
 
-        assertTrue(result.isPresent());
-        assertEquals(applicationId, result.get().getApplicationId());
+        StepVerifier.create(result)
+                .assertNext(p -> {
+                    assertEquals(applicationId, p.getApplicationId());
+                })
+                .verifyComplete();
     }
 
     @Test
     void getPolicyByApplicationId_NotFound() {
-        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
+        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Mono.empty());
 
-        Optional<Policy> result = policyService.getPolicyByApplicationId(applicationId);
+        Mono<Policy> result = policyService.getPolicyByApplicationId(applicationId);
 
-        assertFalse(result.isPresent());
+        StepVerifier.create(result)
+                .verifyComplete();
     }
 
     @Test
@@ -89,24 +104,31 @@ class PolicyServiceTest {
                 .balance(new BigDecimal("5000"))
                 .build();
         
-        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(policy));
-        when(policyRepository.save(any(Policy.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Mono.just(policy));
+        when(policyRepository.save(any(Policy.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
         BigDecimal amountPaid = new BigDecimal("1500");
-        Policy result = policyService.updateBalance(applicationId, amountPaid);
+        Mono<Policy> result = policyService.updateBalance(applicationId, amountPaid);
 
-        assertEquals(new BigDecimal("3500"), result.getBalance());
+        StepVerifier.create(result)
+                .assertNext(p -> {
+                    assertEquals(new BigDecimal("3500"), p.getBalance());
+                })
+                .verifyComplete();
+        
         verify(policyRepository).save(policy);
     }
 
     @Test
     void updateBalance_NotFound_ThrowsException() {
-        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
+        when(policyRepository.findByApplicationId(applicationId)).thenReturn(Mono.empty());
 
         BigDecimal amountPaid = new BigDecimal("1500");
-        assertThrows(IllegalArgumentException.class, () -> 
-            policyService.updateBalance(applicationId, amountPaid)
-        );
+        Mono<Policy> result = policyService.updateBalance(applicationId, amountPaid);
+
+        StepVerifier.create(result)
+                .expectError(IllegalArgumentException.class)
+                .verify();
         
         verify(policyRepository, never()).save(any(Policy.class));
     }

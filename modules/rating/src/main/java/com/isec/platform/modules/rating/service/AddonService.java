@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,32 +21,18 @@ public class AddonService {
 
     private final RateBookSnapshotLoader rateBookSnapshotLoader;
 
-    public List<AddonDto> getAvailableAddons() {
-        String tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            log.warn("Attempted to fetch addons without tenant context");
-            return Collections.emptyList();
-        }
-
-        // loadActive returns Snapshot (nullable)
-        RateBookSnapshotLoader.Snapshot snapshot = rateBookSnapshotLoader.loadActive(tenantId);
-        
-        if (snapshot == null) {
-            return Collections.emptyList();
-        }
-
-        RateBookDto rateBook = snapshot.rateBook();
-        
-        return rateBook.getRules().stream()
-                .filter(r -> r.getRuleType() == com.isec.platform.modules.rating.domain.RuleType.ADDON)
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
+    public Flux<AddonDto> getAvailableAddons() {
+        return com.isec.platform.common.multitenancy.TenantContext.getTenantId()
+                .switchIfEmpty(Mono.error(new IllegalStateException("Attempted to fetch addons without tenant context")))
+                .flatMapMany(tenantId -> rateBookSnapshotLoader.loadActive(tenantId)
+                        .flatMapMany(snapshot -> Flux.fromIterable(snapshot.rateBook().getRules()))
+                        .filter(r -> r.getRuleType() == com.isec.platform.modules.rating.domain.RuleType.ADDON)
+                        .map(this::mapToDto));
     }
 
-    public List<AddonDto> getAddonsByCategory(String category) {
-        return getAvailableAddons().stream()
-                .filter(a -> a.getCategory().equalsIgnoreCase(category))
-                .collect(Collectors.toList());
+    public Flux<AddonDto> getAddonsByCategory(String category) {
+        return getAvailableAddons()
+                .filter(a -> a.getCategory().equalsIgnoreCase(category));
     }
 
     private AddonDto mapToDto(RateBookDto.RateRuleDto rule) {

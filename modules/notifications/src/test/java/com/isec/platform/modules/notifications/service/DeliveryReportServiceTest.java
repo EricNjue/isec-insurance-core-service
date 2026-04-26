@@ -10,6 +10,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -47,11 +49,13 @@ class DeliveryReportServiceTest {
         form.put("networkCode", "63902");
 
         SmsRecipientResult recipient = new SmsRecipientResult();
-        when(deliveryReportRepository.findByMessageId("ATX-1")).thenReturn(Optional.empty());
-        when(recipientResultRepository.findByMessageId("ATX-1")).thenReturn(Optional.of(recipient));
-        when(deliveryReportRepository.save(any(SmsDeliveryReport.class))).thenAnswer(i -> i.getArgument(0));
+        when(deliveryReportRepository.findByMessageId("ATX-1")).thenReturn(Mono.empty());
+        when(recipientResultRepository.findByMessageId("ATX-1")).thenReturn(Mono.just(recipient));
+        when(deliveryReportRepository.save(any(SmsDeliveryReport.class))).thenAnswer(i -> Mono.just(i.getArgument(0)));
+        when(recipientResultRepository.save(any(SmsRecipientResult.class))).thenAnswer(i -> Mono.just(i.getArgument(0)));
 
-        deliveryReportService.handleFormPayload(form);
+        StepVerifier.create(deliveryReportService.handleFormPayload(form))
+                .verifyComplete();
 
         // verify upsert save
         verify(deliveryReportRepository, times(1)).save(any(SmsDeliveryReport.class));
@@ -63,9 +67,11 @@ class DeliveryReportServiceTest {
         // second call (idempotent update)
         form.put("status", "Success");
         SmsDeliveryReport existing = new SmsDeliveryReport();
-        when(deliveryReportRepository.findByMessageId("ATX-1")).thenReturn(Optional.of(existing));
+        when(deliveryReportRepository.findByMessageId("ATX-1")).thenReturn(Mono.just(existing));
 
-        deliveryReportService.handleFormPayload(form);
+        StepVerifier.create(deliveryReportService.handleFormPayload(form))
+                .verifyComplete();
+        
         verify(deliveryReportRepository, times(2)).save(any(SmsDeliveryReport.class));
         assertThat(recipient.getDeliveryStatus()).isEqualTo("Success");
     }
@@ -77,7 +83,9 @@ class DeliveryReportServiceTest {
         form.put("phoneNumber", "+254700000000");
         form.put("status", "Success");
 
-        deliveryReportService.handleFormPayload(form);
+        StepVerifier.create(deliveryReportService.handleFormPayload(form))
+                .verifyComplete();
+        
         verifyNoInteractions(deliveryReportRepository);
     }
 }

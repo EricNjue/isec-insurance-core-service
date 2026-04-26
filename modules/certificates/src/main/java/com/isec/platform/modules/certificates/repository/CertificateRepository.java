@@ -1,13 +1,13 @@
 package com.isec.platform.modules.certificates.repository;
 
 import com.isec.platform.modules.certificates.domain.Certificate;
-import org.springframework.data.jpa.repository.JpaRepository;
-import java.util.List;
-import java.util.Optional;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-public interface CertificateRepository extends JpaRepository<Certificate, Long> {
-    List<Certificate> findByPolicyId(Long policyId);
-    Optional<Certificate> findByPolicyNumber(String policyNumber);
-    Optional<Certificate> findByPartnerCodeAndCertificateNumber(String partnerCode, String certificateNumber);
-    Optional<Certificate> findByIdempotencyKey(String idempotencyKey);
+public interface CertificateRepository extends ReactiveCrudRepository<Certificate, Long> {
+    Flux<Certificate> findByPolicyId(Long policyId);
+    Mono<Certificate> findByPolicyNumber(String policyNumber);
+    Mono<Certificate> findByPartnerCodeAndCertificateNumber(String partnerCode, String certificateNumber);
+    Mono<Certificate> findByIdempotencyKey(String idempotencyKey);
 }

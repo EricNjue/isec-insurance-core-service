@@ -1,12 +1,11 @@
 package com.isec.platform.modules.integrations.mpesa.repository;
 
 import com.isec.platform.modules.integrations.mpesa.domain.MpesaRequestLog;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
-
-import java.util.Optional;
+import reactor.core.publisher.Mono;
 
 @Repository
-public interface MpesaRequestLogRepository extends JpaRepository<MpesaRequestLog, Long> {
-    Optional<MpesaRequestLog> findByCheckoutRequestId(String checkoutRequestId);
+public interface MpesaRequestLogRepository extends ReactiveCrudRepository<MpesaRequestLog, Long> {
+    Mono<MpesaRequestLog> findByCheckoutRequestId(String checkoutRequestId);
 }

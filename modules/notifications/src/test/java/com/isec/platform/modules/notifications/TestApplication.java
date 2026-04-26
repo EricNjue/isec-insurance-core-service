@@ -9,10 +9,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @SpringBootConfiguration
-@EnableAutoConfiguration(exclude = {
-    DataSourceAutoConfiguration.class,
-    HibernateJpaAutoConfiguration.class
-})
+@EnableAutoConfiguration
 @ComponentScan(basePackages = "com.isec.platform.modules.notifications")
 public class TestApplication {
 

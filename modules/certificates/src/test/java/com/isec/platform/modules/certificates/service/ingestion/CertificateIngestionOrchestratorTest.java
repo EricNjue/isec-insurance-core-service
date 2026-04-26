@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import java.util.Collections;
 import java.util.Optional;
 
@@ -49,7 +52,7 @@ class CertificateIngestionOrchestratorTest {
     @Test
     void processEmailAsync_ShouldSkipIfAlreadyClaimed() {
         String messageId = "msg123";
-        when(auditRepository.updateStatusAtomic(messageId, IngestionStatus.RECEIVED, IngestionStatus.PROCESSING)).thenReturn(0);
+        when(auditRepository.updateStatusAtomic(messageId, IngestionStatus.RECEIVED.name(), IngestionStatus.PROCESSING.name())).thenReturn(Mono.just(0));
 
         orchestrator.processEmailAsync(mockMessage, messageId);
 
@@ -59,8 +62,8 @@ class CertificateIngestionOrchestratorTest {
     @Test
     void processEmailAsync_ShouldProceedIfClaimedSuccessfully() {
         String messageId = "msg123";
-        when(auditRepository.updateStatusAtomic(messageId, IngestionStatus.RECEIVED, IngestionStatus.PROCESSING)).thenReturn(1);
-        when(auditRepository.findByEmailMessageId(messageId)).thenReturn(Optional.of(new CertificateIngestionAudit()));
+        when(auditRepository.updateStatusAtomic(messageId, IngestionStatus.RECEIVED.name(), IngestionStatus.PROCESSING.name())).thenReturn(Mono.just(1));
+        when(auditRepository.findByEmailMessageId(messageId)).thenReturn(Mono.just(new CertificateIngestionAudit()));
 
         orchestrator.processEmailAsync(mockMessage, messageId);
 

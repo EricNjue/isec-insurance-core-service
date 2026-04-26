@@ -8,6 +8,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.util.List;
@@ -102,24 +105,26 @@ class SanlamPricingIntegrationTest {
                 .rules(List.of(thresholdBase, defaultBase, consolidatedExcess, consolidatedPvt, courtesyCar))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
 
-        // when
-        PricingResult result = pricingEngine.price(context);
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
+                    assertThat(result.getAddons()).hasSize(3);
 
-        // then
-        assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
-        assertThat(result.getAddons()).hasSize(3);
-        
-        AddonBreakdown excess = result.getAddons().stream().filter(a -> a.getRuleId() == 101L).findFirst().get();
-        assertThat(excess.getAmount()).isEqualByComparingTo("5000");
+                    AddonBreakdown excess = result.getAddons().stream().filter(a -> a.getRuleId() == 101L).findFirst().get();
+                    assertThat(excess.getAmount()).isEqualByComparingTo("5000");
 
-        AddonBreakdown pvt = result.getAddons().stream().filter(a -> a.getRuleId() == 102L).findFirst().get();
-        assertThat(pvt.getAmount()).isEqualByComparingTo("3000");
-        assertThat(pvt.getName()).isEqualTo("Political Violence & Terrorism (PVT)");
+                    AddonBreakdown pvt = result.getAddons().stream().filter(a -> a.getRuleId() == 102L).findFirst().get();
+                    assertThat(pvt.getAmount()).isEqualByComparingTo("3000");
+                    assertThat(pvt.getName()).isEqualTo("Political Violence & Terrorism (PVT)");
 
-        AddonBreakdown courtesy = result.getAddons().stream().filter(a -> a.getRuleId() == 103L).findFirst().get();
-        assertThat(courtesy.getAmount()).isEqualByComparingTo("3000"); // 10 days / 10 * 3000 = 3000
+                    AddonBreakdown courtesy = result.getAddons().stream().filter(a -> a.getRuleId() == 103L).findFirst().get();
+                    assertThat(courtesy.getAmount()).isEqualByComparingTo("3000"); // 10 days / 10 * 3000 = 3000
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -168,14 +173,16 @@ class SanlamPricingIntegrationTest {
                 .rules(List.of(thresholdBase, defaultBase, consolidatedExcess))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
 
-        // when
-        PricingResult result = pricingEngine.price(context);
-
-        // then
-        assertThat(result.getBasePremium()).isEqualByComparingTo("40000"); // 1,000,000 * 0.04
-        assertThat(result.getAddons()).hasSize(1);
-        assertThat(result.getAddons().get(0).getAmount()).isEqualByComparingTo("5000"); // max(5000, 1000000*0.005=5000)
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getBasePremium()).isEqualByComparingTo("40000"); // 1,000,000 * 0.04
+                    assertThat(result.getAddons()).hasSize(1);
+                    assertThat(result.getAddons().get(0).getAmount()).isEqualByComparingTo("5000"); // max(5000, 1000000*0.005=5000)
+                })
+                .verifyComplete();
     }
 }

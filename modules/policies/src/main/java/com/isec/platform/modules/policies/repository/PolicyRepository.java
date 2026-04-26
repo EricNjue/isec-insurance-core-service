@@ -1,12 +1,12 @@
 package com.isec.platform.modules.policies.repository;
 
 import com.isec.platform.modules.policies.domain.Policy;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
-import java.util.Optional;
+import reactor.core.publisher.Mono;
 
 @Repository
-public interface PolicyRepository extends JpaRepository<Policy, Long> {
-    Optional<Policy> findByApplicationId(Long applicationId);
-    Optional<Policy> findByPolicyNumber(String policyNumber);
+public interface PolicyRepository extends ReactiveCrudRepository<Policy, Long> {
+    Mono<Policy> findByApplicationId(Long applicationId);
+    Mono<Policy> findByPolicyNumber(String policyNumber);
 }

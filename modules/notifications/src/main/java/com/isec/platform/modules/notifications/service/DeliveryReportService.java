@@ -9,10 +9,11 @@ import com.isec.platform.modules.notifications.repository.SmsRecipientResultRepo
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+
+import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
@@ -23,50 +24,50 @@ public class DeliveryReportService {
     private final SmsRecipientResultRepository recipientResultRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Transactional
-    public void handleFormPayload(Map<String, String> formParams) {
+    public Mono<Void> handleFormPayload(Map<String, String> formParams) {
         String messageId = formParams.get("id");
         String phoneNumber = formParams.get("phoneNumber");
         String status = formParams.get("status");
 
         if (messageId == null || messageId.isBlank() || phoneNumber == null || phoneNumber.isBlank() || status == null || status.isBlank()) {
             log.warn("Delivery report payload missing required fields: id, phoneNumber, status");
-            // We still return 200 at controller level; here we just log and exit
-            return;
+            return Mono.empty();
         }
 
         String rawJson = safeToJson(formParams);
 
-        // Idempotent upsert by messageId
-        SmsDeliveryReport report = deliveryReportRepository.findByMessageId(messageId)
-            .map(existing -> {
+        return deliveryReportRepository.findByMessageId(messageId)
+            .flatMap(existing -> {
                 existing.setPhoneNumber(phoneNumber);
                 existing.setStatus(status);
                 existing.setFailureReason(formParams.get("failureReason"));
                 existing.setRetryCount(parseInt(formParams.get("retryCount")));
                 existing.setNetworkCode(formParams.get("networkCode"));
                 existing.setRawPayload(rawJson);
-                return existing;
+                return deliveryReportRepository.save(existing);
             })
-            .orElseGet(() -> SmsDeliveryReport.builder()
-                .messageId(messageId)
-                .phoneNumber(phoneNumber)
-                .status(status)
-                .failureReason(formParams.get("failureReason"))
-                .retryCount(parseInt(formParams.get("retryCount")))
-                .networkCode(formParams.get("networkCode"))
-                .rawPayload(rawJson)
-                .build()
-            );
-
-        deliveryReportRepository.save(report);
-
-        // Correlate with recipient result and update delivery fields
-        recipientResultRepository.findByMessageId(messageId).ifPresent(recipient -> {
-            recipient.setDeliveryStatus(status);
-            recipient.setDeliveryFailureReason(formParams.get("failureReason"));
-            recipient.setDeliveryReportedAt(LocalDateTime.now());
-        });
+            .switchIfEmpty(Mono.defer(() -> {
+                SmsDeliveryReport report = SmsDeliveryReport.builder()
+                    .id(java.util.UUID.randomUUID())
+                    .messageId(messageId)
+                    .phoneNumber(phoneNumber)
+                    .status(status)
+                    .failureReason(formParams.get("failureReason"))
+                    .retryCount(parseInt(formParams.get("retryCount")))
+                    .networkCode(formParams.get("networkCode"))
+                    .rawPayload(rawJson)
+                    .receivedAt(LocalDateTime.now())
+                    .build();
+                return deliveryReportRepository.save(report);
+            }))
+            .flatMap(report -> recipientResultRepository.findByMessageId(messageId)
+                .flatMap(recipient -> {
+                    recipient.setDeliveryStatus(status);
+                    recipient.setDeliveryFailureReason(formParams.get("failureReason"));
+                    recipient.setDeliveryReportedAt(LocalDateTime.now());
+                    return recipientResultRepository.save(recipient);
+                }))
+            .then();
     }
 
     private Integer parseInt(String value) {

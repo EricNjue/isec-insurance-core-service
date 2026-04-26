@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/valuers")
@@ -18,26 +18,26 @@ public class ValuerController {
     private final AuthorizedValuerService service;
 
     @GetMapping
-    public ResponseEntity<List<AuthorizedValuer>> listActive() {
-        return ResponseEntity.ok(service.listActive());
+    public Flux<AuthorizedValuer> listActive() {
+        return service.listActive();
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AuthorizedValuer> create(@RequestBody AuthorizedValuerRequest request) {
-        return ResponseEntity.ok(service.create(request));
+    public Mono<AuthorizedValuer> create(@RequestBody AuthorizedValuerRequest request) {
+        return service.create(request);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AuthorizedValuer> update(@PathVariable Long id, @RequestBody AuthorizedValuerRequest request) {
-        return ResponseEntity.ok(service.update(id, request));
+    public Mono<AuthorizedValuer> update(@PathVariable Long id, @RequestBody AuthorizedValuerRequest request) {
+        return service.update(id, request);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deactivate(@PathVariable Long id) {
-        service.deactivate(id);
-        return ResponseEntity.noContent().build();
+    public Mono<ResponseEntity<Void>> deactivate(@PathVariable Long id) {
+        return service.deactivate(id)
+                .then(Mono.just(ResponseEntity.noContent().build()));
     }
 }

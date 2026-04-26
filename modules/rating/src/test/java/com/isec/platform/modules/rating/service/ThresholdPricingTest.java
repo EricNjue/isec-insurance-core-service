@@ -8,6 +8,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.util.List;
@@ -68,17 +71,19 @@ class ThresholdPricingTest {
                 .rules(List.of(thresholdRule, defaultRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(eq(thresholdRule), any())).thenReturn(true);
         when(ruleMatcher.matches(eq(defaultRule), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(thresholdRule), any())).thenReturn(new BigDecimal("37500"));
         when(ruleMatcher.evaluateBigDecimal(eq(defaultRule), any())).thenReturn(new BigDecimal("0.04"));
 
-        // when
-        PricingResult result = pricingEngine.price(context);
-
-        // then
-        assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -114,17 +119,19 @@ class ThresholdPricingTest {
                 .rules(List.of(thresholdRuleCommercial, defaultRuleCommercial))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(eq(thresholdRuleCommercial), any())).thenReturn(true);
         when(ruleMatcher.matches(eq(defaultRuleCommercial), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(thresholdRuleCommercial), any())).thenReturn(new BigDecimal("37500"));
         when(ruleMatcher.evaluateBigDecimal(eq(defaultRuleCommercial), any())).thenReturn(new BigDecimal("0.06"));
 
-        // when
-        PricingResult result = pricingEngine.price(context);
-
-        // then
-        assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -176,7 +183,7 @@ class ThresholdPricingTest {
                 .rules(List.of(baseRule, excessRule, pvtRule, courtesyRule))
                 .build();
 
-        when(snapshotLoader.loadActive(tenantId)).thenReturn(RateBookSnapshotLoader.Snapshot.from(rb));
+        when(snapshotLoader.loadActive(tenantId)).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rb)));
         when(ruleMatcher.matches(any(), any())).thenReturn(true);
         when(ruleMatcher.evaluateBigDecimal(eq(baseRule), any())).thenReturn(new BigDecimal("37500"));
         when(ruleMatcher.evaluateBigDecimal(eq(excessRule), any())).thenReturn(new BigDecimal("5000"));
@@ -184,17 +191,19 @@ class ThresholdPricingTest {
         // Simulating the SpEL evaluation for courtesy car: (20 / 10) * 3000 = 6000
         when(ruleMatcher.evaluateBigDecimal(eq(courtesyRule), any())).thenReturn(new BigDecimal("6000"));
 
-        // when
-        PricingResult result = pricingEngine.price(context);
+        // when & then
+        pricingEngine.price(context)
+                .as(StepVerifier::create)
+                .consumeNextWith(result -> {
+                    assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
+                    assertThat(result.getAddons()).hasSize(3);
 
-        // then
-        assertThat(result.getBasePremium()).isEqualByComparingTo("37500");
-        assertThat(result.getAddons()).hasSize(3);
-        
-        BigDecimal addonTotal = result.getAddons().stream()
-                .map(AddonBreakdown::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        assertThat(addonTotal).isEqualByComparingTo("14000"); // 5000 + 3000 + 6000
+                    BigDecimal addonTotal = result.getAddons().stream()
+                            .map(AddonBreakdown::getAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    assertThat(addonTotal).isEqualByComparingTo("14000"); // 5000 + 3000 + 6000
+                })
+                .verifyComplete();
     }
 }

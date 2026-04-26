@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 @RestController
 @RequestMapping("/api/v1/applications")
 @RequiredArgsConstructor
@@ -25,29 +28,33 @@ public class ApplicationController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT')")
-    public ResponseEntity<ApplicationResponse> createApplication(
+    public Mono<ResponseEntity<ApplicationResponse>> createApplication(
             @Valid @RequestBody ApplicationRequest request) {
         log.info("Create application request received");
-        return ResponseEntity.ok(applicationService.createApplication(request));
+        return applicationService.createApplication(request)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<ApplicationResponse> getApplication(@PathVariable Long id) {
-        return ResponseEntity.ok(applicationService.getApplication(id));
+    public Mono<ResponseEntity<ApplicationResponse>> getApplication(@PathVariable Long id) {
+        return applicationService.getApplication(id)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping
-    public ResponseEntity<List<ApplicationResponse>> listApplications() {
-        return ResponseEntity.ok(applicationService.listApplications());
+    public Mono<ResponseEntity<List<ApplicationResponse>>> listApplications() {
+        return applicationService.listApplications()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     @PostMapping("/quote")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<RatingService.PremiumBreakdown> getQuote(
+    public Mono<ResponseEntity<RatingService.PremiumBreakdown>> getQuote(
             @RequestParam Long applicationId,
             @RequestParam java.math.BigDecimal baseRate) {
-        return ResponseEntity.ok(applicationService.getQuote(applicationId, baseRate));
+        return applicationService.getQuote(applicationId, baseRate)
+                .map(ResponseEntity::ok);
     }
-
 }

@@ -8,7 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.codec.multipart.FilePart;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -22,34 +23,50 @@ public class VerificationController {
     private final DocumentVerificationService verificationService;
 
     @GetMapping("/doc/{documentId}")
-    public ResponseEntity<VerificationResponse> verifyDocument(@PathVariable String documentId) {
+    public Mono<ResponseEntity<VerificationResponse>> verifyDocument(@PathVariable String documentId) {
         log.info("Public Verification Request: Checking status for documentId={}", documentId);
         UUID uuid;
         try {
             uuid = UUID.fromString(documentId);
         } catch (IllegalArgumentException e) {
             log.warn("Public Verification Failed: Invalid UUID format for documentId={}", documentId);
-            return ResponseEntity.badRequest().body(VerificationResponse.builder()
+            return Mono.just(ResponseEntity.badRequest().body(VerificationResponse.builder()
                     .status("NOT_FOUND")
                     .message("Invalid Document ID format")
-                    .build());
+                    .build()));
         }
 
-        VerificationResult result = verificationService.verifyByUuid(uuid);
-        return ResponseEntity.ok(mapToResponse(result));
+        return verificationService.verifyByUuid(uuid)
+                .map(result -> ResponseEntity.ok(mapToResponse(result)));
     }
 
-    @PostMapping("/upload")
-    public ResponseEntity<VerificationResponse> verifyUploadedPdf(@RequestParam("file") MultipartFile file) {
-        String fileName = file.getOriginalFilename();
+    @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Mono<ResponseEntity<VerificationResponse>> verifyUploadedPdf(@RequestPart("file") FilePart filePart) {
+        String fileName = filePart.filename();
         log.info("Cryptographic Verification Request: Uploaded file={}", fileName);
-        try {
-            VerificationResult result = verificationService.verifyByPdfContent(file.getBytes(), fileName);
-            return ResponseEntity.ok(mapToResponse(result));
-        } catch (IOException e) {
-            log.error("Cryptographic Verification Error: processing file={} failed", fileName, e);
-            return ResponseEntity.internalServerError().build();
-        }
+        
+        return filePart.content()
+                .flatMap(dataBuffer -> {
+                    byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                    dataBuffer.read(bytes);
+                    org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
+                    return Mono.just(bytes);
+                })
+                .reduce(new java.io.ByteArrayOutputStream(), (baos, bytes) -> {
+                    try {
+                        baos.write(bytes);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    return baos;
+                })
+                .map(java.io.ByteArrayOutputStream::toByteArray)
+                .flatMap(bytes -> verificationService.verifyByPdfContent(bytes, fileName))
+                .map(result -> ResponseEntity.ok(mapToResponse(result)))
+                .onErrorResume(e -> {
+                    log.error("Cryptographic Verification Error: processing file={} failed", fileName, e);
+                    return Mono.just(ResponseEntity.internalServerError().build());
+                });
     }
 
     private VerificationResponse mapToResponse(VerificationResult result) {
