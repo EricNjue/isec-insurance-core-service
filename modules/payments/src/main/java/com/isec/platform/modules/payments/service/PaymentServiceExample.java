@@ -17,18 +17,26 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class PaymentServiceExample {
 
     private final ReactivePaymentRepository paymentRepository;
     private final ReactiveHttpClient httpClient;
     private final ObjectMapper objectMapper;
-
-    @Qualifier("directReactiveExecutor")
     private final ReactiveOperationExecutor directExecutor;
-
-    @Qualifier("outboxReactiveExecutor")
     private final ReactiveOperationExecutor outboxExecutor;
+
+    public PaymentServiceExample(
+            ReactivePaymentRepository paymentRepository,
+            ReactiveHttpClient httpClient,
+            ObjectMapper objectMapper,
+            @Qualifier("directReactiveExecutor") ReactiveOperationExecutor directExecutor,
+            @Qualifier("outboxReactiveExecutor") ReactiveOperationExecutor outboxExecutor) {
+        this.paymentRepository = paymentRepository;
+        this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
+        this.directExecutor = directExecutor;
+        this.outboxExecutor = outboxExecutor;
+    }
 
     public Mono<Payment> processPaymentDirect(PaymentRequest request) {
         Payment payment = createPaymentEntity(request);

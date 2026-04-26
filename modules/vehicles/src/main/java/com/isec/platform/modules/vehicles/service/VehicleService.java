@@ -77,17 +77,21 @@ public class VehicleService {
     }
 
     public Flux<VehicleModelResponse> getAllModels(UUID makeId, String makeCode, Boolean active) {
-        Flux<VehicleModel> models;
         if (makeId != null) {
-            models = active != null && active ? modelRepository.findByMakeIdAndActiveTrue(makeId) : modelRepository.findByMakeId(makeId);
+            Flux<VehicleModel> models = active != null && active ? modelRepository.findByMakeIdAndActiveTrue(makeId) : modelRepository.findByMakeId(makeId);
+            return models.flatMap(model -> makeRepository.findById(model.getMakeId())
+                    .map(make -> mapToModelResponse(model, make)));
         } else if (makeCode != null) {
-            models = active != null && active ? modelRepository.findByMakeCodeAndActiveTrue(makeCode) : modelRepository.findByMakeCode(makeCode);
+            return makeRepository.findByCode(makeCode)
+                    .flatMapMany(make -> {
+                        Flux<VehicleModel> models = active != null && active ? modelRepository.findByMakeIdAndActiveTrue(make.getId()) : modelRepository.findByMakeId(make.getId());
+                        return models.map(model -> mapToModelResponse(model, make));
+                    });
         } else {
-            models = active != null && active ? modelRepository.findAllByActiveTrue() : modelRepository.findAll();
+            Flux<VehicleModel> models = active != null && active ? modelRepository.findAllByActiveTrue() : modelRepository.findAll();
+            return models.flatMap(model -> makeRepository.findById(model.getMakeId())
+                    .map(make -> mapToModelResponse(model, make)));
         }
-        
-        return models.flatMap(model -> makeRepository.findById(model.getMakeId())
-                .map(make -> mapToModelResponse(model, make)));
     }
 
     public Mono<Void> deleteMake(UUID id) {
@@ -162,7 +166,7 @@ public class VehicleService {
 
     public Flux<VehicleModelResponse> getModelsByMakeCode(String makeCode) {
         return makeRepository.findByCode(makeCode)
-                .flatMapMany(make -> modelRepository.findByMakeCode(makeCode)
+                .flatMapMany(make -> modelRepository.findByMakeId(make.getId())
                         .map(model -> mapToModelResponse(model, make)));
     }
 

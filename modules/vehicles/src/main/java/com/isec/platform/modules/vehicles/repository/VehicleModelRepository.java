@@ -14,8 +14,6 @@ public interface VehicleModelRepository extends ReactiveCrudRepository<VehicleMo
     Mono<Boolean> existsByMakeIdAndCode(UUID makeId, String code);
     Flux<VehicleModel> findByMakeId(UUID makeId);
     Flux<VehicleModel> findByMakeIdAndActiveTrue(UUID makeId);
-    Flux<VehicleModel> findByMakeCode(String makeCode);
-    Flux<VehicleModel> findByMakeCodeAndActiveTrue(String makeCode);
     Flux<VehicleModel> findAllByActiveTrue();
     Mono<Boolean> existsByMakeIdAndActiveTrue(UUID makeId);
 }
