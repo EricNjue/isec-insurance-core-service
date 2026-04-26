@@ -5,13 +5,12 @@ import com.isec.platform.modules.integrations.sanlam.dto.SanlamDoubleInsuranceRe
 import com.isec.platform.modules.integrations.sanlam.dto.SanlamMasterReferenceDataResponse;
 import com.isec.platform.modules.integrations.sanlam.dto.SanlamDependentReferenceDataResponse;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -29,7 +28,7 @@ import java.util.Map;
 public class SanlamClient {
 
     private final WebClient.Builder webClientBuilder;
-    private final StringRedisTemplate redisTemplate;
+    private final ReactiveStringRedisTemplate redisTemplate;
 
     @Value("${integrations.sanlam.base-url}")
     private String baseUrl;
@@ -53,29 +52,24 @@ public class SanlamClient {
     private String dependentEndpoint;
 
     public Mono<String> getAccessToken() {
-        return Mono.defer(() -> {
-            String cachedToken = redisTemplate.opsForValue().get(tokenCacheKey);
-            if (cachedToken != null) {
-                log.debug("Sanlam access token retrieved from cache");
-                return Mono.just(cachedToken);
-            }
-
-            log.info("Sanlam access token expired or not found. Fetching new token from Sanlam...");
-            return fetchNewToken()
-                .flatMap(response -> {
-                    if (response != null && response.getAccessToken() != null) {
-                        long expiresIn = 86400;
-                        log.info("Sanlam access token fetched successfully. Caching for {} seconds", expiresIn);
-                        redisTemplate.opsForValue().set(
-                                tokenCacheKey,
-                                response.getAccessToken(),
-                                Duration.ofSeconds(expiresIn).minusMinutes(tokenExpiryBufferMinutes)
-                        );
-                        return Mono.just(response.getAccessToken());
-                    }
-                    return Mono.error(new RuntimeException("Failed to fetch Sanlam access token"));
-                });
-        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return redisTemplate.opsForValue().get(tokenCacheKey)
+                .doOnNext(cachedToken -> log.debug("Sanlam access token retrieved from cache"))
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.info("Sanlam access token expired or not found. Fetching new token from Sanlam...");
+                    return fetchNewToken()
+                            .flatMap(response -> {
+                                if (response != null && response.getAccessToken() != null) {
+                                    long expiresIn = 86400;
+                                    log.info("Sanlam access token fetched successfully. Caching for {} seconds", expiresIn);
+                                    return redisTemplate.opsForValue().set(
+                                            tokenCacheKey,
+                                            response.getAccessToken(),
+                                            Duration.ofSeconds(expiresIn).minusMinutes(tokenExpiryBufferMinutes)
+                                    ).thenReturn(response.getAccessToken());
+                                }
+                                return Mono.error(new RuntimeException("Failed to fetch Sanlam access token"));
+                            });
+                }));
     }
 
     private Mono<AccessTokenResponse> fetchNewToken() {

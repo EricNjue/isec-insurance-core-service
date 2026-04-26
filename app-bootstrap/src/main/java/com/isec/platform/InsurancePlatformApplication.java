@@ -1,13 +1,11 @@
 package com.isec.platform;
 
 import com.isec.platform.reactive.infra.config.ReactiveInfraConfig;
-import com.isec.platform.reactive.infra.outbox.OutboxRepository;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
-import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -27,7 +25,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     "com.isec.platform.modules.integrations.mpesa.repository",
     "com.isec.platform.modules.integrations.registry.repository"
 })
-@EnableRedisRepositories(basePackages = "com.isec.platform.modules.rating.repository")
 @EnableAspectJAutoProxy
 @EnableScheduling
 @EnableAsync

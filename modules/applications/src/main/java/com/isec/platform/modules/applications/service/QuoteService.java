@@ -8,14 +8,12 @@ import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.QuoteResponse;
 import com.isec.platform.modules.customers.dto.CustomerRequest;
 import com.isec.platform.modules.customers.service.CustomerService;
-import com.isec.platform.modules.documents.dto.ApplicationDocumentDto;
 import com.isec.platform.modules.documents.service.ApplicationDocumentService;
 import com.isec.platform.modules.integrations.common.adapter.InsuranceIntegrationAdapter;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckRequest;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
 import com.isec.platform.modules.vehicles.dto.UserVehicleDto;
 import com.isec.platform.modules.vehicles.service.UserVehicleService;
-import com.isec.platform.modules.rating.dto.PricingResult;
 import com.isec.platform.modules.rating.dto.RatingContext;
 import com.isec.platform.modules.rating.service.PricingEngine;
 import com.isec.platform.modules.rating.service.RateBookSnapshotLoader;
@@ -23,7 +21,7 @@ import com.isec.platform.common.security.SecurityContextService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -39,7 +37,7 @@ public class QuoteService {
 
     private final PricingEngine pricingEngine;
     private final RateBookSnapshotLoader rateBookSnapshotLoader;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final ReactiveRedisTemplate<String, Object> redisTemplate;
     private final ApplicationDocumentService documentService;
     private final CustomerService customerService;
     private final UserVehicleService userVehicleService;
@@ -78,8 +76,8 @@ public class QuoteService {
                                         .build();
 
                                 log.info("Caching initiated quote {} for {} minutes", quoteId, quoteCacheDurationMinutes);
-                                return Mono.fromRunnable(() -> redisTemplate.opsForValue().set("quote_init:" + quoteId, response, Duration.ofMinutes(quoteCacheDurationMinutes)))
-                                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                                return redisTemplate.opsForValue()
+                                        .set("quote_init:" + quoteId, response, Duration.ofMinutes(quoteCacheDurationMinutes))
                                         .thenReturn(response);
                             });
                     });
@@ -129,11 +127,9 @@ public class QuoteService {
                 String quoteId = request.getQuoteId();
                 log.info("Calculating quote for tenant: {}, quoteId: {}", tenantId, quoteId);
 
-                return Mono.fromCallable(() -> {
-                    Object cached = redisTemplate.opsForValue().get("quote_init:" + quoteId);
-                    return Optional.ofNullable(cached);
-                })
-                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                return redisTemplate.opsForValue().get("quote_init:" + quoteId)
+                        .map(Optional::of)
+                        .defaultIfEmpty(Optional.empty())
                         .flatMap(cachedInitOpt -> {
                             Object cachedInit = cachedInitOpt.orElse(null);
                             if (quoteId != null && cachedInit == null) {
@@ -210,22 +206,22 @@ public class QuoteService {
                                                             });
                                                 }
 
-                                                return kycTask.then(Mono.fromRunnable(() -> {
-                                                    log.info("Caching quote {} for application conversion", response.getQuoteId());
-                                                    redisTemplate.opsForValue().set("quote_v2:" + response.getQuoteId(), response, Duration.ofDays(30));
-                                                }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())).thenReturn(response);
+                                                return kycTask.then(redisTemplate.opsForValue()
+                                                                .set("quote_v2:" + response.getQuoteId(), response, Duration.ofDays(30))
+                                                                .doOnSuccess(v -> log.info("Cached quote {} for application conversion", response.getQuoteId()))
+                                                                .thenReturn(response));
                                             }));
                         });
             });
     }
 
     public Mono<QuoteResponse> getQuote(String quoteId) {
-        return Mono.fromCallable(() -> (QuoteResponse) redisTemplate.opsForValue().get("quote_v2:" + quoteId))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return redisTemplate.opsForValue().get("quote_v2:" + quoteId)
+                .map(obj -> (QuoteResponse) obj);
     }
 
     public Mono<InitiateQuoteResponse> getInitiatedQuote(String quoteId) {
-        return Mono.fromCallable(() -> (InitiateQuoteResponse) redisTemplate.opsForValue().get("quote_init:" + quoteId))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return redisTemplate.opsForValue().get("quote_init:" + quoteId)
+                .map(obj -> (InitiateQuoteResponse) obj);
     }
 }

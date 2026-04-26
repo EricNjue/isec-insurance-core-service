@@ -3,32 +3,36 @@ package com.isec.platform.modules.rating.service;
 import com.isec.platform.modules.rating.domain.AnonymousQuote;
 import com.isec.platform.modules.rating.dto.AnonymousQuoteRequest;
 import com.isec.platform.modules.rating.dto.PricingResult;
-import com.isec.platform.modules.rating.repository.AnonymousQuoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 class AnonymousQuotePricingTest {
 
-    private AnonymousQuoteRepository anonymousQuoteRepository;
+    private ReactiveRedisTemplate<String, Object> redisTemplate;
     private PricingEngine pricingEngine;
     private RatingService ratingService;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
-        anonymousQuoteRepository = Mockito.mock(AnonymousQuoteRepository.class);
+        redisTemplate = Mockito.mock(ReactiveRedisTemplate.class);
+        ReactiveValueOperations<String, Object> valueOps = Mockito.mock(ReactiveValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
         pricingEngine = Mockito.mock(PricingEngine.class);
-        ratingService = new RatingService(anonymousQuoteRepository, pricingEngine);
+        ratingService = new RatingService(redisTemplate, pricingEngine);
     }
 
     @Test
@@ -51,7 +55,7 @@ class AnonymousQuotePricingTest {
                 .build();
 
         when(pricingEngine.price(any())).thenReturn(Mono.just(pricingResult));
-        when(anonymousQuoteRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(redisTemplate.opsForValue().set(anyString(), any(), any())).thenReturn(Mono.just(true));
 
         // when & then
         ratingService.createAnonymousQuote(request)

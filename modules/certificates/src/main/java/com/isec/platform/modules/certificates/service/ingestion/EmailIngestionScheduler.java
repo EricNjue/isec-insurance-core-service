@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.TaskScheduler;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import reactor.core.publisher.Mono;
@@ -28,7 +28,7 @@ public class EmailIngestionScheduler {
     private final CertificateIngestionOrchestrator orchestrator;
     private final EmailPollingProperties pollingProperties;
     private final TaskScheduler taskScheduler;
-    private final StringRedisTemplate redisTemplate;
+    private final ReactiveStringRedisTemplate redisTemplate;
     private final Random random = new Random();
     private final String lockValue = UUID.randomUUID().toString();
     private static final String LOCK_KEY = "lock:email-ingestion";
@@ -69,25 +69,44 @@ public class EmailIngestionScheduler {
 
     private void scheduleNext(Duration delay) {
         taskScheduler.schedule(() -> 
-            Mono.fromRunnable(this::pollEmails)
+            pollEmails()
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe(), 
             Instant.now().plus(delay));
     }
 
-    public void pollEmails() {
-        try {
-            if (pollingProperties.isLockEnabled()) {
-                Boolean acquired = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, lockValue, Duration.ofSeconds(pollingProperties.getLockTtlSeconds()));
-                if (acquired == null || !acquired) {
-                    log.info("Skipping email poll: lock already held by another instance");
-                    return;
-                }
-            }
-            performPoll();
-        } finally {
-            scheduleNext(calculateNextDelay());
+    public Mono<Void> pollEmails() {
+        Mono<Boolean> lockMono = Mono.just(true);
+        if (pollingProperties.isLockEnabled()) {
+            lockMono = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, lockValue, Duration.ofSeconds(pollingProperties.getLockTtlSeconds()))
+                    .map(acquired -> acquired != null && acquired);
         }
+
+        return lockMono.flatMap(acquired -> {
+            if (!acquired) {
+                log.info("Skipping email poll: lock already held by another instance");
+                scheduleNext(calculateNextDelay());
+                return Mono.empty();
+            }
+
+            return Mono.fromRunnable(this::performPoll)
+                    .doFinally(signalType -> {
+                        if (pollingProperties.isLockEnabled()) {
+                            redisTemplate.opsForValue().get(LOCK_KEY)
+                                    .flatMap(currentLock -> {
+                                        if (lockValue.equals(currentLock)) {
+                                            return redisTemplate.delete(LOCK_KEY);
+                                        }
+                                        return Mono.empty();
+                                    })
+                                    .subscribe(
+                                        success -> {},
+                                        error -> log.error("Failed to release lock", error)
+                                    );
+                        }
+                        scheduleNext(calculateNextDelay());
+                    });
+        }).then();
     }
 
     private void performPoll() {
@@ -156,13 +175,6 @@ public class EmailIngestionScheduler {
         } catch (Exception e) {
             log.error("Error during email polling", e);
         } finally {
-            if (pollingProperties.isLockEnabled()) {
-                String currentLock = redisTemplate.opsForValue().get(LOCK_KEY);
-                if (lockValue.equals(currentLock)) {
-                    redisTemplate.delete(LOCK_KEY);
-                }
-            }
-            
             updateModeAfterPoll(foundCount, startTime);
         }
     }

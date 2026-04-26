@@ -7,9 +7,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.scheduling.TaskScheduler;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -31,10 +32,10 @@ class EmailIngestionSchedulerTest {
     private TaskScheduler taskScheduler;
 
     @Mock
-    private StringRedisTemplate redisTemplate;
+    private ReactiveStringRedisTemplate redisTemplate;
 
     @Mock
-    private ValueOperations<String, String> valueOperations;
+    private ReactiveValueOperations<String, String> valueOperations;
 
     private EmailPollingProperties properties;
 
@@ -67,9 +68,9 @@ class EmailIngestionSchedulerTest {
 
     @Test
     void pollEmails_ShouldRespectLock() {
-        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(false);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(Mono.just(false));
         
-        scheduler.pollEmails();
+        scheduler.pollEmails().block();
         
         // Should return early and not connect to IMAP
         // Since connectivity logic is internal, we verify no further redis interaction after failed lock
@@ -79,13 +80,14 @@ class EmailIngestionSchedulerTest {
 
     @Test
     void pollEmails_ShouldAcquireAndReleaseLock() {
-        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(Mono.just(true));
         String lockValue = (String) ReflectionTestUtils.getField(scheduler, "lockValue");
-        when(valueOperations.get(anyString())).thenReturn(lockValue);
+        when(valueOperations.get(anyString())).thenReturn(Mono.just(lockValue));
+        when(redisTemplate.delete(anyString())).thenReturn(Mono.just(1L));
         
         // This will fail because it tries to connect to IMAP, but we want to see it reached there
         try {
-            scheduler.pollEmails();
+            scheduler.pollEmails().block();
         } catch (Exception ignored) {
             // Expected IMAP failure
         }

@@ -2,17 +2,16 @@ package com.isec.platform.modules.rating.service;
 
 import com.isec.platform.modules.rating.domain.AnonymousQuote;
 import com.isec.platform.modules.rating.dto.AnonymousQuoteRequest;
-import com.isec.platform.modules.rating.repository.AnonymousQuoteRepository;
-import com.isec.platform.modules.rating.dto.PricingResult;
 import com.isec.platform.modules.rating.dto.RatingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
-import java.util.Optional;
 import java.util.UUID;
 
 import reactor.core.publisher.Mono;
@@ -22,8 +21,11 @@ import reactor.core.publisher.Mono;
 @Slf4j
 public class RatingService {
 
-    private final AnonymousQuoteRepository anonymousQuoteRepository;
+    private final ReactiveRedisTemplate<String, Object> redisTemplate;
     private final PricingEngine pricingEngine;
+
+    private static final String QUOTE_KEY_PREFIX = "anonymous_quote:";
+    private static final Duration QUOTE_TTL = Duration.ofHours(1);
 
     private static final BigDecimal PCF_RATE = new BigDecimal("0.0025"); // 0.25%
     private static final BigDecimal ITL_RATE = new BigDecimal("0.0020"); // 0.20%
@@ -73,7 +75,9 @@ public class RatingService {
                             .premiumBreakdown(breakdown)
                             .build();
                 })
-                .flatMap(quote -> anonymousQuoteRepository.save(quote));
+                .flatMap(quote -> redisTemplate.opsForValue()
+                        .set(QUOTE_KEY_PREFIX + quote.getId(), quote, QUOTE_TTL)
+                        .thenReturn(quote));
     }
 
     private Integer calculateVehicleAge(Integer yearOfManufacture) {
@@ -82,7 +86,9 @@ public class RatingService {
     }
 
     public Mono<AnonymousQuote> getAnonymousQuote(String id) {
-        return anonymousQuoteRepository.findById(id);
+        return redisTemplate.opsForValue()
+                .get(QUOTE_KEY_PREFIX + id)
+                .map(obj -> (AnonymousQuote) obj);
     }
 
     public record PremiumBreakdown(

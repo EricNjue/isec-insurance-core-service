@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.redis.core.RedisHash;
+
 import java.math.BigDecimal;
 import java.io.Serializable;
 
@@ -14,7 +14,6 @@ import java.io.Serializable;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@RedisHash(value = "AnonymousQuote", timeToLive = 3600) // 1 hour TTL
 public class AnonymousQuote implements Serializable {
     @Id
     private String id;

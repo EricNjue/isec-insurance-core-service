@@ -2,7 +2,7 @@ package com.isec.platform.common.idempotency.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -13,13 +13,12 @@ import java.time.Duration;
 @Slf4j
 public class IdempotencyService {
 
-    private final StringRedisTemplate redisTemplate;
+    private final ReactiveStringRedisTemplate redisTemplate;
     private static final String IDEMPOTENCY_KEY_PREFIX = "idempotency:";
 
     public Mono<Boolean> isDuplicate(String key) {
         String redisKey = IDEMPOTENCY_KEY_PREFIX + key;
-        return Mono.fromCallable(() -> redisTemplate.opsForValue().setIfAbsent(redisKey, "PROCESSED", Duration.ofDays(7)))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+        return redisTemplate.opsForValue().setIfAbsent(redisKey, "PROCESSED", Duration.ofDays(7))
                 .map(isNew -> {
                     boolean duplicate = isNew == null || !isNew;
                     if (duplicate) {
@@ -31,8 +30,7 @@ public class IdempotencyService {
     
     public Mono<Void> markAsProcessed(String key) {
         String redisKey = IDEMPOTENCY_KEY_PREFIX + key;
-        return Mono.fromRunnable(() -> redisTemplate.opsForValue().set(redisKey, "PROCESSED", Duration.ofDays(7)))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+        return redisTemplate.opsForValue().set(redisKey, "PROCESSED", Duration.ofDays(7))
                 .then();
     }
 }

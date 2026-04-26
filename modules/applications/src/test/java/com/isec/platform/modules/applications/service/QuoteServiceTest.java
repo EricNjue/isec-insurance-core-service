@@ -21,8 +21,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -46,9 +46,9 @@ class QuoteServiceTest {
     @Mock
     private RateBookSnapshotLoader rateBookSnapshotLoader;
     @Mock
-    private RedisTemplate<String, Object> redisTemplate;
+    private ReactiveRedisTemplate<String, Object> redisTemplate;
     @Mock
-    private ValueOperations<String, Object> valueOperations;
+    private ReactiveValueOperations<String, Object> valueOperations;
     @Mock
     private ApplicationDocumentService documentService;
     @Mock
@@ -93,7 +93,7 @@ class QuoteServiceTest {
         when(insuranceIntegrationAdapter.checkDoubleInsurance(any())).thenReturn(Mono.just(DoubleInsuranceCheckResponse.builder()
                 .hasDuplicate(false)
                 .build()));
-        doNothing().when(valueOperations).set(anyString(), any(), any());
+        when(valueOperations.set(anyString(), any(), any())).thenReturn(Mono.just(true));
 
         InitiateQuoteRequest request = InitiateQuoteRequest.builder()
                 .licensePlateNumber("KAA 123X")
@@ -147,7 +147,7 @@ class QuoteServiceTest {
         InitiateQuoteResponse mockResponse = InitiateQuoteResponse.builder()
                 .quoteId(quoteId)
                 .build();
-        when(valueOperations.get("quote_init:" + quoteId)).thenReturn(mockResponse);
+        when(valueOperations.get("quote_init:" + quoteId)).thenReturn(Mono.just(mockResponse));
 
         Mono<InitiateQuoteResponse> result = quoteService.getInitiatedQuote(quoteId);
 
@@ -175,14 +175,14 @@ class QuoteServiceTest {
     void calculateQuote_ShouldReturnResponseAndUpsertData() throws Exception {
         QuoteRequest request = createSampleRequest();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(anyString())).thenReturn(null);
+        when(valueOperations.get(anyString())).thenReturn(Mono.empty());
         doReturn(Mono.just(PricingResult.builder()
                 .totalPremium(new BigDecimal("10000"))
                 .build())).when(pricingEngine).price(any());
         when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user123"));
         lenient().when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
         lenient().when(userVehicleService.saveOrUpdateVehicle(anyString(), any())).thenReturn(Mono.empty());
-        doNothing().when(valueOperations).set(anyString(), any(), any());
+        when(valueOperations.set(anyString(), any(), any())).thenReturn(Mono.just(true));
         
         com.isec.platform.modules.rating.dto.RateBookDto rbDto = com.isec.platform.modules.rating.dto.RateBookDto.builder()
                 .id(1L)
