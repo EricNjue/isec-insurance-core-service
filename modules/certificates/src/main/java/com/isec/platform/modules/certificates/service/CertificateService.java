@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 @RequiredArgsConstructor
@@ -88,7 +89,7 @@ public class CertificateService {
                 .build();
         
         return certificateRepository.save(certificate)
-                .map(saved -> {
+                .flatMap(saved -> Mono.fromRunnable(() -> {
                     CertificateRequestedEvent event = CertificateRequestedEvent.builder()
                             .eventId(idempotencyKey)
                             .policyId(policy.getId())
@@ -104,7 +105,6 @@ public class CertificateService {
 
                     rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.CERTIFICATE_REQUESTED_RK, event);
                     log.info("Certificate request event sent for type: {} with eventId: {}", type, event.getEventId());
-                    return saved;
-                }).then();
+                }).subscribeOn(Schedulers.boundedElastic()).thenReturn(saved)).then();
     }
 }

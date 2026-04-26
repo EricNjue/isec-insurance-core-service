@@ -23,18 +23,24 @@ public class AuditAspect {
 
     @AfterReturning(pointcut = "execution(* com.isec.platform.modules..service.*.save*(..)) || execution(* com.isec.platform.modules..service.*.update*(..))", returning = "result")
     public void logAction(JoinPoint joinPoint, Object result) {
-        if (!(result instanceof Mono || result instanceof reactor.core.publisher.Flux)) {
-            // If it's not reactive, we might be in a bit of trouble or it's a synchronous method we still want to audit
-            // But in a WebFlux app, services should return Mono/Flux.
-            return;
-        }
-
         if (result instanceof Mono) {
-            ((Mono<?>) result).flatMap(res -> createAuditLog(joinPoint, res)).subscribe();
+            ((Mono<?>) result)
+                    .flatMap(res -> createAuditLog(joinPoint, res))
+                    .contextWrite(ctx -> ctx) // Maintain context
+                    .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                    .subscribe(
+                            null,
+                            e -> log.error("Failed to save audit log for {}", joinPoint.getSignature().getName(), e)
+                    );
         } else if (result instanceof reactor.core.publisher.Flux) {
             ((reactor.core.publisher.Flux<?>) result).collectList()
                     .flatMap(list -> createAuditLog(joinPoint, list.isEmpty() ? null : list.get(0)))
-                    .subscribe();
+                    .contextWrite(ctx -> ctx)
+                    .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                    .subscribe(
+                            null,
+                            e -> log.error("Failed to save audit log for {}", joinPoint.getSignature().getName(), e)
+                    );
         }
     }
 

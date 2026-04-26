@@ -97,9 +97,7 @@ public class CertificateIngestionOrchestrator {
 
                 return auditRepository.findByEmailMessageId(messageId)
                         .switchIfEmpty(Mono.error(new RuntimeException("Audit record not found for " + messageId)))
-                        .flatMap(audit -> Mono.fromCallable(() -> processInternal(message, audit))
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .flatMap(mono -> mono));
+                        .flatMap(audit -> processInternal(message, audit));
             })
             .doOnError(e -> {
                 log.error("Async processing failed for email {}", messageId, e);
@@ -177,10 +175,10 @@ public class CertificateIngestionOrchestrator {
                                             parser.getPartnerCode(), year, month, policy.getPolicyNumber(), metadata.getCertificateNumber());
                                     
                                     String checksum = DigestUtils.md5DigestAsHex(attachment);
-                                    s3Service.uploadBytes(defaultBucket, s3Key, attachment, "application/pdf");
                                     
                                     audit.setStatus(IngestionStatus.STORED);
-                                    return auditRepository.save(audit)
+                                    return s3Service.uploadBytesAsync(defaultBucket, s3Key, attachment, "application/pdf")
+                                        .then(auditRepository.save(audit))
                                         .flatMap(storedAudit -> {
                                             Certificate certificate = Certificate.builder()
                                                     .policyId(policy.getId())

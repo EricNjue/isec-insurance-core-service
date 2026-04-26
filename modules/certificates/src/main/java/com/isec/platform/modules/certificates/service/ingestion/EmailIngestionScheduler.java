@@ -11,6 +11,9 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Properties;
@@ -59,11 +62,17 @@ public class EmailIngestionScheduler {
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 600000) // Every 10 mins
     public void runRecovery() {
         log.info("Running recovery for stuck ingestion items");
-        orchestrator.recoverStuckItems();
+        orchestrator.recoverStuckItems()
+            .subscribeOn(Schedulers.boundedElastic())
+            .subscribe();
     }
 
     private void scheduleNext(Duration delay) {
-        taskScheduler.schedule(this::pollEmails, Instant.now().plus(delay));
+        taskScheduler.schedule(() -> 
+            Mono.fromRunnable(this::pollEmails)
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe(), 
+            Instant.now().plus(delay));
     }
 
     public void pollEmails() {

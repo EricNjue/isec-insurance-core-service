@@ -67,12 +67,16 @@ class CertificateRequestConsumerTest {
     }
 
     @Test
-    void handleCertificateRequest_ShouldProcess_WhenNotDuplicate() {
+    void handleCertificateRequest_ShouldProcess_WhenNotDuplicate() throws InterruptedException {
         when(idempotencyService.isDuplicate(anyString())).thenReturn(Mono.just(false));
         when(certificateRepository.findByIdempotencyKey(anyString())).thenReturn(Mono.just(certificate));
         when(certificateRepository.save(any(Certificate.class))).thenReturn(Mono.just(certificate));
+        when(dmvicClient.issueCertificate(anyString(), anyString())).thenReturn("DMVIC-123");
 
         consumer.handleCertificateRequest(event);
+        
+        // Wait for async processing
+        Thread.sleep(1000);
 
         verify(dmvicClient).issueCertificate(eq("KAA 001A"), eq("POL-001"));
         verify(certificateRepository, atLeastOnce()).save(any(Certificate.class));

@@ -89,15 +89,17 @@ public class ValuationLetterService {
                                         savedLetter.setDocumentHash(hash);
                                         
                                         String key = "valuation-letters/" + policyId + "/" + savedLetter.getId() + ".pdf";
-                                        s3Service.uploadBytes(bucketName, key, pdf, "application/pdf");
                                         
                                         savedLetter.setPdfS3Bucket(bucketName);
                                         savedLetter.setPdfS3Key(key);
                                         
                                         policy.setValuationLetterS3Key(key);
-                                        return savedLetter;
+                                        
+                                        return s3Service.uploadBytesAsync(bucketName, key, pdf, "application/pdf")
+                                                .thenReturn(savedLetter);
                                     })
                                     .subscribeOn(Schedulers.boundedElastic())
+                                    .flatMap(savedMono -> savedMono)
                                     .flatMap(saved -> Mono.zip(letterRepository.save(saved), policyRepository.save(policy))
                                             .map(tuple -> tuple.getT1()))));
                 });
@@ -121,6 +123,6 @@ public class ValuationLetterService {
                     .build();
             rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.VALUATION_LETTER_REQUESTED_RK, event);
             log.info("Published ValuationLetterRequestedEvent eventId={} policyId={}", event.getEventId(), policyId);
-        });
+        }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 }

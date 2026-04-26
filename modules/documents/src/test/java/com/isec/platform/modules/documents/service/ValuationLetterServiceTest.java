@@ -89,6 +89,7 @@ class ValuationLetterServiceTest {
         
         when(letterRepository.save(any(ValuationLetter.class))).thenReturn(Mono.just(letter));
         when(policyRepository.save(any(Policy.class))).thenReturn(Mono.just(policy));
+        when(s3Service.uploadBytesAsync(anyString(), anyString(), any(), anyString())).thenReturn(Mono.empty());
 
         Mono<ValuationLetter> result = valuationLetterService.generateIfNotExists(policyId, "John Doe", "KAA 001Z", false);
 
@@ -99,7 +100,7 @@ class ValuationLetterServiceTest {
                 })
                 .verifyComplete();
 
-        verify(s3Service).uploadBytes(eq("test-bucket"), anyString(), any(), eq("application/pdf"));
+        verify(s3Service).uploadBytesAsync(eq("test-bucket"), anyString(), any(), eq("application/pdf"));
         verify(letterRepository, times(2)).save(any(ValuationLetter.class));
     }
 }

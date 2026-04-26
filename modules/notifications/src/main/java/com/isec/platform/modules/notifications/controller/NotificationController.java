@@ -14,6 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.UUID;
 
@@ -43,7 +44,7 @@ public class NotificationController {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Policy not found: " + policyId)))
                 .flatMap(policy -> applicationRepository.findById(policy.getApplicationId())
                         .switchIfEmpty(Mono.error(new IllegalArgumentException("Application not found for policy: " + policyId)))
-                        .map(application -> {
+                        .flatMap(application -> {
                             ValuationLetterRequestedEvent event = ValuationLetterRequestedEvent.builder()
                                     .eventId(UUID.randomUUID().toString())
                                     .policyId(policy.getId())
@@ -54,8 +55,9 @@ public class NotificationController {
                                     .correlationId(UUID.randomUUID().toString())
                                     .build();
 
-                            rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.VALUATION_LETTER_REQUESTED_RK, event);
-                            return "Valuation letter requested for policy: " + policyId;
+                            return Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.VALUATION_LETTER_REQUESTED_RK, event))
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .thenReturn("Valuation letter requested for policy: " + policyId);
                         }));
     }
 }

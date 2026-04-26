@@ -10,6 +10,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.UUID;
 
@@ -35,7 +36,7 @@ public class CertificateResendService {
                     log.info("Requesting resend of certificate {} to {}", certificateNumber, recipient);
 
                     return retrievalService.generateDownloadUrl(certificateNumber)
-                            .map(downloadUrl -> {
+                            .flatMap(downloadUrl -> Mono.fromRunnable(() -> {
                                 NotificationSendEvent event = NotificationSendEvent.builder()
                                         .eventId(UUID.randomUUID().toString())
                                         .recipient(recipient)
@@ -47,8 +48,7 @@ public class CertificateResendService {
 
                                 rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.NOTIFICATION_SEND_RK, event);
                                 log.info("Certificate resend event published for cert: {}", certificateNumber);
-                                return (Void) null;
-                            });
+                            }).subscribeOn(Schedulers.boundedElastic()));
                 }).then();
     }
 }

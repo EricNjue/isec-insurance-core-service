@@ -21,7 +21,11 @@ public class OutboxWorker {
     public void processOutboxEvents() {
         outboxRepository.findEventsToProcess(5, 10)
                 .flatMap(this::processEvent)
-                .subscribe();
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                .subscribe(
+                        null,
+                        e -> log.error("Error in OutboxWorker during processing", e)
+                );
     }
 
     private Mono<Void> processEvent(OutboxEvent event) {
