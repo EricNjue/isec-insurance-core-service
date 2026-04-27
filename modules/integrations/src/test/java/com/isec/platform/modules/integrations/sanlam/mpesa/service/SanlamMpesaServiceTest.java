@@ -1,5 +1,6 @@
 package com.isec.platform.modules.integrations.sanlam.mpesa.service;
 
+import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.modules.integrations.sanlam.mpesa.client.SanlamMpesaClient;
 import com.isec.platform.modules.integrations.sanlam.mpesa.dto.request.SanlamStkPushRequest;
 import com.isec.platform.modules.integrations.sanlam.mpesa.dto.request.SanlamStkStatusRequest;
@@ -15,6 +16,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -54,6 +56,21 @@ class SanlamMpesaServiceTest {
                 request.getPhoneNumber().equals(phoneNumber) &&
                 request.getAmount().equals(amount)
         ));
+    }
+
+    @Test
+    void initiateStkPush_WithInvalidPhoneNumber_ShouldThrowException() {
+        // Prepare
+        String quoteRef = "Q123";
+        String phoneNumber = "0712345678"; // Invalid, should start with 254
+        Double amount = 100.0;
+
+        // Execute & Verify
+        BusinessException exception = assertThrows(BusinessException.class, () -> 
+                mpesaService.initiateStkPush(quoteRef, phoneNumber, amount));
+        
+        assertEquals("Invalid phone number format. Expected 254XXXXXXXXX", exception.getMessage());
+        verifyNoInteractions(mpesaClient);
     }
 
     @Test

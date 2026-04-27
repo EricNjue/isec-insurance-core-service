@@ -1,5 +1,6 @@
 package com.isec.platform.modules.integrations.sanlam.mpesa.service;
 
+import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.modules.integrations.sanlam.mpesa.client.SanlamMpesaClient;
 import com.isec.platform.modules.integrations.sanlam.mpesa.dto.request.SanlamStkPushRequest;
 import com.isec.platform.modules.integrations.sanlam.mpesa.dto.request.SanlamStkStatusRequest;
@@ -54,7 +55,7 @@ public class SanlamMpesaServiceImpl implements SanlamMpesaService {
         // Basic phone number validation: starts with 254 and has 12 digits total
         if (!phoneNumber.matches("^254[0-9]{9}$")) {
             log.warn("Invalid phone number format: {}. Expected 254XXXXXXXXX", phoneNumber);
-            // In a real scenario, we might want to throw a specific business exception
+            throw new BusinessException("Invalid phone number format. Expected 254XXXXXXXXX");
         }
     }
 
