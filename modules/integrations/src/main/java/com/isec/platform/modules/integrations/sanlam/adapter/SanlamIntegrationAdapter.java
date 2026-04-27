@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,44 +53,37 @@ public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
             .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
 
     @Override
-    public Map<ReferenceCategory, List<ReferenceDataItem>> fetchMasterReferenceData(String productCode) {
+    public Mono<Map<ReferenceCategory, List<ReferenceDataItem>>> fetchMasterReferenceData(String productCode) {
         log.info("SanlamAdapter: Fetching master reference data for product code: {}", productCode);
-        SanlamMasterReferenceDataResponse response = sanlamClient.fetchMasterReferenceData(productCode);
-        if (response == null || response.getData() == null) {
-            log.warn("SanlamAdapter: Received empty or null master reference data response");
-            return Collections.emptyMap();
-        }
-
-        Map<ReferenceCategory, List<ReferenceDataItem>> result = new HashMap<>();
-        
-        // Sanlam returns data keyed by some ID (e.g., "1" for products, "999" for others)
-        response.getData().forEach((groupId, categoryMap) -> {
-            log.debug("SanlamAdapter: Processing reference data group: {}", groupId);
-            categoryMap.forEach((label, items) -> {
-                ReferenceCategory category = LABEL_TO_CATEGORY.get(label);
-                if (category != null) {
-                    List<ReferenceDataItem> canonicalItems = items.stream()
-                            .map(this::toCanonicalItem)
-                            .collect(Collectors.toList());
-                    log.debug("SanlamAdapter: Mapped label '{}' to canonical category '{}' ({} items)", 
-                            label, category, canonicalItems.size());
-                    result.merge(category, canonicalItems, (oldList, newList) -> {
-                        List<ReferenceDataItem> merged = new ArrayList<>(oldList);
-                        merged.addAll(newList);
-                        return merged;
-                    });
-                } else {
-                    log.debug("SanlamAdapter: Unknown Sanlam reference data label: {}", label);
+        return sanlamClient.fetchMasterReferenceData(productCode)
+            .map(response -> {
+                if (response == null || response.getData() == null) {
+                    log.warn("SanlamAdapter: Received empty or null master reference data response");
+                    return Collections.emptyMap();
                 }
-            });
-        });
 
-        log.info("SanlamAdapter: Master reference data mapping completed. Categories found: {}", result.keySet());
-        return result;
+                Map<ReferenceCategory, List<ReferenceDataItem>> result = new HashMap<>();
+                response.getData().forEach((groupId, categoryMap) -> {
+                    categoryMap.forEach((label, items) -> {
+                        ReferenceCategory category = LABEL_TO_CATEGORY.get(label);
+                        if (category != null) {
+                            List<ReferenceDataItem> canonicalItems = items.stream()
+                                    .map(this::toCanonicalItem)
+                                    .collect(Collectors.toList());
+                            result.merge(category, canonicalItems, (oldList, newList) -> {
+                                List<ReferenceDataItem> merged = new ArrayList<>(oldList);
+                                merged.addAll(newList);
+                                return merged;
+                            });
+                        }
+                    });
+                });
+                return result;
+            });
     }
 
     @Override
-    public List<ReferenceDataItem> fetchDependentReferenceData(String productCode,
+    public Mono<List<ReferenceDataItem>> fetchDependentReferenceData(String productCode,
                                                               ReferenceCategory parentCategory,
                                                               String parentValue,
                                                               ReferenceCategory childCategory) {
@@ -101,21 +95,20 @@ public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
 
         if (parentLabel == null || childLabel == null) {
             log.warn("SanlamAdapter: Unsupported category mapping for dependent lookup: {} -> {}", parentCategory, childCategory);
-            return Collections.emptyList();
+            return Mono.just(Collections.emptyList());
         }
 
-        SanlamDependentReferenceDataResponse response = sanlamClient.fetchDependentReferenceData(parentLabel, parentValue, childLabel);
-        if (response == null || response.getData() == null || !response.getData().containsKey(childLabel)) {
-            log.warn("SanlamAdapter: No dependent data found for child label: {}", childLabel);
-            return Collections.emptyList();
-        }
+        return sanlamClient.fetchDependentReferenceData(parentLabel, parentValue, childLabel)
+            .map(response -> {
+                if (response == null || response.getData() == null || !response.getData().containsKey(childLabel)) {
+                    log.warn("SanlamAdapter: No dependent data found for child label: {}", childLabel);
+                    return Collections.emptyList();
+                }
 
-        List<ReferenceDataItem> items = response.getData().get(childLabel).stream()
-                .map(this::toCanonicalItem)
-                .collect(Collectors.toList());
-        
-        log.info("SanlamAdapter: Found {} dependent items for {}", items.size(), childLabel);
-        return items;
+                return response.getData().get(childLabel).stream()
+                        .map(this::toCanonicalItem)
+                        .collect(Collectors.toList());
+            });
     }
 
     private ReferenceDataItem toCanonicalItem(SanlamMasterReferenceDataResponse.SanlamReferenceDataItem item) {
@@ -127,38 +120,33 @@ public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
     }
 
     @Override
-    public DoubleInsuranceCheckResponse checkDoubleInsurance(DoubleInsuranceCheckRequest request) {
+    public Mono<DoubleInsuranceCheckResponse> checkDoubleInsurance(DoubleInsuranceCheckRequest request) {
         String cacheKey = String.format("%s-%s", request.getRegistrationNumber(), request.getChassisNumber());
         
-        return Optional.ofNullable(cacheManager.getCache(CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE))
-                .map(cache -> {
-                    DoubleInsuranceCheckResponse cachedResponse = cache.get(cacheKey, DoubleInsuranceCheckResponse.class);
-                    if (cachedResponse != null) {
-                        log.info("Cache hit for Sanlam double insurance check. Key: {}", cacheKey);
-                        return cachedResponse;
-                    }
-                    
-                    log.info("Cache miss for Sanlam double insurance check. Fetching from API. Key: {}", cacheKey);
-                    DoubleInsuranceCheckResponse apiResponse = fetchDoubleInsuranceFromApi(request);
-                    if (apiResponse != null) {
+        Cache cache = cacheManager.getCache(CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE);
+        if (cache != null) {
+            DoubleInsuranceCheckResponse cachedResponse = cache.get(cacheKey, DoubleInsuranceCheckResponse.class);
+            if (cachedResponse != null) {
+                log.info("Cache hit for Sanlam double insurance check. Key: {}", cacheKey);
+                return Mono.just(cachedResponse);
+            }
+        }
+        
+        log.info("Cache miss or no cache for Sanlam double insurance check. Fetching from API. Key: {}", cacheKey);
+        return fetchDoubleInsuranceFromApi(request)
+                .doOnNext(apiResponse -> {
+                    if (cache != null && apiResponse != null) {
                         cache.put(cacheKey, apiResponse);
                     }
-                    return apiResponse;
-                })
-                .orElseGet(() -> {
-                    log.warn("Cache '{}' not found. Calling API directly.", CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE);
-                    return fetchDoubleInsuranceFromApi(request);
                 });
     }
 
-    private DoubleInsuranceCheckResponse fetchDoubleInsuranceFromApi(DoubleInsuranceCheckRequest request) {
+    private Mono<DoubleInsuranceCheckResponse> fetchDoubleInsuranceFromApi(DoubleInsuranceCheckRequest request) {
         log.info("Starting double insurance API call for Sanlam. Registration: {}", request.getRegistrationNumber());
-        try {
-            SanlamDoubleInsuranceResponse response = sanlamClient.checkDoubleInsurance(
-                    request.getRegistrationNumber(),
-                    request.getChassisNumber()
-            );
-
+        return sanlamClient.checkDoubleInsurance(
+                request.getRegistrationNumber(),
+                request.getChassisNumber()
+        ).map(response -> {
             log.info("Sanlam API response received: status={}, message={}", response.getStatus(), response.getMessage());
 
             boolean hasDuplicate = "double".equalsIgnoreCase(response.getStatus());
@@ -184,9 +172,6 @@ public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
             }
 
             return canonicalResponse;
-        } catch (Exception e) {
-            log.error("Error during Sanlam double insurance check: {}", e.getMessage(), e);
-            throw e;
-        }
+        }).doOnError(error -> log.error("Error during Sanlam double insurance check: {}", error.getMessage()));
     }
 }

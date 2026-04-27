@@ -13,6 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
 import java.util.UUID;
 
 @RestController
@@ -34,27 +37,27 @@ public class NotificationController {
 
     @PostMapping("/valuation-letter/{policyId}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<String> sendValuationLetter(@PathVariable Long policyId) {
+    public Mono<String> sendValuationLetter(@PathVariable Long policyId) {
         log.info("Requesting valuation letter for policy: {}", policyId);
 
-        Policy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new IllegalArgumentException("Policy not found: " + policyId));
+        return policyRepository.findById(policyId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Policy not found: " + policyId)))
+                .flatMap(policy -> applicationRepository.findById(policy.getApplicationId())
+                        .switchIfEmpty(Mono.error(new IllegalArgumentException("Application not found for policy: " + policyId)))
+                        .flatMap(application -> {
+                            ValuationLetterRequestedEvent event = ValuationLetterRequestedEvent.builder()
+                                    .eventId(UUID.randomUUID().toString())
+                                    .policyId(policy.getId())
+                                    .policyNumber(policy.getPolicyNumber())
+                                    .registrationNumber(application.getRegistrationNumber())
+                                    .insuredName("Customer Name") // Ideally from user profile or application
+                                    .recipientEmail("customer@example.com") // Should be from user profile
+                                    .correlationId(UUID.randomUUID().toString())
+                                    .build();
 
-        Application application = applicationRepository.findById(policy.getApplicationId())
-                .orElseThrow(() -> new IllegalArgumentException("Application not found for policy: " + policyId));
-
-        ValuationLetterRequestedEvent event = ValuationLetterRequestedEvent.builder()
-                .eventId(UUID.randomUUID().toString())
-                .policyId(policy.getId())
-                .policyNumber(policy.getPolicyNumber())
-                .registrationNumber(application.getRegistrationNumber())
-                .insuredName("Customer Name") // Ideally from user profile or application
-                .recipientEmail("customer@example.com") // Should be from user profile
-                .correlationId(UUID.randomUUID().toString())
-                .build();
-
-        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.VALUATION_LETTER_REQUESTED_RK, event);
-        
-        return ResponseEntity.ok("Valuation letter requested for policy: " + policyId);
+                            return Mono.fromRunnable(() -> rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.VALUATION_LETTER_REQUESTED_RK, event))
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .thenReturn("Valuation letter requested for policy: " + policyId);
+                        }));
     }
 }

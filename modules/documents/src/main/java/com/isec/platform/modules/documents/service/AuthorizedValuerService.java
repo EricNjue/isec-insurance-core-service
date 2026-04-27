@@ -6,9 +6,10 @@ import com.isec.platform.modules.documents.repository.AuthorizedValuerRepository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -17,12 +18,11 @@ public class AuthorizedValuerService {
 
     private final AuthorizedValuerRepository repository;
 
-    public List<AuthorizedValuer> listActive() {
+    public Flux<AuthorizedValuer> listActive() {
         return repository.findByActiveTrue();
     }
 
-    @Transactional
-    public AuthorizedValuer create(AuthorizedValuerRequest req) {
+    public Mono<AuthorizedValuer> create(AuthorizedValuerRequest req) {
         AuthorizedValuer valuer = AuthorizedValuer.builder()
                 .companyName(req.getCompanyName())
                 .contactPerson(req.getContactPerson())
@@ -30,28 +30,34 @@ public class AuthorizedValuerService {
                 .phoneNumbers(req.getPhoneNumbers())
                 .locations(req.getLocations())
                 .active(req.getActive() == null ? true : req.getActive())
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
         return repository.save(valuer);
     }
 
-    @Transactional
-    public AuthorizedValuer update(Long id, AuthorizedValuerRequest req) {
-        AuthorizedValuer v = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Valuer not found: " + id));
-        if (req.getCompanyName() != null) v.setCompanyName(req.getCompanyName());
-        if (req.getContactPerson() != null) v.setContactPerson(req.getContactPerson());
-        if (req.getEmail() != null) v.setEmail(req.getEmail());
-        if (req.getPhoneNumbers() != null) v.setPhoneNumbers(req.getPhoneNumbers());
-        if (req.getLocations() != null) v.setLocations(req.getLocations());
-        if (req.getActive() != null) v.setActive(req.getActive());
-        return repository.save(v);
+    public Mono<AuthorizedValuer> update(Long id, AuthorizedValuerRequest req) {
+        return repository.findById(id)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Valuer not found: " + id)))
+                .flatMap(v -> {
+                    if (req.getCompanyName() != null) v.setCompanyName(req.getCompanyName());
+                    if (req.getContactPerson() != null) v.setContactPerson(req.getContactPerson());
+                    if (req.getEmail() != null) v.setEmail(req.getEmail());
+                    if (req.getPhoneNumbers() != null) v.setPhoneNumbers(req.getPhoneNumbers());
+                    if (req.getLocations() != null) v.setLocations(req.getLocations());
+                    if (req.getActive() != null) v.setActive(req.getActive());
+                    v.setUpdatedAt(LocalDateTime.now());
+                    return repository.save(v);
+                });
     }
 
-    @Transactional
-    public void deactivate(Long id) {
-        AuthorizedValuer v = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Valuer not found: " + id));
-        v.setActive(false);
-        repository.save(v);
+    public Mono<Void> deactivate(Long id) {
+        return repository.findById(id)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Valuer not found: " + id)))
+                .flatMap(v -> {
+                    v.setActive(false);
+                    v.setUpdatedAt(LocalDateTime.now());
+                    return repository.save(v);
+                }).then();
     }
 }

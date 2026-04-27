@@ -12,9 +12,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
-import java.util.Optional;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,33 +51,44 @@ class UnderwritingServiceTest {
 
     @Test
     void shouldApproveApplication() throws Exception {
-        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
-        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArguments()[0]);
-
-        Application approved = underwritingService.approve(1L, "uw1", "Approved");
-
-        assertEquals(ApplicationStatus.APPROVED_PENDING_PAYMENT, approved.getStatus());
-        assertEquals("uw1", approved.getUnderwriterId());
-        assertEquals("Approved", approved.getUnderwriter_comments());
+        when(applicationRepository.findById(1L)).thenReturn(Mono.just(application));
+        when(policyService.createPolicy(eq(1L), any())).thenReturn(Mono.just(new com.isec.platform.modules.policies.domain.Policy()));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> Mono.just(i.getArguments()[0]));
         
+        Map<String, Object> pricingMap = Map.of("totalPremium", 50000.00);
+        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(pricingMap);
+
+        StepVerifier.create(underwritingService.approve(1L, "uw1", "Approved"))
+                .assertNext(approved -> {
+                    assertEquals(ApplicationStatus.APPROVED_PENDING_PAYMENT, approved.getStatus());
+                    assertEquals("uw1", approved.getUnderwriterId());
+                    assertEquals("Approved", approved.getUnderwriter_comments());
+                })
+                .verifyComplete();
+
         verify(policyService).createPolicy(eq(1L), any());
     }
 
     @Test
     void shouldDeclineApplication() {
-        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
-        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArguments()[0]);
+        when(applicationRepository.findById(1L)).thenReturn(Mono.just(application));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> Mono.just(i.getArguments()[0]));
 
-        Application declined = underwritingService.decline(1L, "uw1", "Declined", "High risk");
-
-        assertEquals(ApplicationStatus.DECLINED, declined.getStatus());
-        assertEquals("High risk", declined.getReferralReason());
+        StepVerifier.create(underwritingService.decline(1L, "uw1", "Declined", "High risk"))
+                .assertNext(declined -> {
+                    assertEquals(ApplicationStatus.DECLINED, declined.getStatus());
+                    assertEquals("High risk", declined.getReferralReason());
+                })
+                .verifyComplete();
     }
 
     @Test
     void shouldThrowExceptionWhenApplicationNotFound() {
-        when(applicationRepository.findById(1L)).thenReturn(Optional.empty());
+        when(applicationRepository.findById(1L)).thenReturn(Mono.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> underwritingService.approve(1L, "uw1", "Approved"));
+        StepVerifier.create(underwritingService.approve(1L, "uw1", "Approved"))
+                .expectError(ResourceNotFoundException.class)
+                .verify();
     }
 }

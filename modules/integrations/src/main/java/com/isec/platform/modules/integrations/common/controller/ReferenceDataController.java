@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/public/integrations/{companyCode}/reference-data")
@@ -21,28 +22,28 @@ public class ReferenceDataController {
     private final ReferenceDataService referenceDataService;
 
     @GetMapping
-    public ResponseEntity<MasterReferenceDataResponse> getMasterReferenceData(
+    public Mono<MasterReferenceDataResponse> getMasterReferenceData(
             @PathVariable String companyCode,
             @RequestParam String productCode) {
-        return ResponseEntity.ok(referenceDataService.getMasterReferenceData(companyCode, productCode));
+        return referenceDataService.getMasterReferenceData(companyCode, productCode);
     }
 
     @GetMapping("/{categoryKey}")
-    public ResponseEntity<SingleCategoryReferenceDataResponse> getSingleCategoryReferenceData(
+    public Mono<SingleCategoryReferenceDataResponse> getSingleCategoryReferenceData(
             @PathVariable String companyCode,
             @PathVariable ReferenceCategory categoryKey,
             @RequestParam String productCode) {
-        return ResponseEntity.ok(referenceDataService.getSingleCategoryReferenceData(companyCode, productCode, categoryKey));
+        return referenceDataService.getSingleCategoryReferenceData(companyCode, productCode, categoryKey);
     }
 
     @GetMapping("/dependent")
-    public ResponseEntity<DependentReferenceDataResponse> getDependentReferenceData(
+    public Mono<DependentReferenceDataResponse> getDependentReferenceData(
             @PathVariable String companyCode,
             @RequestParam String productCode,
             @RequestParam ReferenceCategory parentCategoryKey,
             @RequestParam String parentValue,
             @RequestParam ReferenceCategory childCategoryKey) {
-        return ResponseEntity.ok(referenceDataService.getDependentReferenceData(
-                companyCode, productCode, parentCategoryKey, parentValue, childCategoryKey));
+        return referenceDataService.getDependentReferenceData(
+                companyCode, productCode, parentCategoryKey, parentValue, childCategoryKey);
     }
 }

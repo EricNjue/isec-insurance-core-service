@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -20,32 +22,35 @@ public class RateBookController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<RateBook> createRateBook(@Valid @RequestBody RateBookRequest request) {
-        return ResponseEntity.ok(rateBookService.createRateBook(request));
+    public Mono<ResponseEntity<RateBook>> createRateBook(@Valid @RequestBody RateBookRequest request) {
+        return rateBookService.createRateBook(request)
+                .map(ResponseEntity::ok);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<RateBook> updateRateBook(@PathVariable Long id, @Valid @RequestBody RateBookRequest request) {
-        return ResponseEntity.ok(rateBookService.updateRateBook(id, request));
+    public Mono<ResponseEntity<RateBook>> updateRateBook(@PathVariable Long id, @Valid @RequestBody RateBookRequest request) {
+        return rateBookService.updateRateBook(id, request)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<RateBook> getRateBook(@PathVariable Long id) {
-        return ResponseEntity.ok(rateBookService.getRateBook(id));
+    public Mono<ResponseEntity<RateBook>> getRateBook(@PathVariable Long id) {
+        return rateBookService.getRateBook(id)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<List<RateBook>> listRateBooks() {
-        return ResponseEntity.ok(rateBookService.listRateBooks());
+    public Flux<RateBook> listRateBooks() {
+        return rateBookService.listRateBooks();
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<Void> deleteRateBook(@PathVariable Long id) {
-        rateBookService.deleteRateBook(id);
-        return ResponseEntity.noContent().build();
+    public Mono<ResponseEntity<Void>> deleteRateBook(@PathVariable Long id) {
+        return rateBookService.deleteRateBook(id)
+                .then(Mono.just(ResponseEntity.noContent().build()));
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 
@@ -19,8 +20,8 @@ public class IntegrationPublicController {
     private final IntegrationCompanyService service;
 
     @GetMapping
-    public ResponseEntity<List<IntegrationCompanyPublicResponse>> listPublicIntegrations(
+    public Flux<IntegrationCompanyPublicResponse> listPublicIntegrations(
             @RequestParam(value = "active", required = false, defaultValue = "true") Boolean active) {
-        return ResponseEntity.ok(service.getPublicIntegrations(active));
+        return service.getPublicIntegrations(active);
     }
 }

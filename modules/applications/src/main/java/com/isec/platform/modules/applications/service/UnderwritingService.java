@@ -10,7 +10,7 @@ import com.isec.platform.modules.policies.service.PolicyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -24,33 +24,31 @@ public class UnderwritingService {
     private final PolicyService policyService;
     private final ObjectMapper objectMapper;
 
-    @Transactional
-    public Application approve(Long applicationId, String underwriterId, String comments) {
-        Application app = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Application", applicationId));
+    public Mono<Application> approve(Long applicationId, String underwriterId, String comments) {
+        return applicationRepository.findById(applicationId)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Application", applicationId)))
+                .flatMap(app -> {
+                    app.setUnderwriterId(underwriterId);
+                    app.setUnderwriter_comments(comments);
+                    app.setStatus(ApplicationStatus.APPROVED_PENDING_PAYMENT);
 
-        app.setUnderwriterId(underwriterId);
-        app.setUnderwriter_comments(comments);
-        app.setStatus(ApplicationStatus.APPROVED_PENDING_PAYMENT);
-
-        // Create policy using the pricing snapshot's total premium if not already created
-        BigDecimal totalPremium = extractTotalPremium(app);
-        policyService.createPolicy(app.getId(), totalPremium);
-
-        return applicationRepository.save(app);
+                    BigDecimal totalPremium = extractTotalPremium(app);
+                    return policyService.createPolicy(app.getId(), totalPremium)
+                            .flatMap(policy -> applicationRepository.save(app));
+                });
     }
 
-    @Transactional
-    public Application decline(Long applicationId, String underwriterId, String comments, String reason) {
-        Application app = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Application", applicationId));
+    public Mono<Application> decline(Long applicationId, String underwriterId, String comments, String reason) {
+        return applicationRepository.findById(applicationId)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Application", applicationId)))
+                .flatMap(app -> {
+                    app.setUnderwriterId(underwriterId);
+                    app.setUnderwriter_comments(comments);
+                    app.setReferralReason(reason);
+                    app.setStatus(ApplicationStatus.DECLINED);
 
-        app.setUnderwriterId(underwriterId);
-        app.setUnderwriter_comments(comments);
-        app.setReferralReason(reason);
-        app.setStatus(ApplicationStatus.DECLINED);
-
-        return applicationRepository.save(app);
+                    return applicationRepository.save(app);
+                });
     }
 
     private BigDecimal extractTotalPremium(Application app) {

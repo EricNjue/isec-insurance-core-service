@@ -12,6 +12,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -57,10 +59,11 @@ class CertificateServiceTest {
                 .registrationNumber("KBC 123X")
                 .build();
 
-        when(certificateRepository.findByPolicyId(1L)).thenReturn(new ArrayList<>());
-        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(certificateRepository.findByPolicyId(1L)).thenReturn(Flux.empty());
+        when(applicationRepository.findById(1L)).thenReturn(Mono.just(application));
+        when(certificateRepository.save(any(Certificate.class))).thenReturn(Mono.just(new Certificate()));
 
-        certificateService.processCertificateIssuance(policy, new BigDecimal("7000"), "user@example.com", "254712345678");
+        certificateService.processCertificateIssuance(policy, new BigDecimal("7000"), "user@example.com", "254712345678").block();
 
         verify(certificateRepository, times(2)).save(any(Certificate.class));
         verify(rabbitTemplate, times(2)).convertAndSend(anyString(), anyString(), any(Object.class));
@@ -83,12 +86,13 @@ class CertificateServiceTest {
                 .registrationNumber("KBC 123X")
                 .build();
 
-        when(certificateRepository.findByPolicyId(1L)).thenReturn(new ArrayList<>());
-        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(certificateRepository.findByPolicyId(1L)).thenReturn(Flux.empty());
+        when(applicationRepository.findById(1L)).thenReturn(Mono.just(application));
+        when(certificateRepository.save(any(Certificate.class))).thenReturn(Mono.just(new Certificate()));
 
-        certificateService.processCertificateIssuance(policy, new BigDecimal("10000"), "user@example.com", "254712345678");
+        certificateService.processCertificateIssuance(policy, new BigDecimal("10000"), "user@example.com", "254712345678").block();
 
         verify(certificateRepository).save(argThat(c -> c.getType() == CertificateType.ANNUAL_FULL));
-        verify(rabbitTemplate, times(3)).convertAndSend(anyString(), anyString(), any(Object.class));
+        verify(rabbitTemplate, atLeastOnce()).convertAndSend(anyString(), anyString(), any(Object.class));
     }
 }

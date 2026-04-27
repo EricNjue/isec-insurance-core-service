@@ -1,11 +1,11 @@
 package com.isec.platform.modules.audit.domain;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 import lombok.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "audit_logs")
+@Table("audit_logs")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @Builder
 public class AuditLog {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String actor;
@@ -24,9 +23,4 @@ public class AuditLog {
     private String detail;
     
     private LocalDateTime timestamp;
-
-    @PrePersist
-    protected void onCreate() {
-        timestamp = LocalDateTime.now();
-    }
 }

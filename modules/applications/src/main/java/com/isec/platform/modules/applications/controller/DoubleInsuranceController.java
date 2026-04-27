@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/insurance-check")
@@ -24,15 +25,16 @@ public class DoubleInsuranceController {
 
     @PostMapping("/double-insurance")
     @PreAuthorize("permitAll()")
-    public ResponseEntity<DoubleInsuranceCheckResponse> checkDoubleInsurance(
+    public Mono<ResponseEntity<DoubleInsuranceCheckResponse>> checkDoubleInsurance(
             @Valid @RequestBody DoubleInsuranceRequest request) {
-        String tenantId = TenantContext.getTenantId();
-        log.info("Double insurance check request received for tenant: {}, registration: {}", 
-                tenantId, request.getLicensePlateNumber());
-        
-        DoubleInsuranceCheckResponse response = quoteService.checkDoubleInsurance(
-                request.getLicensePlateNumber(), request.getChassisNumber());
-        
-        return ResponseEntity.ok(response);
+        return TenantContext.getTenantId()
+                .flatMap(tenantId -> {
+                    log.info("Double insurance check request received for tenant: {}, registration: {}", 
+                            tenantId, request.getLicensePlateNumber());
+                    
+                    return quoteService.checkDoubleInsurance(
+                            request.getLicensePlateNumber(), request.getChassisNumber());
+                })
+                .map(ResponseEntity::ok);
     }
 }

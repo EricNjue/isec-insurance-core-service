@@ -7,9 +7,9 @@ import com.isec.platform.modules.customers.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import reactor.core.publisher.Mono;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -18,20 +18,20 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
 
-    @Transactional
-    public Customer createOrUpdateCustomer(String userId, CustomerRequest request) {
+    public Mono<Customer> createOrUpdateCustomer(String userId, CustomerRequest request) {
         log.info("Creating or updating customer for userId: {}", userId);
         
         return customerRepository.findByUserId(userId)
-                .map(existing -> {
+                .flatMap(existing -> {
                     log.debug("Updating existing customer for userId: {}", userId);
                     existing.setFullName(request.getFullName());
                     existing.setEmail(request.getEmail());
                     existing.setPhoneNumber(request.getPhoneNumber());
                     existing.setPhysicalAddress(request.getPhysicalAddress());
+                    existing.setUpdatedAt(LocalDateTime.now());
                     return customerRepository.save(existing);
                 })
-                .orElseGet(() -> {
+                .switchIfEmpty(Mono.defer(() -> {
                     log.debug("Creating new customer for userId: {}", userId);
                     Customer customer = Customer.builder()
                             .userId(userId)
@@ -39,19 +39,19 @@ public class CustomerService {
                             .email(request.getEmail())
                             .phoneNumber(request.getPhoneNumber())
                             .physicalAddress(request.getPhysicalAddress())
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
                             .build();
                     return customerRepository.save(customer);
-                });
+                }));
     }
 
-    @Transactional(readOnly = true)
-    public Optional<Customer> getCustomerByUserId(String userId) {
+    public Mono<Customer> getCustomerByUserId(String userId) {
         return customerRepository.findByUserId(userId);
     }
 
-    @Transactional(readOnly = true)
-    public Customer getCustomerById(Long id) {
+    public Mono<Customer> getCustomerById(Long id) {
         return customerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer", id));
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Customer", id)));
     }
 }

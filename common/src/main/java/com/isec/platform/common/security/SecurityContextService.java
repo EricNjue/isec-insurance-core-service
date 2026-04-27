@@ -1,10 +1,11 @@
 package com.isec.platform.common.security;
 
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.Optional;
 
@@ -14,40 +15,40 @@ public class SecurityContextService {
     /**
      * Retrieves the current authenticated Jwt from the security context.
      *
-     * @return Optional containing the Jwt if present and authenticated, empty otherwise.
+     * @return Mono containing the Jwt if present and authenticated.
      */
-    public Optional<Jwt> getCurrentJwt() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication instanceof JwtAuthenticationToken jwtAuthenticationToken) {
-            return Optional.of(jwtAuthenticationToken.getToken());
-        }
-        return Optional.empty();
+    public Mono<Jwt> getCurrentJwt() {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(SecurityContext::getAuthentication)
+                .filter(authentication -> authentication instanceof JwtAuthenticationToken)
+                .cast(JwtAuthenticationToken.class)
+                .map(JwtAuthenticationToken::getToken);
     }
 
     /**
      * Retrieves the subject (user ID) from the current authenticated Jwt.
      *
-     * @return Optional containing the subject if present, empty otherwise.
+     * @return Mono containing the subject if present.
      */
-    public Optional<String> getCurrentUserId() {
+    public Mono<String> getCurrentUserId() {
         return getCurrentJwt().map(Jwt::getSubject);
     }
 
     /**
      * Retrieves the "name" claim from the current authenticated Jwt.
      *
-     * @return Optional containing the name if present, empty otherwise.
+     * @return Mono containing the name if present.
      */
-    public Optional<String> getCurrentUserFullName() {
+    public Mono<String> getCurrentUserFullName() {
         return getClaimAsString("name");
     }
 
     /**
      * Retrieves the "email" claim from the current authenticated Jwt.
      *
-     * @return Optional containing the email if present, empty otherwise.
+     * @return Mono containing the email if present.
      */
-    public Optional<String> getCurrentUserEmail() {
+    public Mono<String> getCurrentUserEmail() {
         return getClaimAsString("email");
     }
 
@@ -55,18 +56,19 @@ public class SecurityContextService {
      * Retrieves a claim as a string from the current authenticated Jwt.
      *
      * @param claim the name of the claim
-     * @return Optional containing the claim value if present, empty otherwise.
+     * @return Mono containing the claim value if present.
      */
-    public Optional<String> getClaimAsString(String claim) {
-        return getCurrentJwt().map(jwt -> jwt.getClaimAsString(claim));
+    public Mono<String> getClaimAsString(String claim) {
+        return getCurrentJwt()
+                .flatMap(jwt -> Mono.justOrEmpty(jwt.getClaimAsString(claim)));
     }
 
     /**
      * Checks if the current authenticated user has the ADMIN role.
      *
-     * @return true if the user has the ADMIN role, false otherwise.
+     * @return Mono containing true if the user has the ADMIN role, false otherwise.
      */
-    public boolean isAdmin() {
+    public Mono<Boolean> isAdmin() {
         return getCurrentJwt()
                 .map(jwt -> {
                     java.util.Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
@@ -75,6 +77,6 @@ public class SecurityContextService {
                         return roles != null && roles.contains("ADMIN");
                     }
                     return false;
-                }).orElse(false);
+                }).defaultIfEmpty(false);
     }
 }

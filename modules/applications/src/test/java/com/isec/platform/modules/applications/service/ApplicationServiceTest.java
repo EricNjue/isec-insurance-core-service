@@ -21,6 +21,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -80,9 +83,9 @@ class ApplicationServiceTest {
         );
         request.setDocuments(docs);
 
-        when(securityContextService.getCurrentUserId()).thenReturn(Optional.of(userId));
-        when(securityContextService.getCurrentUserFullName()).thenReturn(Optional.of("John Doe"));
-        when(securityContextService.getCurrentUserEmail()).thenReturn(Optional.of("john@example.com"));
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just(userId));
+        when(securityContextService.getCurrentUserFullName()).thenReturn(Mono.just("John Doe"));
+        when(securityContextService.getCurrentUserEmail()).thenReturn(Mono.just("john@example.com"));
         
         Application savedApp = Application.builder()
                 .id(1L)
@@ -91,14 +94,22 @@ class ApplicationServiceTest {
                 .status(ApplicationStatus.DRAFT)
                 .build();
         
-        when(applicationRepository.save(any(Application.class))).thenReturn(savedApp);
+        when(applicationRepository.save(any(Application.class))).thenReturn(Mono.just(savedApp));
+        when(documentService.getOrCreatePresignedUrls(any())).thenReturn(Mono.just(List.of()));
+        lenient().when(documentService.linkDocumentsToApplication(anyLong(), anyList())).thenReturn(Mono.empty());
+        lenient().when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
+        lenient().when(userVehicleService.saveOrUpdateVehicle(anyString(), any())).thenReturn(Mono.empty());
 
         // Act
-        ApplicationResponse response = applicationService.createApplication(request);
+        Mono<ApplicationResponse> result = applicationService.createApplication(request);
 
         // Assert
-        assertNotNull(response);
-        assertEquals(1L, response.getId());
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals(1L, response.getId());
+                })
+                .verifyComplete();
         
         // Verify that linkDocumentsToApplication was called with the correct arguments
         verify(documentService).linkDocumentsToApplication(eq(1L), eq(docs));

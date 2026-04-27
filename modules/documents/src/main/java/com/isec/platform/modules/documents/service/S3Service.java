@@ -4,12 +4,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 
@@ -19,11 +21,31 @@ import java.time.Duration;
 public class S3Service {
 
     private final S3Presigner s3Presigner;
+    private final S3AsyncClient s3AsyncClient;
     private final S3Client s3Client;
 
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
 
+    public Mono<Void> uploadBytesAsync(String bucket, String key, byte[] bytes, String contentType) {
+        log.info("Uploading object to S3 (async). bucket={}, key={}, bytes={} contentType={}", bucket, key, bytes != null ? bytes.length : 0, contentType);
+        PutObjectRequest req = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(contentType)
+                .serverSideEncryption("AES256")
+                .build();
+        
+        return Mono.fromFuture(() -> s3AsyncClient.putObject(req, AsyncRequestBody.fromBytes(bytes)))
+                .doOnSuccess(resp -> log.info("S3 async upload complete. bucket={}, key={}", bucket, key))
+                .doOnError(err -> log.error("S3 async upload failed. bucket={}, key={}, error={}", bucket, key, err.getMessage()))
+                .then();
+    }
+
+    /**
+     * @deprecated Use uploadBytesAsync for non-blocking operations.
+     */
+    @Deprecated
     public void uploadBytes(String bucket, String key, byte[] bytes, String contentType) {
         log.info("Uploading object to S3. bucket={}, key={}, bytes={} contentType={}", bucket, key, bytes != null ? bytes.length : 0, contentType);
         PutObjectRequest req = PutObjectRequest.builder()
@@ -32,7 +54,7 @@ public class S3Service {
                 .contentType(contentType)
                 .serverSideEncryption("AES256")
                 .build();
-        s3Client.putObject(req, RequestBody.fromBytes(bytes));
+        s3Client.putObject(req, software.amazon.awssdk.core.sync.RequestBody.fromBytes(bytes));
         log.info("S3 upload complete. bucket={}, key={}", bucket, key);
     }
 

@@ -1,12 +1,11 @@
 package com.isec.platform.modules.rating.repository;
 
 import com.isec.platform.modules.rating.domain.RateRule;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
+import reactor.core.publisher.Flux;
 
 @Repository
-public interface RateRuleRepository extends JpaRepository<RateRule, Long> {
-    List<RateRule> findAllByRateBookId(Long rateBookId);
+public interface RateRuleRepository extends ReactiveCrudRepository<RateRule, Long> {
+    Flux<RateRule> findAllByRateBookId(Long rateBookId);
 }

@@ -8,7 +8,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ResponseEntity;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.util.List;
 
@@ -37,13 +38,15 @@ class ProfileControllerTest {
                 ))
                 .build();
 
-        when(profileService.getUserProfile()).thenReturn(mockProfile);
+        when(profileService.getUserProfile()).thenReturn(Mono.just(mockProfile));
 
-        ResponseEntity<UserProfile> response = profileController.getProfile();
+        Mono<UserProfile> response = profileController.getProfile();
 
-        assertEquals(200, response.getStatusCodeValue());
-        assertNotNull(response.getBody());
-        assertEquals("user-123", response.getBody().getUserId());
-        assertEquals(2, response.getBody().getOrganizations().size());
+        StepVerifier.create(response)
+                .assertNext(profile -> {
+                    assertEquals("user-123", profile.getUserId());
+                    assertEquals(2, profile.getOrganizations().size());
+                })
+                .verifyComplete();
     }
 }

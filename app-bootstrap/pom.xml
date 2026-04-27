@@ -15,7 +15,11 @@
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-r2dbc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -74,6 +78,10 @@
         <dependency>
             <groupId>com.isec</groupId>
             <artifactId>vehicles</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>reactive-commons-infra</artifactId>
         </dependency>
     </dependencies>
 

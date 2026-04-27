@@ -1,15 +1,17 @@
 package com.isec.platform.modules.documents.repository;
 
 import com.isec.platform.modules.documents.domain.ValuationLetter;
-import org.springframework.data.jpa.repository.JpaRepository;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-public interface ValuationLetterRepository extends JpaRepository<ValuationLetter, Long> {
-    List<ValuationLetter> findByPolicyId(Long policyId);
-    Optional<ValuationLetter> findFirstByPolicyIdAndGeneratedAtAfter(Long policyId, LocalDateTime generatedAt);
-    Optional<ValuationLetter> findFirstByPolicyIdOrderByGeneratedAtDesc(Long policyId);
-    Optional<ValuationLetter> findFirstByPolicyNumberOrderByGeneratedAtDesc(String policyNumber);
-    Optional<ValuationLetter> findByDocumentUuid(java.util.UUID documentUuid);
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public interface ValuationLetterRepository extends ReactiveCrudRepository<ValuationLetter, Long> {
+    Flux<ValuationLetter> findByPolicyId(Long policyId);
+    Mono<ValuationLetter> findFirstByPolicyIdAndGeneratedAtAfter(Long policyId, LocalDateTime generatedAt);
+    Mono<ValuationLetter> findFirstByPolicyIdOrderByGeneratedAtDesc(Long policyId);
+    Mono<ValuationLetter> findFirstByPolicyNumberOrderByGeneratedAtDesc(String policyNumber);
+    Mono<ValuationLetter> findByDocumentUuid(UUID documentUuid);
 }

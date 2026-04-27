@@ -5,11 +5,10 @@ import com.isec.platform.modules.policies.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -18,12 +17,11 @@ public class PolicyService {
 
     private final PolicyRepository policyRepository;
 
-    @Transactional
-    public Policy createPolicy(Long applicationId, BigDecimal totalAnnualPremium) {
+    public Mono<Policy> createPolicy(Long applicationId, BigDecimal totalAnnualPremium) {
         log.info("Creating policy for application: {} with premium: {}", applicationId, totalAnnualPremium);
         
         return policyRepository.findByApplicationId(applicationId)
-                .orElseGet(() -> {
+                .switchIfEmpty(Mono.defer(() -> {
                     String policyNumber = "POL-" + System.currentTimeMillis(); // Simple generator for MVP
                     Policy policy = Policy.builder()
                             .applicationId(applicationId)
@@ -35,22 +33,21 @@ public class PolicyService {
                             .isActive(true)
                             .build();
                     return policyRepository.save(policy);
-                });
+                }));
     }
 
-    @Transactional(readOnly = true)
-    public Optional<Policy> getPolicyByApplicationId(Long applicationId) {
+    public Mono<Policy> getPolicyByApplicationId(Long applicationId) {
         return policyRepository.findByApplicationId(applicationId);
     }
 
-    @Transactional
-    public Policy updateBalance(Long applicationId, BigDecimal amountPaid) {
-        Policy policy = policyRepository.findByApplicationId(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Policy not found for application: " + applicationId));
-        
-        BigDecimal newBalance = policy.getBalance().subtract(amountPaid);
-        policy.setBalance(newBalance);
-        log.info("Updated balance for policy {}: new balance {}", policy.getPolicyNumber(), newBalance);
-        return policyRepository.save(policy);
+    public Mono<Policy> updateBalance(Long applicationId, BigDecimal amountPaid) {
+        return policyRepository.findByApplicationId(applicationId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Policy not found for application: " + applicationId)))
+                .flatMap(policy -> {
+                    BigDecimal newBalance = policy.getBalance().subtract(amountPaid);
+                    policy.setBalance(newBalance);
+                    log.info("Updated balance for policy {}: new balance {}", policy.getPolicyNumber(), newBalance);
+                    return policyRepository.save(policy);
+                });
     }
 }

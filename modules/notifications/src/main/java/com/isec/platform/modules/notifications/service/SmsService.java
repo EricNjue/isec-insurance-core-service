@@ -8,10 +8,13 @@ import com.isec.platform.modules.notifications.repository.SmsMessageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.isec.platform.modules.notifications.repository.SmsRecipientResultRepository;
+import reactor.core.publisher.Mono;
+import java.time.LocalDateTime;
 
 @Service
 @Slf4j
@@ -20,23 +23,28 @@ public class SmsService {
 
     private final AfricasTalkingSmsClient smsClient;
     private final SmsMessageRepository smsMessageRepository;
+    private final SmsRecipientResultRepository smsRecipientResultRepository;
 
-    @Transactional
-    public void sendSms(String to, String message) {
+    public Mono<Void> sendSms(String to, String message) {
         log.info("Processing SMS request to: {}", to);
-        String validatedTo = validateAndFormatPhoneNumber(to);
-        validateMessage(message);
+        try {
+            String validatedTo = validateAndFormatPhoneNumber(to);
+            validateMessage(message);
 
-        log.debug("Sending SMS via provider to: {}", validatedTo);
-        smsClient.sendSms(validatedTo, message)
-                .doOnNext(result -> {
-                    log.info("SMS successfully sent to: {}. Status: {}, MessageId: {}", 
-                            validatedTo, result.isOverallSuccess() ? "Sent" : "Failed", 
-                            result.getRecipients().isEmpty() ? "N/A" : result.getRecipients().get(0).getMessageId());
-                    persistSmsResult(validatedTo, message, result);
-                })
-                .doOnError(error -> log.error("Failed to process SMS to {}: {}", validatedTo, error.getMessage()))
-                .subscribe();
+            log.debug("Sending SMS via provider to: {}", validatedTo);
+            return smsClient.sendSms(validatedTo, message)
+                    .flatMap(result -> {
+                        log.info("SMS successfully sent to: {}. Status: {}, MessageId: {}", 
+                                validatedTo, result.isOverallSuccess() ? "Sent" : "Failed", 
+                                result.getRecipients().isEmpty() ? "N/A" : result.getRecipients().get(0).getMessageId());
+                        return persistSmsResult(validatedTo, message, result);
+                    })
+                    .doOnError(error -> log.error("Failed to process SMS to {}: {}", validatedTo, error.getMessage()))
+                    .then();
+        } catch (Exception e) {
+            log.error("Validation failed for SMS to {}: {}", to, e.getMessage());
+            return Mono.error(e);
+        }
     }
 
     private String validateAndFormatPhoneNumber(String to) {
@@ -66,31 +74,36 @@ public class SmsService {
         }
     }
 
-    private void persistSmsResult(String to, String message, SmsSendResult result) {
+    private Mono<Void> persistSmsResult(String to, String message, SmsSendResult result) {
         log.debug("Persisting SMS result for: {}", to);
         String providerRequestId = result.getRecipients().isEmpty() ? null : result.getRecipients().get(0).getMessageId();
 
         SmsMessage smsMessage = SmsMessage.builder()
-                .to(to)
-                .message(message)
+                .recipientTo(to)
+                .messageContent(message)
                 .provider("AfricasTalking")
                 .providerRequestId(providerRequestId)
                 .statusSummary(result.getSummaryMessage())
+                .createdAt(LocalDateTime.now())
                 .build();
 
-        List<SmsRecipientResult> recipientResults = result.getRecipients().stream()
-                .map(r -> SmsRecipientResult.builder()
-                        .smsMessage(smsMessage)
-                        .number(r.getNumber())
-                        .status(r.getStatus())
-                        .statusCode(r.getStatusCode())
-                        .messageId(r.getMessageId())
-                        .cost(r.getCost())
-                        .build())
-                .collect(Collectors.toList());
-
-        smsMessage.setRecipientResults(recipientResults);
-        smsMessageRepository.save(smsMessage);
-        log.info("SMS record persisted with ID: {} and providerRequestId: {}", smsMessage.getId(), providerRequestId);
+        return smsMessageRepository.save(smsMessage)
+                .flatMap(savedMessage -> {
+                    log.info("SMS record persisted with ID: {} and providerRequestId: {}", savedMessage.getId(), providerRequestId);
+                    
+                    var results = result.getRecipients().stream()
+                            .map(r -> SmsRecipientResult.builder()
+                                    .smsMessageId(savedMessage.getId())
+                                    .number(r.getNumber())
+                                    .status(r.getStatus())
+                                    .statusCode(r.getStatusCode())
+                                    .messageId(r.getMessageId())
+                                    .cost(r.getCost())
+                                    .createdAt(LocalDateTime.now())
+                                    .build())
+                            .toList();
+                    
+                    return smsRecipientResultRepository.saveAll(results).then();
+                });
     }
 }

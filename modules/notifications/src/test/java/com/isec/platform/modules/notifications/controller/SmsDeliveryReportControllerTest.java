@@ -1,29 +1,31 @@
 package com.isec.platform.modules.notifications.controller;
 
+import com.isec.platform.modules.notifications.TestApplication;
 import com.isec.platform.modules.notifications.service.DeliveryReportService;
 import com.isec.platform.modules.notifications.service.SmsService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import com.isec.platform.modules.notifications.TestApplication;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
+import reactor.core.publisher.Mono;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.Map;
 
-@WebMvcTest(controllers = SmsDeliveryReportController.class)
+import static org.mockito.ArgumentMatchers.any;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
+
+@WebFluxTest(controllers = SmsDeliveryReportController.class)
 @ContextConfiguration(classes = {SmsDeliveryReportController.class, TestApplication.class})
 class SmsDeliveryReportControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
     @MockBean
     private DeliveryReportService deliveryReportService;
@@ -44,29 +46,50 @@ class SmsDeliveryReportControllerTest {
     private com.isec.platform.modules.applications.repository.ApplicationRepository applicationRepository;
 
     @Test
-    void shouldAcceptFormUrlEncodedAndReturn200() throws Exception {
-        mockMvc.perform(post("/api/v1/sms/delivery-report")
-                .with(csrf())
-                .with(jwt())
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .content("id=ATX123&phoneNumber=%2B254700000000&status=Success&retryCount=0&networkCode=63902"))
-            .andDo(print())
-            .andExpect(status().isOk());
+    void shouldAcceptFormUrlEncodedAndReturn200() {
+        Mockito.when(deliveryReportService.handleFormPayload(any())).thenReturn(Mono.empty());
 
-        Mockito.verify(deliveryReportService).handleFormPayload(Mockito.any());
+        webTestClient
+                .mutateWith(csrf())
+                .mutateWith(mockJwt())
+                .post()
+                .uri("/api/v1/sms/delivery-report")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("id", "ATX123")
+                        .with("phoneNumber", "+254700000000")
+                        .with("status", "Success")
+                        .with("retryCount", "0")
+                        .with("networkCode", "63902"))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("ok");
+
+        Mockito.verify(deliveryReportService).handleFormPayload(any());
     }
 
     @Test
-    void shouldAcceptJsonAndReturn200() throws Exception {
-        String json = "{\"id\":\"ATX123\",\"phoneNumber\":\"+254700000000\",\"status\":\"Success\"}";
-        mockMvc.perform(post("/api/v1/sms/delivery-report")
-                .with(csrf())
-                .with(jwt())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json))
-            .andDo(print())
-            .andExpect(status().isOk());
+    void shouldAcceptJsonAndReturn200() {
+        Mockito.when(deliveryReportService.handleFormPayload(any())).thenReturn(Mono.empty());
 
-        Mockito.verify(deliveryReportService).handleFormPayload(Mockito.any());
+        Map<String, String> json = Map.of(
+                "id", "ATX123",
+                "phoneNumber", "+254700000000",
+                "status", "Success"
+        );
+
+        webTestClient
+                .mutateWith(csrf())
+                .mutateWith(mockJwt())
+                .post()
+                .uri("/api/v1/sms/delivery-report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(json)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("ok");
+
+        Mockito.verify(deliveryReportService).handleFormPayload(any());
     }
 }

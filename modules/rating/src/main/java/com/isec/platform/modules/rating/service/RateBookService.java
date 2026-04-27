@@ -10,9 +10,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
@@ -23,83 +25,83 @@ public class RateBookService {
     private final SecurityContextService securityContextService;
     private final RateBookSnapshotLoader snapshotLoader;
 
-    @Transactional
-    public RateBook createRateBook(RateBookRequest request) {
-        String tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new IllegalStateException("Tenant context is required to create a RateBook");
-        }
-
-        RateBook rateBook = RateBook.builder()
-                .name(request.getName())
-                .versionName(request.getVersionName())
-                .effectiveFrom(request.getEffectiveFrom())
-                .effectiveTo(request.getEffectiveTo())
-                .active(request.isActive())
-                .build();
-        
-        // TenantBaseEntity will auto-populate tenantId from context via @PrePersist
-        RateBook saved = rateBookRepository.save(rateBook);
-        snapshotLoader.invalidateAll();
-        return saved;
+    public Mono<RateBook> createRateBook(RateBookRequest request) {
+        return TenantContext.getTenantId()
+                .switchIfEmpty(Mono.error(new IllegalStateException("Tenant context is required to create a RateBook")))
+                .flatMap(tenantId -> {
+                    RateBook rateBook = RateBook.builder()
+                            .name(request.getName())
+                            .versionName(request.getVersionName())
+                            .effectiveFrom(request.getEffectiveFrom())
+                            .effectiveTo(request.getEffectiveTo())
+                            .active(request.isActive())
+                            .build();
+                    rateBook.setTenantId(tenantId);
+                    
+                    return rateBookRepository.save(rateBook)
+                            .doOnNext(saved -> snapshotLoader.invalidateAll());
+                });
     }
 
-    @Transactional
-    public RateBook updateRateBook(Long id, RateBookRequest request) {
-        RateBook existing = rateBookRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("RateBook", id));
+    public Mono<RateBook> updateRateBook(Long id, RateBookRequest request) {
+        return rateBookRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateBook", id)))
+                .flatMap(existing -> validateTenantAccess(existing.getTenantId()).thenReturn(existing))
+                .flatMap(existing -> {
+                    existing.setName(request.getName());
+                    existing.setVersionName(request.getVersionName());
+                    existing.setEffectiveFrom(request.getEffectiveFrom());
+                    existing.setEffectiveTo(request.getEffectiveTo());
+                    existing.setActive(request.isActive());
 
-        validateTenantAccess(existing.getTenantId());
-
-        existing.setName(request.getName());
-        existing.setVersionName(request.getVersionName());
-        existing.setEffectiveFrom(request.getEffectiveFrom());
-        existing.setEffectiveTo(request.getEffectiveTo());
-        existing.setActive(request.isActive());
-
-        RateBook saved = rateBookRepository.save(existing);
-        snapshotLoader.invalidateAll();
-        return saved;
+                    return rateBookRepository.save(existing)
+                            .doOnNext(saved -> snapshotLoader.invalidateAll());
+                });
     }
 
-    @Transactional(readOnly = true)
-    public RateBook getRateBook(Long id) {
-        RateBook rateBook = rateBookRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("RateBook", id));
-        validateTenantAccess(rateBook.getTenantId());
-        return rateBook;
+    public Mono<RateBook> getRateBook(Long id) {
+        return rateBookRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateBook", id)))
+                .flatMap(rateBook -> validateTenantAccess(rateBook.getTenantId()).thenReturn(rateBook));
     }
 
-    @Transactional(readOnly = true)
-    public List<RateBook> listRateBooks() {
-        String tenantId = TenantContext.getTenantId();
-        boolean isAdmin = securityContextService.isAdmin();
+    public Flux<RateBook> listRateBooks() {
+        return Mono.zip(securityContextService.isAdmin(), TenantContext.getTenantId())
+                .flatMapMany(tuple -> {
+                    boolean isAdmin = tuple.getT1();
+                    String tenantId = tuple.getT2();
 
-        if (isAdmin) {
-            return rateBookRepository.findAll();
-        }
-        
-        if (tenantId == null) {
-            throw new IllegalStateException("Tenant context missing");
-        }
-        return rateBookRepository.findAllByTenantId(tenantId);
+                    if (isAdmin) {
+                        return rateBookRepository.findAll();
+                    }
+                    
+                    if (tenantId == null) {
+                        return Flux.error(new IllegalStateException("Tenant context missing"));
+                    }
+                    return rateBookRepository.findAllByTenantId(tenantId);
+                });
     }
 
-    @Transactional
-    public void deleteRateBook(Long id) {
-        RateBook rateBook = rateBookRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("RateBook", id));
-        validateTenantAccess(rateBook.getTenantId());
-        rateBookRepository.delete(rateBook);
-        snapshotLoader.invalidateAll();
+    public Mono<Void> deleteRateBook(Long id) {
+        return rateBookRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateBook", id)))
+                .flatMap(rateBook -> validateTenantAccess(rateBook.getTenantId()).thenReturn(rateBook))
+                .flatMap(rateBook -> rateBookRepository.delete(rateBook))
+                .doOnSuccess(v -> snapshotLoader.invalidateAll());
     }
 
-    private void validateTenantAccess(String ownerTenantId) {
-        if (securityContextService.isAdmin()) return;
+    private Mono<Void> validateTenantAccess(String ownerTenantId) {
+        return securityContextService.isAdmin()
+                .flatMap(isAdmin -> {
+                    if (isAdmin) return Mono.empty();
 
-        String currentTenantId = TenantContext.getTenantId();
-        if (!ownerTenantId.equals(currentTenantId)) {
-            throw new AccessDeniedException("You do not have access to manage RateBooks for tenant: " + ownerTenantId);
-        }
+                    return TenantContext.getTenantId()
+                            .flatMap(currentTenantId -> {
+                                if (!ownerTenantId.equals(currentTenantId)) {
+                                    return Mono.error(new AccessDeniedException("You do not have access to manage RateBooks for tenant: " + ownerTenantId));
+                                }
+                                return Mono.empty();
+                            });
+                });
     }
 }

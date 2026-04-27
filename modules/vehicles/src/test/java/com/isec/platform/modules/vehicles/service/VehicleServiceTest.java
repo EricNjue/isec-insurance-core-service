@@ -15,10 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.jpa.domain.Specification;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -52,28 +51,33 @@ class VehicleServiceTest {
                 .country("Germany")
                 .build();
 
-        when(makeRepository.existsByCode("AUDI")).thenReturn(false);
+        when(makeRepository.existsByCode("AUDI")).thenReturn(Mono.just(false));
         when(makeRepository.save(any(VehicleMake.class))).thenAnswer(invocation -> {
             VehicleMake make = invocation.getArgument(0);
             make.setId(UUID.randomUUID());
             make.setCreatedAt(LocalDateTime.now());
             make.setUpdatedAt(LocalDateTime.now());
-            return make;
+            return Mono.just(make);
         });
 
-        VehicleMakeResponse response = vehicleService.createMake(request);
+        StepVerifier.create(vehicleService.createMake(request))
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals("AUDI", response.getCode());
+                })
+                .verifyComplete();
 
-        assertNotNull(response);
-        assertEquals("AUDI", response.getCode());
         verify(makeRepository).save(any(VehicleMake.class));
     }
 
     @Test
     void createMake_shouldThrowException_whenCodeExists() {
         VehicleMakeRequest request = VehicleMakeRequest.builder().code("AUDI").build();
-        when(makeRepository.existsByCode("AUDI")).thenReturn(true);
+        when(makeRepository.existsByCode("AUDI")).thenReturn(Mono.just(true));
 
-        assertThrows(DuplicateResourceException.class, () -> vehicleService.createMake(request));
+        StepVerifier.create(vehicleService.createMake(request))
+                .expectError(com.isec.platform.common.exception.BusinessException.class)
+                .verify();
     }
 
     @Test
@@ -81,10 +85,12 @@ class VehicleServiceTest {
         UUID makeId = UUID.randomUUID();
         VehicleMake make = VehicleMake.builder().id(makeId).build();
 
-        when(makeRepository.findById(makeId)).thenReturn(Optional.of(make));
-        when(modelRepository.existsByMakeIdAndActiveTrue(makeId)).thenReturn(true);
+        when(makeRepository.findById(makeId)).thenReturn(Mono.just(make));
+        when(modelRepository.existsByMakeIdAndActiveTrue(makeId)).thenReturn(Mono.just(true));
 
-        assertThrows(IllegalStateException.class, () -> vehicleService.deleteMake(makeId));
+        StepVerifier.create(vehicleService.deleteMake(makeId))
+                .expectError(com.isec.platform.common.exception.BusinessException.class)
+                .verify();
     }
 
     @Test
@@ -99,20 +105,22 @@ class VehicleServiceTest {
                 .yearTo(2023)
                 .build();
 
-        when(makeRepository.findById(makeId)).thenReturn(Optional.of(make));
-        when(modelRepository.existsByMakeIdAndCode(makeId, "Q7")).thenReturn(false);
+        when(makeRepository.findById(makeId)).thenReturn(Mono.just(make));
+        when(modelRepository.existsByMakeIdAndCode(makeId, "Q7")).thenReturn(Mono.just(false));
         when(modelRepository.save(any(VehicleModel.class))).thenAnswer(invocation -> {
             VehicleModel model = invocation.getArgument(0);
             model.setId(UUID.randomUUID());
             model.setCreatedAt(LocalDateTime.now());
             model.setUpdatedAt(LocalDateTime.now());
-            return model;
+            return Mono.just(model);
         });
 
-        VehicleModelResponse response = vehicleService.createModel(request);
-
-        assertNotNull(response);
-        assertEquals("Q7", response.getCode());
-        assertEquals("AUDI", response.getMakeCode());
+        StepVerifier.create(vehicleService.createModel(request))
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals("Q7", response.getCode());
+                    assertEquals("AUDI", response.getMakeCode());
+                })
+                .verifyComplete();
     }
 }

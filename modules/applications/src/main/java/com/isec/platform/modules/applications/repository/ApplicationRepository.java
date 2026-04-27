@@ -1,12 +1,12 @@
 package com.isec.platform.modules.applications.repository;
 
 import com.isec.platform.modules.applications.domain.Application;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
-import java.util.List;
+import reactor.core.publisher.Flux;
 
 @Repository
-public interface ApplicationRepository extends JpaRepository<Application, Long> {
-    List<Application> findByUserIdAndTenantId(String userId, String tenantId);
-    List<Application> findAllByTenantId(String tenantId);
+public interface ApplicationRepository extends ReactiveCrudRepository<Application, Long> {
+    Flux<Application> findByUserIdAndTenantId(String userId, String tenantId);
+    Flux<Application> findAllByTenantId(String tenantId);
 }

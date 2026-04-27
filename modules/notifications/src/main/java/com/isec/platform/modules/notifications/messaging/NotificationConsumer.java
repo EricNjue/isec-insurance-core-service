@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 @Component
 @RequiredArgsConstructor
@@ -22,32 +23,33 @@ public class NotificationConsumer {
     public void handleNotificationSend(NotificationSendEvent event) {
         log.info("Received notification send event: {} for recipient: {}", event.getEventId(), event.getRecipient());
 
-        if (idempotencyService.isDuplicate(event.getEventId())) {
-            log.info("Duplicate notification event detected, skipping: {}", event.getEventId());
-            return;
-        }
+        idempotencyService.isDuplicate(event.getEventId())
+                .flatMap(isDuplicate -> {
+                    if (isDuplicate) {
+                        return Mono.empty();
+                    }
 
-        try {
-            if (NotificationChannel.SMS.equals(event.getChannel())) {
-                sendSms(event.getRecipient(), event.getContent());
-            } else {
-                sendEmail(event.getRecipient(), event.getSubject(), event.getContent());
-            }
-            log.info("Successfully sent {} notification for event: {}", event.getChannel(), event.getEventId());
-        } catch (Exception e) {
-            log.error("Failed to send notification for event: {}. Reason: {}", event.getEventId(), e.getMessage());
-            // In real world, we might want to retry specifically for transient network issues
-            throw e;
-        }
+                    if (NotificationChannel.SMS.equals(event.getChannel())) {
+                        return sendSms(event.getRecipient(), event.getContent());
+                    } else {
+                        return sendEmail(event.getRecipient(), event.getSubject(), event.getContent());
+                    }
+                })
+                .subscribe(
+                        v -> log.info("Successfully processed notification for event: {}", event.getEventId()),
+                        e -> log.error("Failed to process notification for event: {}. Reason: {}", event.getEventId(), e.getMessage())
+                );
     }
 
-    private void sendSms(String recipient, String content) {
+    private Mono<Void> sendSms(String recipient, String content) {
         log.info("Sending SMS to: {}, Content: {}", recipient, content);
-        smsService.sendSms(recipient, content);
+        return smsService.sendSms(recipient, content);
     }
 
-    private void sendEmail(String recipient, String subject, String content) {
-        log.info("[MOCK EMAIL] To: {}, Subject: {}, Content: {}", recipient, subject, content);
-        // Integrate with Email Service (e.g., AWS SES, SendGrid)
+    private Mono<Void> sendEmail(String recipient, String subject, String content) {
+        return Mono.fromRunnable(() -> {
+            log.info("[MOCK EMAIL] To: {}, Subject: {}, Content: {}", recipient, subject, content);
+            // Integrate with Email Service (e.g., AWS SES, SendGrid)
+        });
     }
 }

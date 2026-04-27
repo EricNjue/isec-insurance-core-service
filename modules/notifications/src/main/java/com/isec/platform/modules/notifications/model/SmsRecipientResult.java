@@ -1,34 +1,23 @@
 package com.isec.platform.modules.notifications.model;
 
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
+import lombok.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
-@Table(name = "sms_recipient_result", indexes = {
-    @Index(name = "idx_recipient_number", columnList = "number"),
-    @Index(name = "idx_recipient_message_id", columnList = "messageId")
-})
-@Data
+@Table("sms_recipient_result")
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class SmsRecipientResult {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sms_message_id", nullable = false)
-    private SmsMessage smsMessage;
+    private UUID smsMessageId;
 
-    @Column(nullable = false)
     private String number;
 
     private String messageId;
@@ -45,7 +34,5 @@ public class SmsRecipientResult {
 
     private LocalDateTime deliveryReportedAt;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 }

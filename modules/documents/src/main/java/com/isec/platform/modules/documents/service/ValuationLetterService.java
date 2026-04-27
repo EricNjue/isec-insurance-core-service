@@ -13,11 +13,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,74 +37,72 @@ public class ValuationLetterService {
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
 
-    @Transactional(readOnly = true)
-    public Optional<ValuationLetter> getLatestLetter(Long policyId) {
-        Optional<ValuationLetter> found = letterRepository.findFirstByPolicyIdOrderByGeneratedAtDesc(policyId);
-        found.ifPresent(l -> log.info("Found latest valuation letter for policyId={} generatedAt={}", policyId, l.getGeneratedAt()));
-        return found;
+    public Mono<ValuationLetter> getLatestLetter(Long policyId) {
+        return letterRepository.findFirstByPolicyIdOrderByGeneratedAtDesc(policyId)
+                .doOnNext(l -> log.info("Found latest valuation letter for policyId={} generatedAt={}", policyId, l.getGeneratedAt()));
     }
 
-    @Transactional
-    public ValuationLetter generateIfNotExists(Long policyId, String insuredName, String registrationNumber, boolean force) {
+    public Mono<ValuationLetter> generateIfNotExists(Long policyId, String insuredName, String registrationNumber, boolean force) {
         log.info("Generate valuation letter request received. policyId={}, insuredName={}, registrationNumber={}, force={}"
                 , policyId, insuredName, registrationNumber, force);
-        if (!force) {
-            Optional<ValuationLetter> existing = getLatestLetter(policyId);
-            if (existing.isPresent()) {
-                log.info("Returning latest valuation letter id={} for policyId={} (idempotent)", existing.get().getId(), policyId);
-                return existing.get();
-            }
-        }
-
-        Policy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new IllegalArgumentException("Policy not found: " + policyId));
-        log.debug("Loaded policy. policyNumber={}, startDate={}, expiryDate={}", policy.getPolicyNumber(), policy.getStartDate(), policy.getExpiryDate());
-
-        ValuationLetter letter = ValuationLetter.builder()
-                .policyId(policyId)
-                .insuredName(insuredName)
-                .policyNumber(policy.getPolicyNumber())
-                .vehicleRegistrationNumber(registrationNumber)
-                .status(ValuationLetter.ValuationLetterStatus.ACTIVE)
-                .documentUuid(UUID.randomUUID())
-                .documentType("VALUATION_LETTER")
-                .generatedBy("SYSTEM")
-                .generatedAt(LocalDateTime.now())
-                .build();
-        letter = letterRepository.save(letter);
-        log.info("Created valuation letter record id={} documentUuid={} for policyId={}", letter.getId(), letter.getDocumentUuid(), policyId);
-
-        // Render PDF with metadata
-        Map<String, Object> data = new HashMap<>();
-        data.put("insuredName", insuredName);
-        data.put("policyNumber", policy.getPolicyNumber());
-        data.put("registrationNumber", registrationNumber);
-
-        java.util.List<AuthorizedValuer> valuers = valuerRepository.findByActiveTrue();
-        log.debug("Generating PDF with {} active valuers", valuers.size());
-        byte[] pdf = pdfGenerationService.generateValuationLetter(data, valuers, letter);
         
-        // Calculate and store hash
-        String hash = pdfSecurityService.calculateHash(pdf);
-        letter.setDocumentHash(hash);
-        log.info("PDF generated and hashed for letter id={} (size={} bytes, hash={})", letter.getId(), pdf.length, hash);
+        Mono<ValuationLetter> latestMono = force ? Mono.empty() : getLatestLetter(policyId);
 
-        // Upload to S3 with structured key
-        String key = "valuation-letters/" + policyId + "/" + letter.getId() + ".pdf";
-        s3Service.uploadBytes(bucketName, key, pdf, "application/pdf");
-        log.info("Valuation letter PDF uploaded to S3. bucket={}, key={}", bucketName, key);
+        return latestMono
+                .flatMap(existing -> {
+                    log.info("Returning latest valuation letter id={} for policyId={} (idempotent)", existing.getId(), policyId);
+                    return Mono.just(existing);
+                })
+                .switchIfEmpty(Mono.defer(() -> processGeneration(policyId, insuredName, registrationNumber)));
+    }
 
-        letter.setPdfS3Bucket(bucketName);
-        letter.setPdfS3Key(key);
-        ValuationLetter saved = letterRepository.save(letter);
-        log.info("Valuation letter metadata persisted. id={} status={}", saved.getId(), saved.getStatus());
+    private Mono<ValuationLetter> processGeneration(Long policyId, String insuredName, String registrationNumber) {
+        log.debug("Starting processGeneration for policyId={}", policyId);
+        return policyRepository.findById(policyId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Policy not found: " + policyId)))
+                .flatMap(policy -> {
+                    log.debug("Loaded policy. policyNumber={}, startDate={}, expiryDate={}", policy.getPolicyNumber(), policy.getStartDate(), policy.getExpiryDate());
 
-        // Update Policy with latest S3 key
-        policy.setValuationLetterS3Key(key);
-        policyRepository.save(policy);
-        log.info("Policy {} updated with latest valuation letter S3 key: {}", policy.getPolicyNumber(), key);
+                    ValuationLetter letter = ValuationLetter.builder()
+                            .policyId(policyId)
+                            .insuredName(insuredName)
+                            .policyNumber(policy.getPolicyNumber())
+                            .vehicleRegistrationNumber(registrationNumber)
+                            .status(ValuationLetter.ValuationLetterStatus.ACTIVE)
+                            .documentUuid(UUID.randomUUID())
+                            .documentType("VALUATION_LETTER")
+                            .generatedBy("SYSTEM")
+                            .generatedAt(LocalDateTime.now())
+                            .build();
+                    
+                    return letterRepository.save(letter)
+                            .flatMap(savedLetter -> valuerRepository.findByActiveTrue().collectList()
+                                    .flatMap(valuers -> Mono.fromCallable(() -> {
+                                        log.debug("Generating PDF with {} active valuers", valuers.size());
+                                        Map<String, Object> data = new HashMap<>();
+                                        data.put("insuredName", insuredName);
+                                        data.put("policyNumber", policy.getPolicyNumber());
+                                        data.put("registrationNumber", registrationNumber);
 
-        return saved;
+                                        byte[] pdf = pdfGenerationService.generateValuationLetter(data, valuers, savedLetter);
+                                        String hash = pdfSecurityService.calculateHash(pdf);
+                                        savedLetter.setDocumentHash(hash);
+                                        
+                                        String key = "valuation-letters/" + policyId + "/" + savedLetter.getId() + ".pdf";
+                                        
+                                        savedLetter.setPdfS3Bucket(bucketName);
+                                        savedLetter.setPdfS3Key(key);
+                                        
+                                        policy.setValuationLetterS3Key(key);
+                                        
+                                        return s3Service.uploadBytesAsync(bucketName, key, pdf, "application/pdf")
+                                                .thenReturn(savedLetter);
+                                    })
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .flatMap(savedMono -> savedMono)
+                                    .flatMap(saved -> Mono.zip(letterRepository.save(saved), policyRepository.save(policy))
+                                            .map(tuple -> tuple.getT1()))));
+                });
     }
 
     public String generateDownloadUrl(ValuationLetter letter) {
@@ -111,16 +111,18 @@ public class ValuationLetterService {
         return url;
     }
 
-    public void publishGenerationRequest(Long policyId, String policyNumber, String registrationNumber, String recipientEmail) {
-        ValuationLetterRequestedEvent event = ValuationLetterRequestedEvent.builder()
-                .eventId(UUID.randomUUID().toString())
-                .policyId(policyId)
-                .policyNumber(policyNumber)
-                .registrationNumber(registrationNumber)
-                .recipientEmail(recipientEmail)
-                .correlationId(UUID.randomUUID().toString())
-                .build();
-        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.VALUATION_LETTER_REQUESTED_RK, event);
-        log.info("Published ValuationLetterRequestedEvent eventId={} policyId={}", event.getEventId(), policyId);
+    public Mono<Void> publishGenerationRequest(Long policyId, String policyNumber, String registrationNumber, String recipientEmail) {
+        return Mono.fromRunnable(() -> {
+            ValuationLetterRequestedEvent event = ValuationLetterRequestedEvent.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .policyId(policyId)
+                    .policyNumber(policyNumber)
+                    .registrationNumber(registrationNumber)
+                    .recipientEmail(recipientEmail)
+                    .correlationId(UUID.randomUUID().toString())
+                    .build();
+            rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, RabbitMQConfig.VALUATION_LETTER_REQUESTED_RK, event);
+            log.info("Published ValuationLetterRequestedEvent eventId={} policyId={}", event.getEventId(), policyId);
+        }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 }

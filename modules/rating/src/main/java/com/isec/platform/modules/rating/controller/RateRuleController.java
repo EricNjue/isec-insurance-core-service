@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -20,32 +22,35 @@ public class RateRuleController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')") // RETAIL_USER here implies Tenant Admin role mapping
-    public ResponseEntity<RateRule> createRule(@Valid @RequestBody RateRuleRequest request) {
-        return ResponseEntity.ok(rateRuleService.createRule(request));
+    public Mono<ResponseEntity<RateRule>> createRule(@Valid @RequestBody RateRuleRequest request) {
+        return rateRuleService.createRule(request)
+                .map(ResponseEntity::ok);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<RateRule> updateRule(@PathVariable Long id, @Valid @RequestBody RateRuleRequest request) {
-        return ResponseEntity.ok(rateRuleService.updateRule(id, request));
+    public Mono<ResponseEntity<RateRule>> updateRule(@PathVariable Long id, @Valid @RequestBody RateRuleRequest request) {
+        return rateRuleService.updateRule(id, request)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<RateRule> getRule(@PathVariable Long id) {
-        return ResponseEntity.ok(rateRuleService.getRule(id));
+    public Mono<ResponseEntity<RateRule>> getRule(@PathVariable Long id) {
+        return rateRuleService.getRule(id)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/book/{rateBookId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<List<RateRule>> listRules(@PathVariable Long rateBookId) {
-        return ResponseEntity.ok(rateRuleService.listRules(rateBookId));
+    public Flux<RateRule> listRules(@PathVariable Long rateBookId) {
+        return rateRuleService.listRules(rateBookId);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RETAIL_USER')")
-    public ResponseEntity<Void> deleteRule(@PathVariable Long id) {
-        rateRuleService.deleteRule(id);
-        return ResponseEntity.noContent().build();
+    public Mono<ResponseEntity<Void>> deleteRule(@PathVariable Long id) {
+        return rateRuleService.deleteRule(id)
+                .then(Mono.just(ResponseEntity.noContent().build()));
     }
 }

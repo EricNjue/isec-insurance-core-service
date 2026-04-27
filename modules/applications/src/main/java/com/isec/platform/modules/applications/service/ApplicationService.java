@@ -8,7 +8,6 @@ import com.isec.platform.modules.applications.domain.Application;
 import com.isec.platform.modules.applications.domain.ApplicationStatus;
 import com.isec.platform.modules.applications.dto.ApplicationRequest;
 import com.isec.platform.modules.applications.dto.ApplicationResponse;
-import com.isec.platform.modules.applications.dto.QuoteResponse;
 import com.isec.platform.modules.applications.repository.ApplicationRepository;
 import com.isec.platform.modules.customers.dto.CustomerRequest;
 import com.isec.platform.modules.customers.service.CustomerService;
@@ -16,18 +15,16 @@ import com.isec.platform.modules.documents.service.ApplicationDocumentService;
 import com.isec.platform.modules.policies.service.PolicyService;
 import com.isec.platform.modules.vehicles.dto.UserVehicleDto;
 import com.isec.platform.modules.vehicles.service.UserVehicleService;
-import com.isec.platform.modules.rating.domain.AnonymousQuote;
 import com.isec.platform.modules.rating.dto.ReferralDecision;
 import com.isec.platform.modules.rating.service.RatingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,20 +41,25 @@ public class ApplicationService {
     private final SecurityContextService securityContextService;
     private final ObjectMapper objectMapper;
 
-    @Transactional
-    public ApplicationResponse createApplication(ApplicationRequest request) {
-        String userId = securityContextService.getCurrentUserId()
-                .orElseThrow(() -> new IllegalStateException("User not authenticated"));
+    public Mono<ApplicationResponse> createApplication(ApplicationRequest request) {
+        return securityContextService.getCurrentUserId()
+                .switchIfEmpty(Mono.error(new IllegalStateException("User not authenticated")))
+                .flatMap(userId -> {
+                    log.info("Creating application for user: {} with reg number: {}", userId, request.getRegistrationNumber());
 
-        log.info("Creating application for user: {} with reg number: {}", userId, request.getRegistrationNumber());
+                    return Mono.zip(
+                            securityContextService.getCurrentUserFullName().defaultIfEmpty("N/A"),
+                            securityContextService.getCurrentUserEmail().defaultIfEmpty("N/A")
+                    ).flatMap(tuple -> customerService.createOrUpdateCustomer(userId, CustomerRequest.builder()
+                            .fullName(tuple.getT1())
+                            .email(tuple.getT2())
+                            .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : "N/A")
+                            .build())
+                    ).then(processApplicationCreation(userId, request));
+                });
+    }
 
-        // Update/Create customer profile from current JWT and request phone number
-        customerService.createOrUpdateCustomer(userId, CustomerRequest.builder()
-                .fullName(securityContextService.getCurrentUserFullName().orElse("N/A"))
-                .email(securityContextService.getCurrentUserEmail().orElse("N/A"))
-                .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : "N/A")
-                .build());
-
+    private Mono<ApplicationResponse> processApplicationCreation(String userId, ApplicationRequest request) {
         Application.ApplicationBuilder applicationBuilder = Application.builder()
                 .userId(userId)
                 .registrationNumber(request.getRegistrationNumber())
@@ -69,128 +71,122 @@ public class ApplicationService {
                 .engineNumber(request.getEngineNumber())
                 .status(ApplicationStatus.DRAFT);
 
-        if (request.getAnonymousQuoteId() != null) {
-            log.info("Proceeding from anonymous quote ID: {}", request.getAnonymousQuoteId());
-            Optional<AnonymousQuote> anonymousQuote = ratingService.getAnonymousQuote(request.getAnonymousQuoteId());
-            if (anonymousQuote.isPresent()) {
-                AnonymousQuote quote = anonymousQuote.get();
-                applicationBuilder.vehicleMake(quote.getVehicleMake())
-                        .vehicleModel(quote.getVehicleModel())
-                        .yearOfManufacture(quote.getYearOfManufacture())
-                        .vehicleValue(quote.getVehicleValue());
-            }
-        }
+        Mono<Void> enrichFromAnonymousQuote = (request.getAnonymousQuoteId() != null)
+                ? ratingService.getAnonymousQuote(request.getAnonymousQuoteId())
+                    .doOnNext(quote -> applicationBuilder.vehicleMake(quote.getVehicleMake())
+                            .vehicleModel(quote.getVehicleModel())
+                            .yearOfManufacture(quote.getYearOfManufacture())
+                            .vehicleValue(quote.getVehicleValue()))
+                    .then()
+                : Mono.empty();
 
-        if (request.getQuoteId() != null) {
-            log.info("Proceeding from official quote ID: {}", request.getQuoteId());
-            QuoteResponse quote = quoteService.getQuote(request.getQuoteId());
-            if (quote != null) {
-                applicationBuilder.vehicleMake(quote.getVehicleMake())
-                        .vehicleModel(quote.getVehicleModel())
-                        .yearOfManufacture(quote.getYearOfManufacture())
-                        .vehicleValue(quote.getVehicleValue())
-                        .registrationNumber(quote.getRegistrationNumber() != null ? quote.getRegistrationNumber() : request.getRegistrationNumber())
-                        .chassisNumber(quote.getChassisNumber())
-                        .engineNumber(quote.getEngineNumber())
-                        .quoteId(quote.getQuoteId())
-                        .rateBookId(quote.getRateBookId());
+        Mono<Void> enrichFromOfficialQuote = (request.getQuoteId() != null)
+                ? quoteService.getQuote(request.getQuoteId())
+                    .doOnNext(quote -> {
+                        applicationBuilder.vehicleMake(quote.getVehicleMake())
+                                .vehicleModel(quote.getVehicleModel())
+                                .yearOfManufacture(quote.getYearOfManufacture())
+                                .vehicleValue(quote.getVehicleValue())
+                                .registrationNumber(quote.getRegistrationNumber() != null ? quote.getRegistrationNumber() : request.getRegistrationNumber())
+                                .chassisNumber(quote.getChassisNumber())
+                                .engineNumber(quote.getEngineNumber())
+                                .quoteId(quote.getQuoteId())
+                                .rateBookId(quote.getRateBookId());
 
-                try {
-                    applicationBuilder.pricingSnapshot(objectMapper.writeValueAsString(quote.getPricing()));
-                } catch (JsonProcessingException e) {
-                    log.error("Failed to serialize pricing snapshot", e);
-                }
+                        try {
+                            applicationBuilder.pricingSnapshot(objectMapper.writeValueAsString(quote.getPricing()));
+                        } catch (JsonProcessingException e) {
+                            log.error("Failed to serialize pricing snapshot", e);
+                        }
 
-                if (quote.getPricing().getReferralDecision() == ReferralDecision.REFERRED) {
-                    applicationBuilder.status(ApplicationStatus.UNDERWRITING_REVIEW)
-                            .referralReason(quote.getPricing().getReferralReason());
-                } else {
-                    applicationBuilder.status(ApplicationStatus.APPROVED_PENDING_PAYMENT);
-                }
-            }
-        }
+                        if (quote.getPricing().getReferralDecision() == ReferralDecision.REFERRED) {
+                            applicationBuilder.status(ApplicationStatus.UNDERWRITING_REVIEW)
+                                    .referralReason(quote.getPricing().getReferralReason());
+                        } else {
+                            applicationBuilder.status(ApplicationStatus.APPROVED_PENDING_PAYMENT);
+                        }
+                    })
+                    .then()
+                : Mono.empty();
 
-        Application saved = applicationRepository.save(applicationBuilder.build());
+        return Mono.when(enrichFromAnonymousQuote, enrichFromOfficialQuote)
+                .then(Mono.defer(() -> applicationRepository.save(applicationBuilder.build())))
+                .flatMap(saved -> {
+                    Mono<Void> linkDocs = documentService.linkDocumentsToApplication(saved.getId(), request.getDocuments());
 
-        // Link documents if provided in the request (e.g., from a quote initiation)
-        documentService.linkDocumentsToApplication(saved.getId(), request.getDocuments());
+                    Mono<Void> createPolicy = (saved.getStatus() == ApplicationStatus.APPROVED_PENDING_PAYMENT && request.getQuoteId() != null)
+                            ? quoteService.getQuote(request.getQuoteId())
+                                .flatMap(quote -> policyService.createPolicy(saved.getId(), quote.getPricing().getTotalPremium()))
+                                .then()
+                            : Mono.empty();
 
-        if (saved.getStatus() == ApplicationStatus.APPROVED_PENDING_PAYMENT) {
-             QuoteResponse quote = quoteService.getQuote(request.getQuoteId());
-             if (quote != null) {
-                 policyService.createPolicy(saved.getId(), quote.getPricing().getTotalPremium());
-             }
-        }
-        log.info("Application created successfully with ID: {}", saved.getId());
+                    Mono<Void> saveVehicle = userVehicleService.saveOrUpdateVehicle(userId, UserVehicleDto.builder()
+                            .registrationNumber(saved.getRegistrationNumber())
+                            .vehicleMake(saved.getVehicleMake())
+                            .vehicleModel(saved.getVehicleModel())
+                            .yearOfManufacture(saved.getYearOfManufacture())
+                            .vehicleValue(saved.getVehicleValue())
+                            .chassisNumber(saved.getChassisNumber())
+                            .engineNumber(saved.getEngineNumber())
+                            .build()).then();
 
-        // Store vehicle details for the user
-        userVehicleService.saveOrUpdateVehicle(userId, UserVehicleDto.builder()
-                .registrationNumber(saved.getRegistrationNumber())
-                .vehicleMake(saved.getVehicleMake())
-                .vehicleModel(saved.getVehicleModel())
-                .yearOfManufacture(saved.getYearOfManufacture())
-                .vehicleValue(saved.getVehicleValue())
-                .chassisNumber(saved.getChassisNumber())
-                .engineNumber(saved.getEngineNumber())
-                .build());
-
-        return mapToResponse(saved);
+                    return Mono.when(linkDocs, createPolicy, saveVehicle)
+                            .then(mapToResponse(saved));
+                });
     }
 
-    @Transactional(readOnly = true)
-    public ApplicationResponse getApplication(Long id) {
+    public Mono<ApplicationResponse> getApplication(Long id) {
         log.debug("Fetching application with ID: {}", id);
-        Application app = applicationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Application", id));
-        return mapToResponse(app);
+        return applicationRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Application", id)))
+                .flatMap(this::mapToResponse);
     }
 
-    @Transactional(readOnly = true)
-    public List<ApplicationResponse> listApplications() {
-        boolean isAdmin = securityContextService.isAdmin();
+    public Flux<ApplicationResponse> listApplications() {
+        return Mono.zip(
+                securityContextService.isAdmin(),
+                securityContextService.getCurrentUserId(),
+                com.isec.platform.common.multitenancy.TenantContext.getTenantId()
+        ).flatMapMany(tuple -> {
+                    boolean isAdmin = tuple.getT1();
+                    String userId = tuple.getT2();
+                    String tenantId = tuple.getT3();
 
-        String userId = securityContextService.getCurrentUserId()
-                .orElseThrow(() -> new IllegalStateException("User not authenticated"));
-
-        String tenantId = com.isec.platform.common.multitenancy.TenantContext.getTenantId();
-        List<Application> apps = isAdmin
-                ? applicationRepository.findAllByTenantId(tenantId)
-                : applicationRepository.findByUserIdAndTenantId(userId, tenantId);
-        return apps.stream().map(this::mapToResponse).collect(Collectors.toList());
+                    return isAdmin
+                            ? applicationRepository.findAllByTenantId(tenantId)
+                            : applicationRepository.findByUserIdAndTenantId(userId, tenantId);
+                })
+                .flatMap(this::mapToResponse);
     }
 
-    @Transactional
-    public RatingService.PremiumBreakdown getQuote(Long applicationId, BigDecimal baseRate) {
+    public Mono<RatingService.PremiumBreakdown> getQuote(Long applicationId, BigDecimal baseRate) {
         return applicationRepository.findById(applicationId)
-                .map(app -> {
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Application", applicationId)))
+                .flatMap(app -> {
                     RatingService.PremiumBreakdown breakdown = ratingService.calculatePremium(app.getVehicleValue(), baseRate);
 
-                    // Create Policy if it doesn't exist
-                    policyService.createPolicy(app.getId(), breakdown.totalPremium());
-
-                    // Update Application status
                     app.setStatus(ApplicationStatus.QUOTED);
-                    applicationRepository.save(app);
-
-                    return breakdown;
-                })
-                .orElseThrow(() -> new ResourceNotFoundException("Application", applicationId));
+                    return policyService.createPolicy(app.getId(), breakdown.totalPremium())
+                            .flatMap(policy -> applicationRepository.save(app))
+                            .thenReturn(breakdown);
+                });
     }
 
-    private ApplicationResponse mapToResponse(Application app) {
-        return ApplicationResponse.builder()
-                .id(app.getId())
-                .userId(app.getUserId())
-                .registrationNumber(app.getRegistrationNumber())
-                .vehicleMake(app.getVehicleMake())
-                .vehicleModel(app.getVehicleModel())
-                .yearOfManufacture(app.getYearOfManufacture())
-                .vehicleValue(app.getVehicleValue())
-                .status(app.getStatus())
-                .chassisNumber(app.getChassisNumber())
-                .engineNumber(app.getEngineNumber())
-                .createdAt(app.getCreatedAt())
-                .documents(documentService.getOrCreatePresignedUrls(app.getId()))
-                .build();
+    private Mono<ApplicationResponse> mapToResponse(Application app) {
+        return documentService.getOrCreatePresignedUrls(app.getId())
+                .map(docs -> ApplicationResponse.builder()
+                        .id(app.getId())
+                        .userId(app.getUserId())
+                        .registrationNumber(app.getRegistrationNumber())
+                        .vehicleMake(app.getVehicleMake())
+                        .vehicleModel(app.getVehicleModel())
+                        .yearOfManufacture(app.getYearOfManufacture())
+                        .vehicleValue(app.getVehicleValue())
+                        .status(app.getStatus())
+                        .chassisNumber(app.getChassisNumber())
+                        .engineNumber(app.getEngineNumber())
+                        .createdAt(app.getCreatedAt())
+                        .documents(docs)
+                        .build());
     }
 }

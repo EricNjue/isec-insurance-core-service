@@ -15,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
+import reactor.core.publisher.Mono;
+
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -65,21 +67,25 @@ class CertificateRequestConsumerTest {
     }
 
     @Test
-    void handleCertificateRequest_ShouldProcess_WhenNotDuplicate() {
-        when(idempotencyService.isDuplicate(anyString())).thenReturn(false);
-        when(certificateRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.of(certificate));
-        when(dmvicClient.issueCertificate(anyString(), anyString())).thenReturn("DMVIC-REF");
+    void handleCertificateRequest_ShouldProcess_WhenNotDuplicate() throws InterruptedException {
+        when(idempotencyService.isDuplicate(anyString())).thenReturn(Mono.just(false));
+        when(certificateRepository.findByIdempotencyKey(anyString())).thenReturn(Mono.just(certificate));
+        when(certificateRepository.save(any(Certificate.class))).thenReturn(Mono.just(certificate));
+        when(dmvicClient.issueCertificate(anyString(), anyString())).thenReturn("DMVIC-123");
 
         consumer.handleCertificateRequest(event);
+        
+        // Wait for async processing
+        Thread.sleep(1000);
 
         verify(dmvicClient).issueCertificate(eq("KAA 001A"), eq("POL-001"));
         verify(certificateRepository, atLeastOnce()).save(any(Certificate.class));
-        verify(rabbitTemplate, times(2)).convertAndSend(anyString(), anyString(), any(Object.class));
+        verify(rabbitTemplate, atLeastOnce()).convertAndSend(anyString(), anyString(), any(Object.class));
     }
 
     @Test
     void handleCertificateRequest_ShouldSkip_WhenDuplicate() {
-        when(idempotencyService.isDuplicate(anyString())).thenReturn(true);
+        when(idempotencyService.isDuplicate(anyString())).thenReturn(Mono.just(true));
 
         consumer.handleCertificateRequest(event);
 

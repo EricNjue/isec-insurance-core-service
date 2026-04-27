@@ -6,12 +6,12 @@ import com.isec.platform.modules.vehicles.service.VehicleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
@@ -25,39 +25,41 @@ public class VehicleModelController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VehicleModelResponse> createModel(@Valid @RequestBody VehicleModelRequest request) {
+    public Mono<ResponseEntity<VehicleModelResponse>> createModel(@Valid @RequestBody VehicleModelRequest request) {
         log.info("Creating vehicle model with code: {} for make id: {}", request.getCode(), request.getMakeId());
-        return new ResponseEntity<>(vehicleService.createModel(request), HttpStatus.CREATED);
+        return vehicleService.createModel(request)
+                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<VehicleModelResponse> updateModel(@PathVariable UUID id, @Valid @RequestBody VehicleModelRequest request) {
+    public Mono<ResponseEntity<VehicleModelResponse>> updateModel(@PathVariable UUID id, @Valid @RequestBody VehicleModelRequest request) {
         log.info("Updating vehicle model with id: {}", id);
-        return ResponseEntity.ok(vehicleService.updateModel(id, request));
+        return vehicleService.updateModel(id, request)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<VehicleModelResponse> getModel(@PathVariable UUID id) {
+    public Mono<ResponseEntity<VehicleModelResponse>> getModel(@PathVariable UUID id) {
         log.debug("Fetching vehicle model with id: {}", id);
-        return ResponseEntity.ok(vehicleService.getModel(id));
+        return vehicleService.getModel(id)
+                .map(ResponseEntity::ok);
     }
 
     @GetMapping
-    public ResponseEntity<Page<VehicleModelResponse>> getAllModels(
+    public Flux<VehicleModelResponse> getAllModels(
             @RequestParam(required = false) UUID makeId,
             @RequestParam(required = false) String makeCode,
-            @RequestParam(required = false) Boolean active,
-            Pageable pageable) {
+            @RequestParam(required = false) Boolean active) {
         log.debug("Fetching all vehicle models, makeId: {}, makeCode: {}, active: {}", makeId, makeCode, active);
-        return ResponseEntity.ok(vehicleService.getAllModels(makeId, makeCode, active, pageable));
+        return vehicleService.getAllModels(makeId, makeCode, active);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteModel(@PathVariable UUID id) {
+    public Mono<ResponseEntity<Void>> deleteModel(@PathVariable UUID id) {
         log.info("Soft deleting vehicle model with id: {}", id);
-        vehicleService.deleteModel(id);
-        return ResponseEntity.noContent().build();
+        return vehicleService.deleteModel(id)
+                .then(Mono.just(ResponseEntity.noContent().build()));
     }
 }

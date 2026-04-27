@@ -17,6 +17,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -37,56 +40,50 @@ public class CertificateController {
 
     @GetMapping("/{certificateNumber}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<Certificate> getCertificateMetadata(@PathVariable String certificateNumber) {
+    public Mono<Certificate> getCertificateMetadata(@PathVariable String certificateNumber) {
         log.debug("Fetching certificate metadata for {}", certificateNumber);
-        return ResponseEntity.ok(retrievalService.getCertificateMetadata(certificateNumber));
+        return retrievalService.getCertificateMetadata(certificateNumber);
     }
 
     @GetMapping("/{certificateNumber}/download")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<Map<String, String>> getDownloadUrl(@PathVariable String certificateNumber) {
+    public Mono<Map<String, String>> getDownloadUrl(@PathVariable String certificateNumber) {
         log.debug("Generating download URL for {}", certificateNumber);
-        String url = retrievalService.generateDownloadUrl(certificateNumber);
-        return ResponseEntity.ok(Map.of("downloadUrl", url));
+        return retrievalService.generateDownloadUrl(certificateNumber)
+                .map(url -> Map.of("downloadUrl", url));
     }
 
     @PostMapping("/{certificateNumber}/resend")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<Void> resendCertificate(
+    public Mono<Void> resendCertificate(
             @PathVariable String certificateNumber,
             @RequestParam(required = false) String email) {
         log.info("Resend requested for certificate {}. Target email: {}", certificateNumber, email);
-        resendService.resendCertificate(certificateNumber, email);
-        return ResponseEntity.accepted().build();
+        return resendService.resendCertificate(certificateNumber, email);
     }
 
     @PostMapping("/request")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<Void> requestIssuance(@RequestParam Long policyId, @RequestParam BigDecimal amount) {
+    public Mono<Void> requestIssuance(@RequestParam Long policyId, @RequestParam BigDecimal amount) {
         log.info("Manual certificate issuance requested. policyId={}, amount={}", policyId, amount);
-        Policy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new IllegalArgumentException("Policy not found"));
-
-        Application application = applicationRepository.findById(policy.getApplicationId()).orElse(null);
-        String email = null;
-        String phoneNumber = null;
-        
-        if (application != null) {
-            java.util.Optional<Customer> customer = customerService.getCustomerByUserId(application.getUserId());
-            if (customer.isPresent()) {
-                email = customer.get().getEmail();
-                phoneNumber = customer.get().getPhoneNumber();
-            }
-        }
-        
-        certificateService.processCertificateIssuance(policy, amount, email, phoneNumber);
-        return ResponseEntity.accepted().build();
+        return policyRepository.findById(policyId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Policy not found")))
+                .flatMap(policy -> applicationRepository.findById(policy.getApplicationId())
+                        .flatMap(application -> customerService.getCustomerByUserId(application.getUserId())
+                                .map(customer -> {
+                                    return new RecipientInfo(customer.getEmail(), customer.getPhoneNumber());
+                                })
+                                .defaultIfEmpty(new RecipientInfo(null, null))
+                                .flatMap(recipient -> certificateService.processCertificateIssuance(policy, amount, recipient.email, recipient.phone)))
+                );
     }
+
+    private record RecipientInfo(String email, String phone) {}
 
     @GetMapping("/policy/{policyId}")
     @PreAuthorize("hasAnyRole('RETAIL_USER', 'AGENT', 'ADMIN')")
-    public ResponseEntity<List<Certificate>> getCertificates(@PathVariable Long policyId) {
+    public Flux<Certificate> getCertificates(@PathVariable Long policyId) {
         log.debug("Fetching certificates for policyId={}", policyId);
-        return ResponseEntity.ok(certificateRepository.findByPolicyId(policyId));
+        return certificateRepository.findByPolicyId(policyId);
     }
 }

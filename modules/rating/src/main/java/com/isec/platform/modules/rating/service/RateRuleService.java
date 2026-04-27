@@ -12,9 +12,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
@@ -26,80 +28,82 @@ public class RateRuleService {
     private final SecurityContextService securityContextService;
     private final RateBookSnapshotLoader snapshotLoader;
 
-    @Transactional
-    public RateRule createRule(RateRuleRequest request) {
-        RateBook rateBook = rateBookRepository.findById(request.getRateBookId())
-                .orElseThrow(() -> new ResourceNotFoundException("RateBook", request.getRateBookId()));
+    public Mono<RateRule> createRule(RateRuleRequest request) {
+        return rateBookRepository.findById(request.getRateBookId())
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateBook", request.getRateBookId())))
+                .flatMap(rateBook -> validateTenantAccess(rateBook.getTenantId()).thenReturn(rateBook))
+                .flatMap(rateBook -> {
+                    RateRule rule = RateRule.builder()
+                            .rateBookId(rateBook.getId())
+                            .ruleType(request.getRuleType())
+                            .category(request.getCategory())
+                            .description(request.getDescription())
+                            .priority(request.getPriority())
+                            .conditionExpression(request.getConditionExpression())
+                            .valueExpression(request.getValueExpression())
+                            .build();
+                    rule.setTenantId(rateBook.getTenantId());
 
-        validateTenantAccess(rateBook.getTenantId());
-
-        RateRule rule = RateRule.builder()
-                .rateBook(rateBook)
-                .ruleType(request.getRuleType())
-                .category(request.getCategory())
-                .description(request.getDescription())
-                .priority(request.getPriority())
-                .conditionExpression(request.getConditionExpression())
-                .valueExpression(request.getValueExpression())
-                .build();
-
-        RateRule saved = rateRuleRepository.save(rule);
-        log.info("Rule created: {}, invalidating cache", saved.getId());
-        snapshotLoader.invalidateAll(); // Clear cache on rule changes
-        return saved;
+                    return rateRuleRepository.save(rule)
+                            .doOnNext(saved -> {
+                                log.info("Rule created: {}, invalidating cache", saved.getId());
+                                snapshotLoader.invalidateAll();
+                            });
+                });
     }
 
-    @Transactional
-    public RateRule updateRule(Long id, RateRuleRequest request) {
-        RateRule existing = rateRuleRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("RateRule", id));
+    public Mono<RateRule> updateRule(Long id, RateRuleRequest request) {
+        return rateRuleRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateRule", id)))
+                .flatMap(existing -> validateTenantAccess(existing.getTenantId()).thenReturn(existing))
+                .flatMap(existing -> {
+                    existing.setRuleType(request.getRuleType());
+                    existing.setCategory(request.getCategory());
+                    existing.setDescription(request.getDescription());
+                    existing.setPriority(request.getPriority());
+                    existing.setConditionExpression(request.getConditionExpression());
+                    existing.setValueExpression(request.getValueExpression());
 
-        validateTenantAccess(existing.getTenantId());
-
-        existing.setRuleType(request.getRuleType());
-        existing.setCategory(request.getCategory());
-        existing.setDescription(request.getDescription());
-        existing.setPriority(request.getPriority());
-        existing.setConditionExpression(request.getConditionExpression());
-        existing.setValueExpression(request.getValueExpression());
-
-        RateRule saved = rateRuleRepository.save(existing);
-        log.info("Rule updated: {}, invalidating cache", saved.getId());
-        snapshotLoader.invalidateAll();
-        return saved;
+                    return rateRuleRepository.save(existing)
+                            .doOnNext(saved -> {
+                                log.info("Rule updated: {}, invalidating cache", saved.getId());
+                                snapshotLoader.invalidateAll();
+                            });
+                });
     }
 
-    @Transactional(readOnly = true)
-    public RateRule getRule(Long id) {
-        RateRule rule = rateRuleRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("RateRule", id));
-        validateTenantAccess(rule.getTenantId());
-        return rule;
+    public Mono<RateRule> getRule(Long id) {
+        return rateRuleRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateRule", id)))
+                .flatMap(rule -> validateTenantAccess(rule.getTenantId()).thenReturn(rule));
     }
 
-    @Transactional(readOnly = true)
-    public List<RateRule> listRules(Long rateBookId) {
-        RateBook rateBook = rateBookRepository.findById(rateBookId)
-                .orElseThrow(() -> new ResourceNotFoundException("RateBook", rateBookId));
-        validateTenantAccess(rateBook.getTenantId());
-        return rateRuleRepository.findAllByRateBookId(rateBookId);
+    public Flux<RateRule> listRules(Long rateBookId) {
+        return rateBookRepository.findById(rateBookId)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateBook", rateBookId)))
+                .flatMapMany(rateBook -> validateTenantAccess(rateBook.getTenantId()).thenMany(rateRuleRepository.findAllByRateBookId(rateBookId)));
     }
 
-    @Transactional
-    public void deleteRule(Long id) {
-        RateRule rule = rateRuleRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("RateRule", id));
-        validateTenantAccess(rule.getTenantId());
-        rateRuleRepository.delete(rule);
-        snapshotLoader.invalidateAll();
+    public Mono<Void> deleteRule(Long id) {
+        return rateRuleRepository.findById(id)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("RateRule", id)))
+                .flatMap(rule -> validateTenantAccess(rule.getTenantId()).thenReturn(rule))
+                .flatMap(rule -> rateRuleRepository.delete(rule))
+                .doOnSuccess(v -> snapshotLoader.invalidateAll());
     }
 
-    private void validateTenantAccess(String ownerTenantId) {
-        if (securityContextService.isAdmin()) return;
+    private Mono<Void> validateTenantAccess(String ownerTenantId) {
+        return securityContextService.isAdmin()
+                .flatMap(isAdmin -> {
+                    if (isAdmin) return Mono.empty();
 
-        String currentTenantId = TenantContext.getTenantId();
-        if (!ownerTenantId.equals(currentTenantId)) {
-            throw new AccessDeniedException("You do not have access to manage rules for tenant: " + ownerTenantId);
-        }
+                    return TenantContext.getTenantId()
+                            .flatMap(currentTenantId -> {
+                                if (!ownerTenantId.equals(currentTenantId)) {
+                                    return Mono.error(new AccessDeniedException("You do not have access to manage rules for tenant: " + ownerTenantId));
+                                }
+                                return Mono.empty();
+                            });
+                });
     }
 }

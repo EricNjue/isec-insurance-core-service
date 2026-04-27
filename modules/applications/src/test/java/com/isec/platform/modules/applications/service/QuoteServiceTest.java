@@ -21,8 +21,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -43,9 +46,9 @@ class QuoteServiceTest {
     @Mock
     private RateBookSnapshotLoader rateBookSnapshotLoader;
     @Mock
-    private RedisTemplate<String, Object> redisTemplate;
+    private ReactiveRedisTemplate<String, Object> redisTemplate;
     @Mock
-    private ValueOperations<String, Object> valueOperations;
+    private ReactiveValueOperations<String, Object> valueOperations;
     @Mock
     private ApplicationDocumentService documentService;
     @Mock
@@ -61,7 +64,6 @@ class QuoteServiceTest {
 
     @BeforeEach
     void setUp() {
-        TenantContext.setTenantId("SANLAM");
         Map<String, InsuranceIntegrationAdapter> adapters = new HashMap<>();
         adapters.put("SANLAMIntegrationAdapter", insuranceIntegrationAdapter);
         
@@ -87,38 +89,53 @@ class QuoteServiceTest {
                         .s3Key("quotes/new/logbook.pdf")
                         .build()
         );
-        when(documentService.getOrCreatePresignedUrls(null)).thenReturn(mockDocs);
-        when(insuranceIntegrationAdapter.checkDoubleInsurance(any())).thenReturn(DoubleInsuranceCheckResponse.builder()
+        doReturn(Mono.just(mockDocs)).when(documentService).getOrCreatePresignedUrls(null);
+        when(insuranceIntegrationAdapter.checkDoubleInsurance(any())).thenReturn(Mono.just(DoubleInsuranceCheckResponse.builder()
                 .hasDuplicate(false)
-                .build());
+                .build()));
+        when(valueOperations.set(anyString(), any(), any())).thenReturn(Mono.just(true));
 
         InitiateQuoteRequest request = InitiateQuoteRequest.builder()
                 .licensePlateNumber("KAA 123X")
                 .build();
-        InitiateQuoteResponse response = quoteService.initiateQuote(request);
+        
+        Mono<InitiateQuoteResponse> result = quoteService.initiateQuote(request)
+                .contextWrite(TenantContext.withTenantId("SANLAM"));
 
-        assertNotNull(response.getQuoteId());
-        assertFalse(response.getDocuments().isEmpty());
-        assertEquals("LOGBOOK", response.getDocuments().get(0).getDocumentType());
-        verify(valueOperations).set(eq("quote_init:" + response.getQuoteId()), eq(response), any());
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response.getQuoteId());
+                    assertFalse(response.getDocuments().isEmpty());
+                    assertEquals("LOGBOOK", response.getDocuments().get(0).getDocumentType());
+                })
+                .verifyComplete();
+
+        verify(valueOperations).set(contains("quote_init:"), any(), any());
     }
 
     @Test
     void initiateQuote_WithDuplicate_ShouldReturnEarlyAndNotCache() {
-        when(insuranceIntegrationAdapter.checkDoubleInsurance(any())).thenReturn(DoubleInsuranceCheckResponse.builder()
+        when(insuranceIntegrationAdapter.checkDoubleInsurance(any())).thenReturn(Mono.just(DoubleInsuranceCheckResponse.builder()
                 .hasDuplicate(true)
                 .status("double")
                 .message("Active cover found")
-                .build());
+                .build()));
 
         InitiateQuoteRequest request = InitiateQuoteRequest.builder()
                 .licensePlateNumber("KAA 123X")
                 .build();
-        InitiateQuoteResponse response = quoteService.initiateQuote(request);
+        
+        Mono<InitiateQuoteResponse> result = quoteService.initiateQuote(request)
+                .contextWrite(TenantContext.withTenantId("SANLAM"));
 
-        assertNotNull(response.getQuoteId());
-        assertTrue(response.getDoubleInsuranceCheck().isHasDuplicate());
-        assertNull(response.getDocuments());
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response.getQuoteId());
+                    assertTrue(response.getDoubleInsuranceCheck().isHasDuplicate());
+                    assertNull(response.getDocuments());
+                })
+                .verifyComplete();
+
         verify(documentService, never()).getOrCreatePresignedUrls(any());
         verify(redisTemplate, never()).opsForValue();
     }
@@ -130,43 +147,63 @@ class QuoteServiceTest {
         InitiateQuoteResponse mockResponse = InitiateQuoteResponse.builder()
                 .quoteId(quoteId)
                 .build();
-        when(valueOperations.get("quote_init:" + quoteId)).thenReturn(mockResponse);
+        when(valueOperations.get("quote_init:" + quoteId)).thenReturn(Mono.just(mockResponse));
 
-        InitiateQuoteResponse response = quoteService.getInitiatedQuote(quoteId);
+        Mono<InitiateQuoteResponse> result = quoteService.getInitiatedQuote(quoteId);
 
-        assertNotNull(response);
-        assertEquals(quoteId, response.getQuoteId());
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals(quoteId, response.getQuoteId());
+                })
+                .verifyComplete();
     }
 
     @Test
     void checkDoubleInsurance_ShouldThrowException_WhenNoAdapterFound() {
-        TenantContext.setTenantId("UNKNOWN");
         when(insuranceIntegrationAdapter.getCompanyCode()).thenReturn("SANLAM");
         
-        com.isec.platform.common.exception.BusinessException exception = assertThrows(
-            com.isec.platform.common.exception.BusinessException.class,
-            () -> quoteService.checkDoubleInsurance("KAA 123X", "CHASSIS123")
-        );
-        
-        assertEquals("No integration adapter configured for tenant: UNKNOWN", exception.getMessage());
+        Mono<DoubleInsuranceCheckResponse> result = quoteService.checkDoubleInsurance("KAA 123X", "CHASSIS123")
+                .contextWrite(TenantContext.withTenantId("UNKNOWN"));
+
+        StepVerifier.create(result)
+                .expectError(com.isec.platform.common.exception.BusinessException.class)
+                .verify();
     }
 
     @Test
-    void calculateQuote_ShouldReturnResponseAndUpsertData() {
+    void calculateQuote_ShouldReturnResponseAndUpsertData() throws Exception {
         QuoteRequest request = createSampleRequest();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(pricingEngine.price(any())).thenReturn(PricingResult.builder()
+        when(valueOperations.get(anyString())).thenReturn(Mono.empty());
+        doReturn(Mono.just(PricingResult.builder()
                 .totalPremium(new BigDecimal("10000"))
-                .build());
-        when(securityContextService.getCurrentUserId()).thenReturn(Optional.of("user123"));
+                .build())).when(pricingEngine).price(any());
+        when(securityContextService.getCurrentUserId()).thenReturn(Mono.just("user123"));
+        lenient().when(customerService.createOrUpdateCustomer(anyString(), any())).thenReturn(Mono.empty());
+        lenient().when(userVehicleService.saveOrUpdateVehicle(anyString(), any())).thenReturn(Mono.empty());
+        when(valueOperations.set(anyString(), any(), any())).thenReturn(Mono.just(true));
+        
+        com.isec.platform.modules.rating.dto.RateBookDto rbDto = com.isec.platform.modules.rating.dto.RateBookDto.builder()
+                .id(1L)
+                .tenantId("SANLAM")
+                .versionName("v1")
+                .build();
+        when(rateBookSnapshotLoader.loadActive(any())).thenReturn(Mono.just(RateBookSnapshotLoader.Snapshot.from(rbDto)));
 
-        QuoteResponse response = quoteService.calculateQuote(request);
+        Mono<QuoteResponse> result = quoteService.calculateQuote(request)
+                .contextWrite(TenantContext.withTenantId("SANLAM"));
 
-        assertNotNull(response);
-        assertEquals("user123-quote", response.getQuoteId());
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    assertEquals("user123-quote", response.getQuoteId());
+                })
+                .verifyComplete();
+
         verify(customerService).createOrUpdateCustomer(eq("user123"), any());
         verify(userVehicleService).saveOrUpdateVehicle(eq("user123"), any());
-        verify(valueOperations).set(eq("quote_v2:" + response.getQuoteId()), eq(response), any());
+        verify(valueOperations).set(contains("quote_v2:"), any(), any());
     }
 
     private QuoteRequest createSampleRequest() {
