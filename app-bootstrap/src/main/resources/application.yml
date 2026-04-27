@@ -71,6 +71,7 @@ tenant:
     - "/api/v1/sms/delivery-report"
     - "/api/v1/profile"
     - "/api/v1/motor/quotes/initiate/**"
+    - "/api/v1/public/**"
 branding:
   company:
     name: ${BRANDING_COMPANY_NAME:iSec Insurance Agency}

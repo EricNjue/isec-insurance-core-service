@@ -37,42 +37,14 @@ public class TenantFilter implements WebFilter {
         if (exchange.getRequest().getMethod().name().equals("OPTIONS")) {
             return chain.filter(exchange);
         }
-        return ReactiveSecurityContextHolder.getContext()
-                .map(SecurityContext::getAuthentication)
-                .filter(authentication -> authentication instanceof JwtAuthenticationToken)
-                .cast(JwtAuthenticationToken.class)
-                .map(token -> {
-                    Jwt jwt = token.getToken();
-                    return jwt.getClaimAsString(TENANT_CLAIM);
-                })
-                .switchIfEmpty(Mono.justOrEmpty(exchange.getRequest().getHeaders().getFirst(TENANT_HEADER)))
-                .flatMap(tenantId -> {
-                    String path = exchange.getRequest().getURI().getPath();
-                    List<String> publicPatterns = tenantProperties.getPublicPatterns();
-                    boolean isPublic = !CollectionUtils.isEmpty(publicPatterns) && 
-                                     publicPatterns.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
-                    boolean isApi = path.startsWith("/api/");
+        String path = exchange.getRequest().getURI().getPath();
+        boolean isPublic = isPublicPath(path);
+        boolean isApi = path.startsWith("/api/");
 
-                    if (tenantId == null && !isPublic && isApi) {
-                        log.warn("Missing tenant identifier for protected API path: {}", path);
-                        exchange.getResponse().setStatusCode(HttpStatus.BAD_REQUEST);
-                        return exchange.getResponse().setComplete();
-                    }
-
-                    if (tenantId != null) {
-                        return chain.filter(exchange)
-                                .contextWrite(TenantContext.withTenantId(tenantId));
-                    }
-                    
-                    return chain.filter(exchange);
-                })
+        return extractTenantId(exchange)
+                .flatMap(tenantId -> chain.filter(exchange)
+                        .contextWrite(TenantContext.withTenantId(tenantId)))
                 .switchIfEmpty(Mono.defer(() -> {
-                    String path = exchange.getRequest().getURI().getPath();
-                    List<String> publicPatterns = tenantProperties.getPublicPatterns();
-                    boolean isPublic = !CollectionUtils.isEmpty(publicPatterns) && 
-                                     publicPatterns.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
-                    boolean isApi = path.startsWith("/api/");
-
                     if (!isPublic && isApi) {
                         log.warn("Missing tenant identifier for protected API path: {}", path);
                         exchange.getResponse().setStatusCode(HttpStatus.BAD_REQUEST);
@@ -80,5 +52,29 @@ public class TenantFilter implements WebFilter {
                     }
                     return chain.filter(exchange);
                 }));
+    }
+
+    private Mono<String> extractTenantId(ServerWebExchange exchange) {
+        return ReactiveSecurityContextHolder.getContext()
+                .flatMap(this::extractTenantIdFromSecurityContext)
+                .switchIfEmpty(Mono.justOrEmpty(exchange.getRequest().getHeaders().getFirst(TENANT_HEADER)));
+    }
+
+    private Mono<String> extractTenantIdFromSecurityContext(SecurityContext securityContext) {
+        return Mono.justOrEmpty(securityContext.getAuthentication())
+                .filter(JwtAuthenticationToken.class::isInstance)
+                .cast(JwtAuthenticationToken.class)
+                .map(JwtAuthenticationToken::getToken)
+                .flatMap(this::extractTenantIdFromJwt);
+    }
+
+    private Mono<String> extractTenantIdFromJwt(Jwt jwt) {
+        return Mono.justOrEmpty(jwt.getClaimAsString(TENANT_CLAIM));
+    }
+
+    private boolean isPublicPath(String path) {
+        List<String> publicPatterns = tenantProperties.getPublicPatterns();
+        return !CollectionUtils.isEmpty(publicPatterns)
+                && publicPatterns.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
     }
 }

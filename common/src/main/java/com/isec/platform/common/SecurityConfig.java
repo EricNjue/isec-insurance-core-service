@@ -28,7 +28,7 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "/api/v1/motor/quotes/initiate/**", "/verify/**", "/api/v1/sms/delivery-report", "/api/v1/public/integrations").permitAll()
+                        .pathMatchers("/actuator/**", "/api/v1/payments/callback", "/api/v1/rating/anonymous-quote", "/api/v1/motor/quotes/initiate/**", "/verify/**", "/api/v1/sms/delivery-report", "/api/v1/public/**").permitAll()
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

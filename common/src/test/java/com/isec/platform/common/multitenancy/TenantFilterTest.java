@@ -77,6 +77,51 @@ class TenantFilterTest {
     }
 
     @Test
+    void filter_withJwtButMissingTenantClaim_onPublicRoute_proceedsWithoutNpe() {
+        // given
+        MockServerHttpRequest request = MockServerHttpRequest
+                .get("/api/v1/public/integrations/SANLAM/reference-data?productCode=1")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        Jwt jwt = mock(Jwt.class);
+        when(jwt.getClaimAsString("tenant_id")).thenReturn(null);
+        JwtAuthenticationToken auth = new JwtAuthenticationToken(jwt);
+
+        // when
+        Mono<Void> result = tenantFilter.filter(exchange, filterChain)
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
+
+        // then
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(filterChain).filter(exchange);
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+    }
+
+    @Test
+    void filter_withJwtButMissingTenantClaim_doesNotThrowNPE() {
+        // given
+        MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/public/test").build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        Jwt jwt = mock(Jwt.class);
+        when(jwt.getClaimAsString("tenant_id")).thenReturn(null);
+        JwtAuthenticationToken auth = new JwtAuthenticationToken(jwt);
+
+        // when
+        Mono<Void> result = tenantFilter.filter(exchange, filterChain)
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
+
+        // then
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(filterChain).filter(exchange);
+    }
+
+    @Test
     void filter_missingTenantOnProtectedRoute_returns400() {
         // given
         MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/protected").build();

@@ -95,10 +95,23 @@ public class SecurityConfigAllowAllCorsTest {
         assertThat(source).isInstanceOf(UrlBasedCorsConfigurationSource.class);
     }
 
+    @Test
+    public void testPublicIntegrationSubpathIsPermittedWithoutAuthentication() {
+        webTestClient.get().uri("/api/v1/public/integrations/SANLAM/reference-data")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class).isEqualTo("ok");
+    }
+
     @RestController
     static class TestController {
         @GetMapping("/api/test")
         public String test() {
+            return "ok";
+        }
+
+        @GetMapping("/api/v1/public/integrations/SANLAM/reference-data")
+        public String publicIntegrationReferenceData() {
             return "ok";
         }
     }
