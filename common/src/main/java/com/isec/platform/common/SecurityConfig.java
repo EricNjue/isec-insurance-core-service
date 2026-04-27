@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
-                .addFilterBefore(tenantFilter, SecurityWebFiltersOrder.AUTHENTICATION);
+                .addFilterAfter(tenantFilter, SecurityWebFiltersOrder.AUTHENTICATION);
         return http.build();
     }
 

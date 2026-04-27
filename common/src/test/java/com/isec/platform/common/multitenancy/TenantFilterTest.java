@@ -9,6 +9,7 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -153,6 +154,28 @@ class TenantFilterTest {
 
         verify(filterChain).filter(exchange);
         assertThat(exchange.getResponse().getStatusCode()).isNull();
+    }
+
+    @Test
+    void filter_withCommittedResponse_doesNothing() {
+        // given
+        MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/protected").build();
+        ServerWebExchange exchange = mock(ServerWebExchange.class);
+        org.springframework.http.server.reactive.ServerHttpResponse response = mock(org.springframework.http.server.reactive.ServerHttpResponse.class);
+        
+        when(exchange.getRequest()).thenReturn(request);
+        when(exchange.getResponse()).thenReturn(response);
+        when(response.isCommitted()).thenReturn(true);
+
+        // when
+        Mono<Void> result = tenantFilter.filter(exchange, filterChain);
+
+        // then
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(filterChain, never()).filter(any());
+        verify(response, never()).setStatusCode(any());
     }
 
     @Test

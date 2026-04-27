@@ -45,6 +45,9 @@ public class TenantFilter implements WebFilter {
                 .flatMap(tenantId -> chain.filter(exchange)
                         .contextWrite(TenantContext.withTenantId(tenantId)))
                 .switchIfEmpty(Mono.defer(() -> {
+                    if (exchange.getResponse().isCommitted()) {
+                        return Mono.empty();
+                    }
                     if (!isPublic && isApi) {
                         log.warn("Missing tenant identifier for protected API path: {}", path);
                         exchange.getResponse().setStatusCode(HttpStatus.BAD_REQUEST);
