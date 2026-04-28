@@ -1,10 +1,10 @@
-package com.isec.platform.modules.integrations.sanlam.mpesa.client;
+package com.isec.platform.modules.integrations.mpesa.sanlam.client;
 
 import com.isec.platform.modules.integrations.sanlam.client.SanlamClient;
-import com.isec.platform.modules.integrations.sanlam.mpesa.dto.request.SanlamStkPushRequest;
-import com.isec.platform.modules.integrations.sanlam.mpesa.dto.request.SanlamStkStatusRequest;
-import com.isec.platform.modules.integrations.sanlam.mpesa.dto.response.SanlamStkPushResponse;
-import com.isec.platform.modules.integrations.sanlam.mpesa.dto.response.SanlamStkStatusResponse;
+import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkPushRequest;
+import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkStatusRequest;
+import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkPushResponse;
+import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkStatusResponse;
 import com.isec.platform.reactive.infra.http.HttpClientOptions;
 import com.isec.platform.reactive.infra.http.ReactiveHttpClient;
 import lombok.RequiredArgsConstructor;
@@ -24,16 +24,16 @@ public class SanlamMpesaClient {
     private final ReactiveHttpClient httpClient;
     private final SanlamClient sanlamClient;
 
-    @Value("${integrations.sanlam.mpesa.base-url}")
+    @Value("${integrations.mpesa.sanlam.base-url}")
     private String baseUrl;
 
-    @Value("${integrations.sanlam.mpesa.stk-push-path}")
+    @Value("${integrations.mpesa.sanlam.stk-push-path}")
     private String stkPushPath;
 
-    @Value("${integrations.sanlam.mpesa.stk-status-path}")
+    @Value("${integrations.mpesa.sanlam.stk-status-path}")
     private String stkStatusPath;
 
-    @Value("${integrations.sanlam.mpesa.timeout:5s}")
+    @Value("${integrations.mpesa.sanlam.timeout:5s}")
     private Duration timeout;
 
     public Mono<SanlamStkPushResponse> initiateStkPush(SanlamStkPushRequest request) {

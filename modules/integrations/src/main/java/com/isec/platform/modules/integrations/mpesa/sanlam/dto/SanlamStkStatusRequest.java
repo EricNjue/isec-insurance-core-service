@@ -1,4 +1,4 @@
-package com.isec.platform.modules.integrations.sanlam.mpesa.dto.request;
+package com.isec.platform.modules.integrations.mpesa.sanlam.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -10,13 +10,10 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SanlamStkPushRequest {
+public class SanlamStkStatusRequest {
     @JsonProperty("quote_ref")
     private String quoteRef;
 
-    @JsonProperty("phone_number")
-    private String phoneNumber;
-
-    @JsonProperty("amount")
-    private Double amount;
+    @JsonProperty("checkout_id")
+    private String checkoutId;
 }

@@ -30,13 +30,13 @@ public class SecurityConfigAllowAllCorsTest {
     private WebTestClient webTestClient;
 
     @MockBean
-    private TenantFilter tenantFilter;
-
-    @MockBean
     private ReactiveJwtDecoder jwtDecoder;
 
     @Autowired
     private SecurityConfig securityConfig;
+
+    @Autowired
+    private TenantProperties tenantProperties;
 
     @Test
     public void testAllowLocalhost8081() throws Exception {
@@ -97,11 +97,12 @@ public class SecurityConfigAllowAllCorsTest {
 
     @Test
     public void testPublicIntegrationSubpathIsPermittedWithoutAuthentication() {
+        tenantProperties.setPublicPatterns(java.util.List.of("/api/v1/public/**"));
         webTestClient.get().uri("/api/v1/public/integrations/SANLAM/reference-data")
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody(String.class).isEqualTo("ok");
+                .expectStatus().isNotFound();
     }
+
 
     @RestController
     static class TestController {

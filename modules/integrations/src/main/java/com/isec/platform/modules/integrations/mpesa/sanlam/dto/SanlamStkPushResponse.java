@@ -1,4 +1,4 @@
-package com.isec.platform.modules.integrations.sanlam.mpesa.dto.response;
+package com.isec.platform.modules.integrations.mpesa.sanlam.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
