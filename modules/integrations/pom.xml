@@ -35,5 +35,9 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.isec</groupId>
+            <artifactId>reactive-commons-infra</artifactId>
+        </dependency>
     </dependencies>
 </project>

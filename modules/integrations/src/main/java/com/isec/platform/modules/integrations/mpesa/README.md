@@ -1,6 +1,9 @@
-# M-PESA Daraja STK Push Integration Module
+# M-PESA Low-Level Integration (Daraja API)
 
-This module provides a pure Spring Boot integration with Safaricom M-PESA Daraja APIs.
+This directory contains the low-level integration logic for Safaricom's M-PESA Daraja API. For a high-level overview of how M-PESA providers are structured and how to add new partners, see the [main Integrations README](../../../../../../../../../README.md).
+
+## Overview
+This module provides a pure Spring Boot integration with Safaricom M-PESA Daraja APIs. It is used by providers that interact directly with Safaricom.
 
 ## Supported APIs
 
