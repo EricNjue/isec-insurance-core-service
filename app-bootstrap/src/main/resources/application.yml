@@ -130,6 +130,17 @@ integrations:
         max-attempts: 3
         backoff: 500ms
 
+  quote:
+    sanlam:
+      base-url: ${SANLAM_QUOTE_BASE_URL:https://gisalesuat-gvcbguf7gkh9hfbe.a03.azurefd.net}
+      create-draft-quote-path: /quotes/create_draft_quote
+      get-draft-quote-path: /quotes/draft_quote/{draftQuoteSysId}
+      timeout: 5s
+      retry:
+        enabled: true
+        max-attempts: 3
+        backoff: 500ms
+
   reference-data:
     master-cache-expiry-hours: ${MASTER_REFERENCE_DATA_CACHE_EXPIRY_HOURS:24}
     dependent-cache-expiry-hours: ${DEPENDENT_REFERENCE_DATA_CACHE_EXPIRY_HOURS:24}
