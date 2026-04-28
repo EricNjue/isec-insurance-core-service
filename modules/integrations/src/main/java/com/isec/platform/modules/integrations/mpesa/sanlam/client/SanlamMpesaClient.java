@@ -23,6 +23,7 @@ public class SanlamMpesaClient {
 
     private final ReactiveHttpClient httpClient;
     private final SanlamClient sanlamClient;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Value("${integrations.mpesa.sanlam.base-url}")
     private String baseUrl;
@@ -45,9 +46,21 @@ public class SanlamMpesaClient {
                             .headers(headers -> headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                             .build();
                     
-                    log.info("Initiating Sanlam M-Pesa STK Push for quote_ref: {}", request.getQuoteRef());
+                    try {
+                        log.info("Initiating Sanlam M-Pesa STK Push for quote_ref: {} with payload: {}", 
+                                request.getQuoteRef(), objectMapper.writeValueAsString(request));
+                    } catch (Exception e) {
+                        log.info("Initiating Sanlam M-Pesa STK Push for quote_ref: {}", request.getQuoteRef());
+                    }
                     return httpClient.post(url, request, SanlamStkPushResponse.class, options)
-                            .doOnNext(response -> log.info("Sanlam M-Pesa STK Push response for {}: {}", request.getQuoteRef(), response.getStatus()))
+                            .doOnNext(response -> {
+                                try {
+                                    log.info("Sanlam M-Pesa STK Push response for {}: {}", 
+                                            request.getQuoteRef(), objectMapper.writeValueAsString(response));
+                                } catch (Exception e) {
+                                    log.info("Sanlam M-Pesa STK Push response for {}: {}", request.getQuoteRef(), response.getStatus());
+                                }
+                            })
                             .doOnError(error -> log.error("Sanlam M-Pesa STK Push failed for {}: {}", request.getQuoteRef(), error.getMessage()));
                 });
     }
@@ -61,9 +74,21 @@ public class SanlamMpesaClient {
                             .headers(headers -> headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                             .build();
 
-                    log.info("Checking Sanlam M-Pesa STK status for checkout_id: {}", request.getCheckoutId());
+                    try {
+                        log.info("Checking Sanlam M-Pesa STK status for checkout_id: {} with payload: {}", 
+                                request.getCheckoutId(), objectMapper.writeValueAsString(request));
+                    } catch (Exception e) {
+                        log.info("Checking Sanlam M-Pesa STK status for checkout_id: {}", request.getCheckoutId());
+                    }
                     return httpClient.post(url, request, SanlamStkStatusResponse.class, options)
-                            .doOnNext(response -> log.info("Sanlam M-Pesa STK status response for {}: {}", request.getCheckoutId(), response.getStatus()))
+                            .doOnNext(response -> {
+                                try {
+                                    log.info("Sanlam M-Pesa STK status response for {}: {}", 
+                                            request.getCheckoutId(), objectMapper.writeValueAsString(response));
+                                } catch (Exception e) {
+                                    log.info("Sanlam M-Pesa STK status response for {}: {}", request.getCheckoutId(), response.getStatus());
+                                }
+                            })
                             .doOnError(error -> log.error("Sanlam M-Pesa STK status check failed for {}: {}", request.getCheckoutId(), error.getMessage()));
                 });
     }

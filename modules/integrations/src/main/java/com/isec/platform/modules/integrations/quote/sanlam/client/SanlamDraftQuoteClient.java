@@ -22,9 +22,15 @@ public class SanlamDraftQuoteClient {
     private final ReactiveHttpClient httpClient;
     private final SanlamClient sanlamAuthClient;
     private final SanlamQuoteProperties properties;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public Mono<SanlamDraftQuoteResponse> createDraftQuote(SanlamCreateDraftQuoteRequest request) {
-        log.info("SanlamDraftQuoteClient: Creating draft quote for client: {}", request.getClientName());
+        try {
+            log.info("SanlamDraftQuoteClient: Creating draft quote for client: {} with payload: {}", 
+                    request.getClientName(), objectMapper.writeValueAsString(request));
+        } catch (Exception e) {
+            log.info("SanlamDraftQuoteClient: Creating draft quote for client: {}", request.getClientName());
+        }
         
         return sanlamAuthClient.getAccessToken()
                 .flatMap(token -> {
@@ -40,7 +46,14 @@ public class SanlamDraftQuoteClient {
 
                     return httpClient.post(url, request, SanlamDraftQuoteResponse.class, options);
                 })
-                .doOnNext(response -> log.info("SanlamDraftQuoteClient: Draft quote created. Ref: {}", response.getDraftQuoteRef()))
+                .doOnNext(response -> {
+                    try {
+                        log.info("SanlamDraftQuoteClient: Draft quote created. Ref: {}, Payload: {}", 
+                                response.getDraftQuoteRef(), objectMapper.writeValueAsString(response));
+                    } catch (Exception e) {
+                        log.info("SanlamDraftQuoteClient: Draft quote created. Ref: {}", response.getDraftQuoteRef());
+                    }
+                })
                 .doOnError(error -> log.error("SanlamDraftQuoteClient: Failed to create draft quote. Error: {}", error.getMessage()));
     }
 
@@ -60,7 +73,14 @@ public class SanlamDraftQuoteClient {
 
                     return httpClient.get(url, SanlamDraftQuoteResponse.class, options);
                 })
-                .doOnNext(response -> log.info("SanlamDraftQuoteClient: Draft quote fetched. Ref: {}", response.getDraftQuoteRef()))
+                .doOnNext(response -> {
+                    try {
+                        log.info("SanlamDraftQuoteClient: Draft quote fetched. Ref: {}, Payload: {}", 
+                                response.getDraftQuoteRef(), objectMapper.writeValueAsString(response));
+                    } catch (Exception e) {
+                        log.info("SanlamDraftQuoteClient: Draft quote fetched. Ref: {}", response.getDraftQuoteRef());
+                    }
+                })
                 .doOnError(error -> log.error("SanlamDraftQuoteClient: Failed to fetch draft quote. Error: {}", error.getMessage()));
     }
 

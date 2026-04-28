@@ -1,5 +1,10 @@
 package com.isec.platform.modules.integrations.quote.sanlam.provider;
 
+import com.isec.platform.modules.integrations.mpesa.model.MpesaCheckStatusRequest;
+import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentRequest;
+import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse;
+import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
+import com.isec.platform.modules.integrations.mpesa.sanlam.service.SanlamMpesaProvider;
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationRequest;
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationResponse;
 import com.isec.platform.modules.integrations.premium.sanlam.provider.SanlamPremiumCalculationProvider;
@@ -29,6 +34,7 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
     private final SanlamDraftQuoteClient client;
     private final SanlamDraftQuoteMapper mapper;
     private final SanlamPremiumCalculationProvider premiumProvider;
+    private final SanlamMpesaProvider mpesaProvider;
 
     @Override
     public PartnerType providerType() {
@@ -40,7 +46,9 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
         return Set.of(
                 QuoteLifecycleCapability.CALCULATE_PREMIUM,
                 QuoteLifecycleCapability.CREATE_DRAFT_QUOTE,
-                QuoteLifecycleCapability.GET_DRAFT_QUOTE
+                QuoteLifecycleCapability.GET_DRAFT_QUOTE,
+                QuoteLifecycleCapability.INITIATE_PAYMENT,
+                QuoteLifecycleCapability.CHECK_PAYMENT_STATUS
         );
     }
 
@@ -83,6 +91,16 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
                             })
                             .doOnError(error -> log.error("Sanlam draft quote fetch failed. Error: {}", error.getMessage()));
                 }));
+    }
+
+    @Override
+    public Mono<MpesaInitiatePaymentResponse> initiatePayment(MpesaInitiatePaymentRequest request) {
+        return mpesaProvider.initiatePayment(request);
+    }
+
+    @Override
+    public Mono<MpesaPaymentStatusResponse> checkPaymentStatus(MpesaCheckStatusRequest request) {
+        return mpesaProvider.checkStatus(request);
     }
 
     private void validateDraftQuoteRequest(DraftQuoteRequest request) {

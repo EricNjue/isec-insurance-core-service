@@ -1,0 +1,63 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240428-1
+      author: junie
+      changes:
+        - createTable:
+            tableName: motor_quote_applications
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: quote_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: partner
+                  type: VARCHAR(50)
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+              - column:
+                  name: insurance_details
+                  type: TEXT
+              - column:
+                  name: vehicle_details
+                  type: TEXT
+              - column:
+                  name: kyc_details
+                  type: TEXT
+              - column:
+                  name: premium_result
+                  type: TEXT
+              - column:
+                  name: draft_quote_result
+                  type: TEXT
+              - column:
+                  name: payment_result
+                  type: TEXT
+              - column:
+                  name: partner_references
+                  type: TEXT
+              - column:
+                  name: raw_partner_responses
+                  type: TEXT
+              - column:
+                  name: tenant_id
+                  type: VARCHAR(255)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+              - column:
+                  name: version
+                  type: BIGINT

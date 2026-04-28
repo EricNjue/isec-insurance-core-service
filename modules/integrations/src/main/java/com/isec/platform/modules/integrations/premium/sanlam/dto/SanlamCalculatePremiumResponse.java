@@ -15,28 +15,28 @@ import java.util.List;
 @AllArgsConstructor
 public class SanlamCalculatePremiumResponse {
     @JsonProperty("basic_premium")
-    private BigDecimal basicPremium;
+    private Object basicPremium;
     
     @JsonProperty("pvt_benefit")
-    private BigDecimal pvtBenefit;
+    private Object pvtBenefit;
     
     @JsonProperty("excess_protector_benefit")
-    private BigDecimal excessProtectorBenefit;
+    private Object excessProtectorBenefit;
     
     @JsonProperty("windscreen_benefit")
-    private BigDecimal windscreenBenefit;
+    private Object windscreenBenefit;
     
     @JsonProperty("radio_cassette_benefit")
-    private BigDecimal radioCassetteBenefit;
+    private Object radioCassetteBenefit;
     
     @JsonProperty("loss_of_use_benefit")
-    private BigDecimal lossOfUseBenefit;
+    private Object lossOfUseBenefit;
     
     @JsonProperty("passenger_legal_liability_benefit")
-    private BigDecimal passengerLegalLiabilityBenefit;
+    private Object passengerLegalLiabilityBenefit;
     
     @JsonProperty("benefits_total")
-    private BigDecimal benefitsTotal;
+    private Object benefitsTotal;
     
     @JsonProperty("benefits_breakdown")
     private List<SanlamPremiumBreakdownItem> benefitsBreakdown;
@@ -45,16 +45,16 @@ public class SanlamCalculatePremiumResponse {
     private List<SanlamPremiumBreakdownItem> grossPremiumBreakdown;
     
     @JsonProperty("net_premium")
-    private BigDecimal netPremium;
+    private Object netPremium;
     
     @JsonProperty("levies")
-    private BigDecimal levies;
+    private Object levies;
     
     @JsonProperty("stamp_duty")
-    private BigDecimal stampDuty;
+    private Object stampDuty;
     
     @JsonProperty("gross_premium")
-    private BigDecimal grossPremium;
+    private Object grossPremium;
     
     @JsonProperty("rate_set_used")
     private String rateSetUsed;
