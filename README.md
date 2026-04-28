@@ -465,7 +465,49 @@ Update the following variables in the collection to match your setup:
 5. Initiate payment via existing flow: `POST /api/v1/payments/stk-push` with `applicationId`, `amount` (>= 35% on first payment), and `phoneNumber`.
 6. On callback confirmation, existing issuance/documents/notifications flows are reused automatically.
 
-### Seed Data
+  - **Seed Data**: SANLAM, APA, ICEA Lion.
+
+### 17. Quote Lifecycle Capabilities (Optional Integrations)
+
+The platform supports a modular quote lifecycle where partners can implement specific capabilities. Sanlam is the first partner to support draft quote operations.
+
+#### Supported Capabilities
+- `CALCULATE_PREMIUM`: All partners.
+- `CREATE_DRAFT_QUOTE`: Sanlam.
+- `GET_DRAFT_QUOTE`: Sanlam.
+
+#### Sanlam Draft Quote Integration
+Sanlam allows creating a draft quote on their system before a full application is submitted. This is modeled as an optional capability via the `PartnerQuoteProvider` interface.
+
+**Configuration:**
+```yaml
+integrations:
+  quote:
+    sanlam:
+      base-url: ${SANLAM_QUOTE_BASE_URL}
+      create-draft-quote-path: /quotes/create_draft_quote
+      get-draft-quote-path: /quotes/draft_quote/{draftQuoteSysId}
+      timeout: 5s
+      retry:
+        enabled: true
+        max-attempts: 3
+        backoff: 500ms
+```
+
+**Architecture:**
+- `PartnerQuoteProvider`: Interface for partner-specific quote operations.
+- `SanlamQuoteProvider`: Implementation for Sanlam.
+- `SanlamDraftQuoteClient`: Reactive HTTP client for Sanlam APIs.
+- `PartnerQuoteProviderFactory`: Factory to retrieve the appropriate provider for a partner.
+
+**Usage:**
+1. Use `PartnerQuoteProviderFactory` to get the `SANLAM` provider.
+2. Check `supportedCapabilities()` before calling optional methods.
+3. Call `createDraftQuote(DraftQuoteRequest)` or `getDraftQuote(GetDraftQuoteRequest)`.
+
+---
+
+## 18. Seed Data
 - Tenants: SANLAM, APA, ICEA Lion.
 - Rate books: `v1.0` active for each tenant; sample rules (Private Car/Commercial) plus min‑premium/referral/add‑on.
 - Make bands (sample): Toyota (Corolla, RAV4, Hilux), Mazda (Demio, CX‑5, Axela) — used via simple rule conditions (can extend to group‑based lookups later).
