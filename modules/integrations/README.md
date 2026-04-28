@@ -34,6 +34,87 @@ To add a new insurance partner:
 
 M-Pesa integrations are structured using a **Provider/Adapter** pattern to support multiple gateways (some partners provide their own M-Pesa proxy APIs).
 
+---
+
+## 3. Motor Premium Calculation Integration
+
+Motor premium calculation uses a **Provider/Factory** pattern to support multiple insurance partners with different rating engines and API specifications.
+
+### Directory Structure
+```text
+integrations
+  └── premium
+      ├── provider
+      │   ├── PremiumCalculationProvider (Interface)
+      │   ├── PremiumProviderType (Enum)
+      │   └── PremiumCalculationProviderFactory (Resolver)
+      ├── model (Partner-Agnostic Models)
+      │   ├── PremiumCalculationRequest
+      │   ├── PremiumCalculationResponse
+      │   ├── PremiumBenefitBreakdown
+      │   ├── PremiumGrossBreakdown
+      │   ├── PremiumCalculationMetadata
+      │   └── PremiumCalculationStatus
+      └── <partner_name> (Partner-Specific Implementation)
+          ├── client (HTTP Client)
+          ├── provider (Provider Implementation)
+          ├── dto (Partner DTOs)
+          ├── mapper (Model Conversion)
+          └── config (Configuration Properties)
+```
+
+### How it Works
+1.  **PremiumCalculationProviderFactory**: Automatically collects all Spring-managed beans implementing `PremiumCalculationProvider`.
+2.  **Provider Selection**: The factory resolves the correct provider based on the `PremiumProviderType` (e.g., `SANLAM`).
+3.  **Abstraction**: Core services use the factory and the `PremiumCalculationProvider` interface, remaining oblivious to partner-specific API details.
+
+### Adding a New Premium Partner
+To add a new partner (e.g., `APA`):
+
+1.  **Update `PremiumProviderType`**:
+    Add `APA` to the enum.
+
+2.  **Create Implementation Package**:
+    `com.isec.platform.modules.integrations.premium.apa`
+
+3.  **Implement `PremiumCalculationProvider`**:
+    ```java
+    @Service
+    public class ApaPremiumCalculationProvider implements PremiumCalculationProvider {
+        @Override
+        public PremiumProviderType providerType() {
+            return PremiumProviderType.APA;
+        }
+        // Implement calculatePremium
+    }
+    ```
+
+4.  **Create DTOs, Client, and Mapper**:
+    - Define partner-specific request/response DTOs.
+    - Implement a reactive client using `ReactiveHttpClient`.
+    - Implement a mapper to convert between common models and partner DTOs.
+
+5.  **Configure in `application.yml`**:
+    ```yaml
+    integrations:
+      premium:
+        apa:
+          base-url: https://api.apa.co.ke
+          calculate-premium-path: /v1/motor/rates
+          timeout: 5s
+    ```
+
+### Validation Rules
+Providers are responsible for validating the common `PremiumCalculationRequest` before making external calls. Standard validations include:
+- `vehicleValue` > 0
+- `vehicleYear` is reasonable (e.g., > 1900)
+- Mandatory fields like `vehicleMake`, `vehicleModel`, `motorClass` are present.
+
+### Resilience
+- Use `ReactiveHttpClient` for standard timeout and retry support.
+- Retry only transport/network errors (5xx, timeouts).
+- Do not retry business/validation errors (4xx).
+
 ### Directory Structure
 ```text
 integrations
