@@ -14,6 +14,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import reactor.util.retry.Retry;
+
 import java.time.Duration;
 
 @Component
@@ -43,6 +45,7 @@ public class SanlamMpesaClient {
                     String url = baseUrl + stkPushPath;
                     HttpClientOptions options = HttpClientOptions.builder()
                             .timeout(timeout)
+                            .retrySpec(Retry.backoff(3, Duration.ofSeconds(1)))
                             .headers(headers -> headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                             .build();
                     
@@ -71,6 +74,7 @@ public class SanlamMpesaClient {
                     String url = baseUrl + stkStatusPath;
                     HttpClientOptions options = HttpClientOptions.builder()
                             .timeout(timeout)
+                            .retrySpec(Retry.backoff(3, Duration.ofSeconds(1)))
                             .headers(headers -> headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                             .build();
 
