@@ -90,7 +90,7 @@ Authentication and Authorization are handled via **Keycloak**.
 ## 8. API Usage Flow (Happy Path)
 1. **Calculate Motor Premium**: `POST /api/v1/motor/quotes/calculate-premium` to get a normalized premium response from a partner (e.g., SANLAM).
 2. **Accept Quote**: `POST /api/v1/motor/quotes/{quoteId}/accept` to accept the premium and create a draft quote with the partner.
-3. **Initiate M-Pesa Payment**: `POST /api/v1/motor/quotes/{quoteId}/payments/initiate` to start the payment process.
+3. **Initiate M-Pesa Payment**: `POST /api/v1/motor/quotes/{quoteId}/payments/initiate` to start the payment process. You can optionally provide `kycDetails` to update the application if they were missing during premium calculation.
 4. **Check Payment Status**: `GET /api/v1/motor/quotes/{quoteId}/payments/status` to verify payment.
 5. **Get Quote Application**: `GET /api/v1/motor/quotes/{quoteId}` to fetch the current state of the journey.
 
@@ -105,7 +105,7 @@ The platform implements a partner-agnostic orchestrator for the motor insurance 
 | :--- | :--- | :--- | :--- |
 | 1. Calculate | `/api/v1/motor/quotes/calculate-premium` | POST | Entry point. Validates request, upserts quote, and calls partner premium API. |
 | 2. Accept | `/api/v1/motor/quotes/{quoteId}/accept` | POST | User accepts premium. Transitions to `QUOTE_ACCEPTED` and creates partner draft. |
-| 3. Pay | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/initiate` | POST | Initiates M-Pesa STK Push for the calculated premium amount. |
+| 3. Pay | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/initiate` | POST | Initiates M-Pesa STK Push. Accepts optional `kycDetails` for late registration. |
 | 4. Status | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/status` | GET | Polls or checks for payment confirmation and updates quote state. |
 | 5. View | `/api/v1/motor/quotes/{quoteId}` | GET | Returns full canonical state of the quote journey and `nextActions`. |
 
@@ -268,7 +268,24 @@ curl -X POST http://localhost:8080/api/v1/motor/quotes/calculate-premium \
 
 ---
 
-## 12. Payment & Certificate Flow
+## 12. Example Request (Initiate Payment with KYC)
+```bash
+curl -X POST http://localhost:8080/api/v1/motor/quotes/Q-12345/payments/initiate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "0712345678",
+    "kycDetails": {
+      "email": "eric.gitonga38@gmail.com",
+      "fullName": "Eric Gitonga Njue",
+      "phoneNumber": "0719531872",
+      "physicalAddress": "Juja, Kenyatta Rd"
+    }
+  }'
+```
+
+---
+
+## 13. Payment & Certificate Flow
 - User initiates STK Push.
 - System records payment as `PENDING`.
 - Safaricom sends callback; System updates balance and records receipt.

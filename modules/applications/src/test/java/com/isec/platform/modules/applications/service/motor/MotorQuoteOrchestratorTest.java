@@ -18,12 +18,15 @@ import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResp
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
 import com.isec.platform.common.multitenancy.TenantContext;
+import com.isec.platform.common.exception.BusinessException;
+import com.isec.platform.common.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -57,6 +60,7 @@ class MotorQuoteOrchestratorTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(orchestrator, "minPaymentPercentage", 0.35);
         calculateRequest = CalculateMotorPremiumRequest.builder()
                 .quoteId("Q-123")
                 .partner(PartnerType.SANLAM)
@@ -171,6 +175,143 @@ class MotorQuoteOrchestratorTest {
                 .verifyComplete();
 
         verify(partnerProvider).initiatePayment(any());
+    }
+
+    @Test
+    void initiatePayment_ShouldUpsertKycDetails_WhenProvided() throws Exception {
+        application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
+        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
+        
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(repository.save(any())).thenReturn(Mono.just(application));
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        
+        DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
+                .draftQuoteRef("REF-123")
+                .draftQuoteAmount(new BigDecimal("50000"))
+                .clientPhone("0712345678")
+                .build();
+        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        
+        MpesaInitiatePaymentResponse payRes = MpesaInitiatePaymentResponse.builder()
+                .checkoutId("CH-123")
+                .build();
+        when(partnerProvider.initiatePayment(any())).thenReturn(Mono.just(payRes));
+        
+        MotorQuoteResponse response = MotorQuoteResponse.builder()
+                .quoteId("Q-123")
+                .status(MotorQuoteStatus.PAYMENT_INITIATED)
+                .build();
+        when(mapper.toResponse(any())).thenReturn(response);
+
+        QuoteRequest.KycDetails kyc = QuoteRequest.KycDetails.builder()
+                .email("test@test.com")
+                .fullName("Test User")
+                .phoneNumber("0712345678")
+                .build();
+        com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest.builder()
+                .kycDetails(kyc)
+                .build();
+        
+        StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED)
+                .verifyComplete();
+
+        verify(mapper).updateKycDetails(eq(application), eq(kyc));
+        verify(partnerProvider).initiatePayment(any());
+    }
+
+    @Test
+    void initiatePayment_ShouldFail_WhenAmountBelowThreshold() throws Exception {
+        application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
+        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
+        
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        
+        DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
+                .draftQuoteRef("REF-123")
+                .draftQuoteAmount(new BigDecimal("50000"))
+                .clientPhone("0712345678")
+                .build();
+        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+
+        com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest.builder()
+                .amount(10000.0) // 20% of 50000, which is below 35%
+                .build();
+        
+        StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectErrorMatches(throwable -> throwable instanceof BusinessException && 
+                        throwable.getMessage().contains("Minimum payment amount is 35%"))
+                .verify();
+    }
+
+    @Test
+    void initiatePayment_ShouldFail_WhenAmountBelowConfiguredThreshold() throws Exception {
+        ReflectionTestUtils.setField(orchestrator, "minPaymentPercentage", 0.50);
+        application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
+        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
+
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+
+        DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
+                .draftQuoteRef("REF-123")
+                .draftQuoteAmount(new BigDecimal("50000"))
+                .clientPhone("0712345678")
+                .build();
+        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+
+        com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest.builder()
+                .amount(20000.0) // 40% of 50000, which is below 50%
+                .build();
+
+        StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectErrorMatches(throwable -> throwable instanceof BusinessException &&
+                        throwable.getMessage().contains("Minimum payment amount is 50%"))
+                .verify();
+    }
+
+    @Test
+    void initiatePayment_ShouldSucceed_WhenAmountAboveThreshold() throws Exception {
+        application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
+        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
+        
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(repository.save(any())).thenReturn(Mono.just(application));
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        
+        DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
+                .draftQuoteRef("REF-123")
+                .draftQuoteAmount(new BigDecimal("50000"))
+                .clientPhone("0712345678")
+                .build();
+        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        
+        MpesaInitiatePaymentResponse payRes = MpesaInitiatePaymentResponse.builder()
+                .checkoutId("CH-123")
+                .build();
+        when(partnerProvider.initiatePayment(any())).thenReturn(Mono.just(payRes));
+        
+        MotorQuoteResponse response = MotorQuoteResponse.builder()
+                .quoteId("Q-123")
+                .status(MotorQuoteStatus.PAYMENT_INITIATED)
+                .build();
+        when(mapper.toResponse(any())).thenReturn(response);
+
+        com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest.builder()
+                .amount(20000.0) // 40% of 50000, which is above 35%
+                .build();
+        
+        StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED)
+                .verifyComplete();
+
+        verify(partnerProvider).initiatePayment(argThat(req -> req.getAmount() == 20000.0));
     }
 
     @Test

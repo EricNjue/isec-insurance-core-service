@@ -59,6 +59,15 @@ public class MotorQuoteMapper {
         }
     }
 
+    public void updateKycDetails(MotorQuoteApplication entity, QuoteRequest.KycDetails kycDetails) {
+        if (kycDetails == null) return;
+        try {
+            entity.setKycDetails(objectMapper.writeValueAsString(kycDetails));
+        } catch (JsonProcessingException e) {
+            throw new BusinessException("Failed to serialize KYC details");
+        }
+    }
+
     public PremiumCalculationRequest toPremiumRequest(MotorQuoteApplication app) {
         QuoteRequest.InsuranceDetails insurance = deserialize(app.getInsuranceDetails(), QuoteRequest.InsuranceDetails.class);
         QuoteRequest.VehicleDetails vehicle = deserialize(app.getVehicleDetails(), QuoteRequest.VehicleDetails.class);
@@ -75,6 +84,7 @@ public class MotorQuoteMapper {
         // Map addons
         if (insurance.getAddonRuleIds() != null) {
             // Simplified addon mapping logic as per requirements
+            // todo :- we have a table called addon_definitions, we can use that to map the addon ids to addon names, it has to be partner agnostic, we need a way to achieve this, even if it means modifying the table structure
             if (insurance.getAddonRuleIds().contains(1L)) builder.excessProtectorInterest("yes");
             if (insurance.getAddonRuleIds().contains(2L)) builder.pvtInterest("yes");
             // Add more as needed or use a more sophisticated mapping layer

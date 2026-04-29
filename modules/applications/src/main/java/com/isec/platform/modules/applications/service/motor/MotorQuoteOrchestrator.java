@@ -23,6 +23,7 @@ import com.isec.platform.modules.integrations.quote.provider.PartnerQuoteProvide
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -36,6 +37,9 @@ public class MotorQuoteOrchestrator {
     private final PartnerQuoteProviderFactory partnerFactory;
     private final ObjectMapper objectMapper;
 
+    @Value("${quote.min-payment-percentage:0.35}")
+    private double minPaymentPercentage;
+
     public Mono<MotorQuoteResponse> calculatePremium(CalculateMotorPremiumRequest request) {
         log.info("Starting premium calculation for quoteId: {}, partner: {}", request.getQuoteId(), request.getPartner());
         try {
@@ -43,7 +47,7 @@ public class MotorQuoteOrchestrator {
         } catch (JsonProcessingException e) {
             log.warn("Failed to log canonical request payload: {}", e.getMessage());
         }
-        
+
         return TenantContext.getTenantId()
                 .switchIfEmpty(Mono.error(new BusinessException("Missing required X-Tenant-Id header")))
                 .flatMap(tenantId -> repository.findByQuoteId(request.getQuoteId())
@@ -117,17 +121,23 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
+                            if (request.getKycDetails() != null) {
+                                mapper.updateKycDetails(app, request.getKycDetails());
+                            }
                             DraftQuoteResponse draft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
                             if (draft == null || draft.getDraftQuoteRef() == null) {
                                 return Mono.error(new BusinessException("Draft quote reference missing. Acceptance required."));
                             }
 
                             PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
+
+                            double requestAmount = getRequestAmount(request, draft);
+
                             MpesaInitiatePaymentRequest initRequest = MpesaInitiatePaymentRequest.builder()
                                     .partner(MpesaProviderType.valueOf(app.getPartner().name()))
                                     .quoteRef(draft.getDraftQuoteRef())
                                     .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : draft.getClientPhone())
-                                    .amount(draft.getDraftQuoteAmount().doubleValue())
+                                    .amount(requestAmount)
                                     .build();
 
                             return provider.initiatePayment(initRequest)
@@ -139,6 +149,19 @@ public class MotorQuoteOrchestrator {
                                     });
                         }))
                 .map(mapper::toResponse);
+    }
+
+    private double getRequestAmount(MpesaInitiationRequest request, DraftQuoteResponse draft) {
+        double fullAmount = draft.getDraftQuoteAmount().doubleValue();
+        double requestAmount = request.getAmount() != null ? request.getAmount() : fullAmount;
+
+        if (requestAmount < fullAmount) {
+            double minAmount = fullAmount * minPaymentPercentage;
+            if (requestAmount < minAmount) {
+                throw new BusinessException(String.format("Minimum payment amount is %.0f%% (KES %.2f) of the total premium", minPaymentPercentage * 100, minAmount));
+            }
+        }
+        return requestAmount;
     }
 
     public Mono<MotorQuoteResponse> checkPaymentStatus(String quoteId) {
@@ -179,9 +202,9 @@ public class MotorQuoteOrchestrator {
         DraftQuoteResponse draft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
         try {
             // Need checkoutId from previous payment result
-            com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse initRes = 
+            com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse initRes =
                     objectMapper.readValue(app.getPaymentResult(), com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse.class);
-            
+
             return MpesaCheckStatusRequest.builder()
                     .partner(MpesaProviderType.valueOf(app.getPartner().name()))
                     .quoteRef(draft.getDraftQuoteRef())
