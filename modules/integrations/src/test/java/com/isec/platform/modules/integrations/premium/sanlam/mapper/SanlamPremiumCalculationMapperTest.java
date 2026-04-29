@@ -102,6 +102,33 @@ class SanlamPremiumCalculationMapperTest {
     }
 
     @Test
+    void shouldMapSanlamResponseWithInclusiveStringsToCommonResponse() {
+        SanlamCalculatePremiumResponse sanlamResponse = SanlamCalculatePremiumResponse.builder()
+                .basicPremium(new BigDecimal("50000"))
+                .excessProtectorBenefit("Inclusive")
+                .benefitsTotal(new BigDecimal("5000"))
+                .netPremium("55000.00")
+                .levies(248)
+                .stampDuty(40L)
+                .grossPremium(new BigDecimal("55288"))
+                .benefitsBreakdown(List.of(
+                        new SanlamPremiumBreakdownItem("PVT benefit", "Inclusive"),
+                        new SanlamPremiumBreakdownItem("Excess protector", 5000)
+                ))
+                .build();
+
+        PremiumCalculationResponse response = mapper.toCommonResponse(sanlamResponse);
+
+        assertThat(response.getStatus()).isEqualTo(PremiumCalculationStatus.SUCCESS);
+        assertThat(response.getExcessProtectorBenefit()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.getNetPremium()).isEqualByComparingTo(new BigDecimal("55000"));
+        assertThat(response.getLevies()).isEqualByComparingTo(new BigDecimal("248"));
+        assertThat(response.getStampDuty()).isEqualByComparingTo(new BigDecimal("40"));
+        assertThat(response.getBenefitsBreakdown().get(0).getAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.getBenefitsBreakdown().get(1).getAmount()).isEqualByComparingTo(new BigDecimal("5000"));
+    }
+
+    @Test
     void shouldReturnFailedStatusWhenSanlamResponseIsNull() {
         PremiumCalculationResponse response = mapper.toCommonResponse(null);
         assertThat(response.getStatus()).isEqualTo(PremiumCalculationStatus.FAILED);

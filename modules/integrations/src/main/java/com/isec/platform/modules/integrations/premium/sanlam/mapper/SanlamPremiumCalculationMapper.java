@@ -13,6 +13,7 @@ import com.isec.platform.modules.integrations.premium.sanlam.dto.SanlamCalculati
 import com.isec.platform.modules.integrations.premium.sanlam.dto.SanlamPremiumBreakdownItem;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -55,20 +56,20 @@ public class SanlamPremiumCalculationMapper {
         return PremiumCalculationResponse.builder()
                 .provider(PremiumProviderType.SANLAM)
                 .status(PremiumCalculationStatus.SUCCESS)
-                .basicPremium(response.getBasicPremium())
-                .pvtBenefit(response.getPvtBenefit())
-                .excessProtectorBenefit(response.getExcessProtectorBenefit())
-                .windscreenBenefit(response.getWindscreenBenefit())
-                .radioCassetteBenefit(response.getRadioCassetteBenefit())
-                .lossOfUseBenefit(response.getLossOfUseBenefit())
-                .passengerLegalLiabilityBenefit(response.getPassengerLegalLiabilityBenefit())
-                .benefitsTotal(response.getBenefitsTotal())
+                .basicPremium(toBigDecimal(response.getBasicPremium()))
+                .pvtBenefit(toBigDecimal(response.getPvtBenefit()))
+                .excessProtectorBenefit(toBigDecimal(response.getExcessProtectorBenefit()))
+                .windscreenBenefit(toBigDecimal(response.getWindscreenBenefit()))
+                .radioCassetteBenefit(toBigDecimal(response.getRadioCassetteBenefit()))
+                .lossOfUseBenefit(toBigDecimal(response.getLossOfUseBenefit()))
+                .passengerLegalLiabilityBenefit(toBigDecimal(response.getPassengerLegalLiabilityBenefit()))
+                .benefitsTotal(toBigDecimal(response.getBenefitsTotal()))
                 .benefitsBreakdown(mapBenefitsBreakdown(response.getBenefitsBreakdown()))
                 .grossPremiumBreakdown(mapGrossBreakdown(response.getGrossPremiumBreakdown()))
-                .netPremium(response.getNetPremium())
-                .levies(response.getLevies())
-                .stampDuty(response.getStampDuty())
-                .grossPremium(response.getGrossPremium())
+                .netPremium(toBigDecimal(response.getNetPremium()))
+                .levies(toBigDecimal(response.getLevies()))
+                .stampDuty(toBigDecimal(response.getStampDuty()))
+                .grossPremium(toBigDecimal(response.getGrossPremium()))
                 .rateSetUsed(response.getRateSetUsed())
                 .specialRateApplied(response.isSpecialRateApplied())
                 .productSystemId(response.getProductSystemId())
@@ -83,7 +84,7 @@ public class SanlamPremiumCalculationMapper {
                 .stream()
                 .map(item -> PremiumBenefitBreakdown.builder()
                         .label(item.getLabel())
-                        .amount(item.getAmount())
+                        .amount(toBigDecimal(item.getAmount()))
                         .build())
                 .collect(Collectors.toList());
     }
@@ -94,9 +95,33 @@ public class SanlamPremiumCalculationMapper {
                 .stream()
                 .map(item -> PremiumGrossBreakdown.builder()
                         .label(item.getLabel())
-                        .amount(item.getAmount())
+                        .amount(toBigDecimal(item.getAmount()))
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return BigDecimal.ZERO;
+        }
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+        if (value instanceof Number) {
+            return BigDecimal.valueOf(((Number) value).doubleValue());
+        }
+        if (value instanceof String) {
+            String strValue = (String) value;
+            if ("Inclusive".equalsIgnoreCase(strValue)) {
+                return BigDecimal.ZERO;
+            }
+            try {
+                return new BigDecimal(strValue);
+            } catch (NumberFormatException e) {
+                return BigDecimal.ZERO;
+            }
+        }
+        return BigDecimal.ZERO;
     }
 
     private PremiumCalculationMetadata mapMetadata(SanlamCalculationDetails details) {

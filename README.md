@@ -88,17 +88,204 @@ Authentication and Authorization are handled via **Keycloak**.
 ---
 
 ## 8. API Usage Flow (Happy Path)
-1. **Initiate Quote**: `POST /api/v1/{tenantId}/motor/quotes/initiate` (authenticated) to start a new application process. Returns a `quoteId` (valid for 30 minutes) and a list of required documents.
-2. **Create Quote**: `POST /api/v1/{tenantId}/motor/quotes` with the `quoteId`, insurance details, vehicle details, and KYC details. This calculates the premium and upserts customer/vehicle data.
-3. **Get Profile**: `GET /api/v1/profile` after logging in.
-4. **Create Application**: `POST /api/v1/applications` to start a draft from a `quoteId`.
-5. **Upload Documents**: Use `GET /api/v1/documents/presigned-url` to get a PUT URL, upload your file, then use `GET /api/v1/documents/application/{id}` to see all your associated documents and their download URLs.
-6. **Pay**: `POST /api/v1/payments/stk-push` to initiate M-Pesa.
-7. **Issue Certificate**: `POST /api/v1/certificates/request` after payment callback.
+1. **Calculate Motor Premium**: `POST /api/v1/motor/quotes/calculate-premium` to get a normalized premium response from a partner (e.g., SANLAM).
+2. **Accept Quote**: `POST /api/v1/motor/quotes/{quoteId}/accept` to accept the premium and create a draft quote with the partner.
+3. **Initiate M-Pesa Payment**: `POST /api/v1/motor/quotes/{quoteId}/payments/initiate` to start the payment process. You can optionally provide `kycDetails` to update the application if they were missing during premium calculation.
+4. **Check Payment Status**: `GET /api/v1/motor/quotes/{quoteId}/payments/status` to verify payment.
+5. **Get Quote Application**: `GET /api/v1/motor/quotes/{quoteId}` to fetch the current state of the journey.
 
 ---
 
-## 9. Payment & Certificate Flow
+## 9. Motor Quote Journey Orchestration
+The platform implements a partner-agnostic orchestrator for the motor insurance lifecycle, managing state transitions and delegating to various insurance partners.
+
+### Endpoints & Lifecycle Flow
+
+| Step | Endpoint | Method | Description |
+| :--- | :--- | :--- | :--- |
+| 1. Calculate | `/api/v1/motor/quotes/calculate-premium` | POST | Entry point. Validates request, upserts quote, and calls partner premium API. |
+| 2. Accept | `/api/v1/motor/quotes/{quoteId}/accept` | POST | User accepts premium. Transitions to `QUOTE_ACCEPTED` and creates partner draft. |
+| 3. Pay | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/initiate` | POST | Initiates M-Pesa STK Push. Accepts optional `kycDetails` for late registration. |
+| 4. Status | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/status` | GET | Polls or checks for payment confirmation and updates quote state. |
+| 5. View | `/api/v1/motor/quotes/{quoteId}` | GET | Returns full canonical state of the quote journey and `nextActions`. |
+
+### Lifecycle Statuses & Transitions
+
+The orchestrator enforces a strict state machine to ensure integrity:
+
+*   **STARTED**: Application initiated.
+*   **PREMIUM_CALCULATION_IN_PROGRESS**: External partner API call active.
+*   **PREMIUM_CALCULATED**: Premium result persisted locally.
+*   **PREMIUM_CALCULATION_FAILED**: Terminal state for current attempt.
+*   **QUOTE_ACCEPTED**: Intermediate state after user confirmation.
+*   **DRAFT_QUOTE_CREATED**: Partner-side draft quote generated (if supported).
+*   **PAYMENT_INITIATED**: STK Push request sent successfully.
+*   **PAYMENT_PENDING**: Awaiting callback or verification.
+*   **PAYMENT_SUCCESSFUL**: Payment confirmed; ready for issuance.
+*   **PAYMENT_FAILED**: Payment rejected or timed out.
+*   **POLICY_ISSUED**: Final policy generated and sent.
+
+### Persistence & Database
+
+The state is persisted in PostgreSQL using R2DBC. Database migrations are managed via Liquibase.
+
+**Running Migrations via Liquibase (MANDATORY):**
+
+Because the project uses Spring Data R2DBC, migrations **do not run automatically** on application startup. They must be executed manually via the CLI before starting the application:
+
+1.  **Prepare Properties**: Copy the example properties file and update it with your local database credentials:
+    ```bash
+    cp app-bootstrap/liquibase.example.properties app-bootstrap/liquibase.properties
+    ```
+    *Edit `app-bootstrap/liquibase.properties` to set `url`, `username`, and `password`.*
+
+2.  **Run Migration**:
+    ```bash
+    ./mvnw liquibase:update -pl app-bootstrap -Dliquibase.propertyFile=liquibase.properties
+    ```
+
+**Important Notes:**
+- **Discouraged:** Manual SQL script execution is strongly discouraged as it may cause conflicts with the Liquibase tracking table (`databasechangelog`). Use the CLI command above to ensure the database schema remains in sync with the application code.
+- **Properties**: Ensure `app-bootstrap/liquibase.properties` is configured as described above.
+
+**Manual SQL Script (For reference only):**
+If you must execute the SQL script manually (not recommended for production environments where Liquibase is used), use the following:
+
+```sql
+CREATE TABLE IF NOT EXISTS motor_quote_applications (
+    id BIGSERIAL PRIMARY KEY,
+    quote_id VARCHAR(255) NOT NULL UNIQUE,
+    partner VARCHAR(50),
+    status VARCHAR(50),
+    insurance_details TEXT,
+    vehicle_details TEXT,
+    kyc_details TEXT,
+    premium_result TEXT,
+    draft_quote_result TEXT,
+    payment_result TEXT,
+    partner_references TEXT,
+    raw_partner_responses TEXT,
+    tenant_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    version BIGINT DEFAULT 0
+);
+
+-- Index for faster lookups by quoteId
+CREATE INDEX IF NOT EXISTS idx_motor_quote_app_quote_id ON motor_quote_applications(quote_id);
+-- Index for multi-tenant isolation
+CREATE INDEX IF NOT EXISTS idx_motor_quote_app_tenant ON motor_quote_applications(tenant_id);
+```
+
+**New Tables:**
+- `motor_quote_applications`: Stores the full lifecycle of a motor quote journey.
+  - Defined in: `app-bootstrap/src/main/resources/db/changelog/modules/39-motor-quotes.yaml`
+
+### How it Works (Internal Flow)
+
+1.  **Request Mapping**: The orchestrator receives a canonical frontend request and uses `MotorQuoteMapper` to convert it into a `MotorQuoteApplication` entity.
+2.  **Persistence**: The state is persisted in PostgreSQL using R2DBC, allowing for idempotent operations and recovery.
+3.  **Partner Resolution**: The `PartnerQuoteProviderFactory` resolves the correct `PartnerQuoteProvider` (e.g., Sanlam) based on the `partner` field.
+4.  **Capability Check**: Before calling optional steps (like `createDraftQuote`), the orchestrator checks `provider.supportedCapabilities()`.
+5.  **State Transition**: Upon success or failure of a partner integration call, the orchestrator updates the internal status and persists the raw response (serialized) for audit and subsequent steps.
+
+---
+
+## 10. Partner Integration Guide
+
+The system is designed to be easily extensible for new insurance partners (e.g., APA, ICEA, Heritage).
+
+### Implementing a New Partner
+
+To add a new partner, follow these steps:
+
+1.  **Add Partner Type**: Add the new partner name to the `PartnerType` enum in `com.isec.platform.modules.integrations.quote.provider`.
+2.  **Implement Provider**: Create a new class implementing `PartnerQuoteProvider`.
+    ```java
+    @Service
+    public class ApaQuoteProvider implements PartnerQuoteProvider {
+        @Override
+        public PartnerType providerType() { return PartnerType.APA; }
+
+        @Override
+        public Set<QuoteLifecycleCapability> supportedCapabilities() {
+            return Set.of(QuoteLifecycleCapability.CALCULATE_PREMIUM);
+        }
+
+        @Override
+        public Mono<PremiumCalculationResponse> calculatePremium(PremiumCalculationRequest request) {
+            // Implement mapping and call APA API
+        }
+    }
+    ```
+3.  **Map DTOs**: Use `MotorQuoteMapper` or partner-specific mappers to handle the conversion between our canonical models and the partner's API requirements.
+4.  **Configuration**: Add the partner's base URLs and credentials to `application.yml`.
+5.  **Factory Registration**: Since providers are `@Service` beans, the `PartnerQuoteProviderFactory` will automatically discover and register the new partner if implemented correctly.
+
+### Quote Lifecycle Capabilities
+
+The `PartnerQuoteProvider` interface allows partners to opt-in to specific lifecycle steps:
+*   `CALCULATE_PREMIUM`: (Required) Core pricing logic.
+*   `CREATE_DRAFT_QUOTE`: (Optional) For partners requiring a pre-payment reference.
+*   `INITIATE_PAYMENT`: (Optional) If the partner handles their own STK Push integration.
+*   `CHECK_PAYMENT_STATUS`: (Optional) For verifying partner-side payment settlement.
+
+---
+
+## 11. Example Request (Calculate Premium)
+```bash
+curl -X POST http://localhost:8080/api/v1/motor/quotes/calculate-premium \
+  -H "Content-Type: application/json" \
+  -d '{
+    "quoteId": "Q-12345",
+    "partner": "SANLAM",
+    "insuranceDetails": {
+      "category": "PRIVATE_CAR",
+      "insuranceType": "General Insurance",
+      "coverType": "Comprehensive Cover",
+      "insuranceStartDate": "2026/12/20",
+      "insuranceDuration": "ANNUAL",
+      "addonRuleIds": [1, 2],
+      "additionalData": { "courtesyCarDays": 10 }
+    },
+    "vehicleDetails": {
+      "valuationAmount": 6800000,
+      "valuationCurrency": "KES",
+      "licensePlateNumber": "KDW553T",
+      "yearOfManufacture": 2018,
+      "makeCode": "Audi",
+      "modelCode": "Q7",
+      "engineCapacity": "3000",
+      "usageType": "Personal"
+    },
+    "kycDetails": {
+      "email": "user@example.com",
+      "fullName": "John Doe",
+      "phoneNumber": "0712345678"
+    }
+  }'
+```
+
+---
+
+## 12. Example Request (Initiate Payment with KYC)
+```bash
+curl -X POST http://localhost:8080/api/v1/motor/quotes/Q-12345/payments/initiate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "0712345678",
+    "kycDetails": {
+      "email": "eric.gitonga38@gmail.com",
+      "fullName": "Eric Gitonga Njue",
+      "phoneNumber": "0719531872",
+      "physicalAddress": "Juja, Kenyatta Rd"
+    }
+  }'
+```
+
+---
+
+## 13. Payment & Certificate Flow
 - User initiates STK Push.
 - System records payment as `PENDING`.
 - Safaricom sends callback; System updates balance and records receipt.
@@ -469,12 +656,14 @@ Update the following variables in the collection to match your setup:
 
 ### 17. Quote Lifecycle Capabilities (Optional Integrations)
 
-The platform supports a modular quote lifecycle where partners can implement specific capabilities. Sanlam is the first partner to support draft quote operations.
+The platform supports a modular quote lifecycle where partners can implement specific capabilities. Sanlam is the first partner to support draft quote operations. See **Section 10 (Partner Integration Guide)** for more details on how to extend this.
 
 #### Supported Capabilities
 - `CALCULATE_PREMIUM`: All partners.
 - `CREATE_DRAFT_QUOTE`: Sanlam.
 - `GET_DRAFT_QUOTE`: Sanlam.
+- `INITIATE_PAYMENT`: Sanlam.
+- `CHECK_PAYMENT_STATUS`: Sanlam.
 
 #### Sanlam Draft Quote Integration
 Sanlam allows creating a draft quote on their system before a full application is submitted. This is modeled as an optional capability via the `PartnerQuoteProvider` interface.

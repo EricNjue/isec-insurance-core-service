@@ -1,0 +1,15 @@
+package com.isec.platform.modules.applications.domain.motor;
+
+public enum MotorQuoteStatus {
+    STARTED,
+    PREMIUM_CALCULATION_IN_PROGRESS,
+    PREMIUM_CALCULATED,
+    PREMIUM_CALCULATION_FAILED,
+    QUOTE_ACCEPTED,
+    DRAFT_QUOTE_CREATED,
+    PAYMENT_INITIATED,
+    PAYMENT_PENDING,
+    PAYMENT_SUCCESSFUL,
+    PAYMENT_FAILED,
+    POLICY_ISSUED
+}

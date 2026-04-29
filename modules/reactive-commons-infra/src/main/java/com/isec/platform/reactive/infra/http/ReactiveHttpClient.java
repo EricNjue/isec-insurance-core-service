@@ -25,10 +25,15 @@ public class ReactiveHttpClient {
             request.headers(options.getHeaders());
         }
 
-        return request.retrieve()
+        Mono<T> mono = request.retrieve()
                 .bodyToMono(responseType)
-                .timeout(options.getTimeout())
-                .retryWhen(options.getRetrySpec());
+                .timeout(options.getTimeout());
+        
+        if (options.getRetrySpec() != null) {
+            mono = mono.retryWhen(options.getRetrySpec());
+        }
+        
+        return mono;
     }
 
     public <T> Mono<T> post(String url, Object body, Class<T> responseType) {
@@ -43,11 +48,16 @@ public class ReactiveHttpClient {
             request.headers(options.getHeaders());
         }
 
-        return request.bodyValue(body)
+        Mono<T> mono = request.bodyValue(body)
                 .retrieve()
                 .bodyToMono(responseType)
-                .timeout(options.getTimeout())
-                .retryWhen(options.getRetrySpec());
+                .timeout(options.getTimeout());
+
+        if (options.getRetrySpec() != null) {
+            mono = mono.retryWhen(options.getRetrySpec());
+        }
+
+        return mono;
     }
 
     public <T> Mono<T> put(String url, Object body, Class<T> responseType) {
@@ -62,11 +72,16 @@ public class ReactiveHttpClient {
             request.headers(options.getHeaders());
         }
 
-        return request.bodyValue(body)
+        Mono<T> mono = request.bodyValue(body)
                 .retrieve()
                 .bodyToMono(responseType)
-                .timeout(options.getTimeout())
-                .retryWhen(options.getRetrySpec());
+                .timeout(options.getTimeout());
+
+        if (options.getRetrySpec() != null) {
+            mono = mono.retryWhen(options.getRetrySpec());
+        }
+
+        return mono;
     }
 
     public Mono<Void> delete(String url) {
@@ -81,9 +96,14 @@ public class ReactiveHttpClient {
             request.headers(options.getHeaders());
         }
 
-        return request.retrieve()
+        Mono<Void> mono = request.retrieve()
                 .bodyToMono(Void.class)
-                .timeout(options.getTimeout())
-                .retryWhen(options.getRetrySpec());
+                .timeout(options.getTimeout());
+
+        if (options.getRetrySpec() != null) {
+            mono = mono.retryWhen(options.getRetrySpec());
+        }
+
+        return mono;
     }
 }

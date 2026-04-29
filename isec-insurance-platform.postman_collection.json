@@ -1,7 +1,7 @@
 {
     "info": {
         "_postman_id": "8a3e9c1d-1234-5678-90ab-cdef12345678",
-        "name": "iSec Motor Insurance Platform MVP",
+        "name": "KraalTech Motor Insurance",
         "description": "Production-grade API collection for the Motor Insurance Platform.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
@@ -249,6 +249,164 @@
                                         "quotes"
                                     ]
                                 }
+                            }
+                        },
+                        {
+                            "name": "Calculate Motor Premium (Partner)",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"quoteId\": \"{{quoteId}}\",\n    \"partner\": \"SANLAM\",\n    \"insuranceDetails\": {\n        \"category\": \"PRIVATE_CAR\",\n        \"insuranceType\": \"General Insurance\",\n        \"coverType\": \"Comprehensive Cover\",\n        \"insuranceCompany\": \"iSec\",\n        \"insuranceStartDate\": \"2026/12/20\",\n        \"insuranceDuration\": \"ANNUAL\",\n        \"addonRuleIds\": [\n            1,\n            2\n        ],\n        \"additionalData\": {\n            \"courtesyCarDays\": 10\n        }\n    },\n    \"vehicleDetails\": {\n        \"valuationAmount\": 6800000,\n        \"valuationCurrency\": \"KES\",\n        \"licensePlateNumber\": \"KDW553T\",\n        \"yearOfManufacture\": 2018,\n        \"makeCode\": \"Audi\",\n        \"modelCode\": \"Q7\",\n        \"engineCapacity\": \"3000\",\n        \"chassisNumber\": \"WAUZZZ4M9JD051499\",\n        \"vinNumber\": \"WAUZZZ4M9JD051499\",\n        \"engineNumber\": \"CRE-250759\",\n        \"usageType\": \"Personal\"\n    },\n    \"kycDetails\": {\n        \"email\": \"eric.gitonga38@gmail.com\",\n        \"fullName\": \"Eric Gitonga Njue\",\n        \"phoneNumber\": \"0719531872\",\n        \"physicalAddress\": \"Juja, Kenyatta Rd\"\n    }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes/calculate-premium",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes",
+                                        "calculate-premium"
+                                    ]
+                                },
+                                "description": "Orchestrates premium calculation with a specific partner."
+                            }
+                        },
+                        {
+                            "name": "Accept Quote",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes/{{quoteId}}/accept",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes",
+                                        "{{quoteId}}",
+                                        "accept"
+                                    ]
+                                },
+                                "description": "Accepts a calculated quote and transitions it to the next stage."
+                            }
+                        },
+                        {
+                            "name": "Initiate M-Pesa Payment",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"phoneNumber\": \"0712345678\",\n    \"amount\": 5000.0,\n    \"kycDetails\": {\n        \"email\": \"customer@example.com\",\n        \"fullName\": \"John Doe\",\n        \"phoneNumber\": \"0712345678\",\n        \"physicalAddress\": \"Nairobi, Kenya\"\n    }\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes/{{quoteId}}/payments/initiate",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes",
+                                        "{{quoteId}}",
+                                        "payments",
+                                        "initiate"
+                                    ]
+                                },
+                                "description": "Initiates M-Pesa STK Push for the quote."
+                            }
+                        },
+                        {
+                            "name": "Check M-Pesa Payment Status",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes/{{quoteId}}/payments/status",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes",
+                                        "{{quoteId}}",
+                                        "payments",
+                                        "status"
+                                    ]
+                                },
+                                "description": "Checks the status of the M-Pesa payment."
+                            }
+                        },
+                        {
+                            "name": "Get Quote Application",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "X-Tenant-Id",
+                                        "value": "{{tenantId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/v1/motor/quotes/{{quoteId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "v1",
+                                        "motor",
+                                        "quotes",
+                                        "{{quoteId}}"
+                                    ]
+                                },
+                                "description": "Fetches the full state of the motor quote application."
                             }
                         }
                     ]
@@ -1267,6 +1425,39 @@
                             ]
                         },
                         "description": "Authenticated endpoint to calculate premium breakdown based on provided values."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Addons",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{tenantId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/rating/addons?category=PRIVATE_CAR",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "rating",
+                                "addons"
+                            ],
+                            "query": [
+                                {
+                                    "key": "category",
+                                    "value": "PRIVATE_CAR"
+                                }
+                            ]
+                        },
+                        "description": "Returns available addons for a given insurance category."
                     },
                     "response": []
                 }
@@ -2446,7 +2637,7 @@
     "variable": [
         {
             "key": "baseUrl",
-            "value": "http://localhost:8080"
+            "value": "http://localhost:9070"
         },
         {
             "key": "keycloakUrl",

@@ -146,6 +146,7 @@ integrations:
     dependent-cache-expiry-hours: ${DEPENDENT_REFERENCE_DATA_CACHE_EXPIRY_HOURS:24}
 
 quote:
+  min-payment-percentage: ${MOTOR_QUOTE_MIN_PAYMENT_PERCENTAGE:0.35}
   cache:
     duration-minutes: ${QUOTE_CACHE_DURATION_MINUTES:30}
 

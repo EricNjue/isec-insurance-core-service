@@ -13,5 +13,5 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class SanlamPremiumBreakdownItem {
     private String label;
-    private BigDecimal amount;
+    private Object amount;
 }

@@ -75,3 +75,5 @@ databaseChangeLog:
       file: db/changelog/modules/37-certificate-unique-constraint.yaml
   - include:
       file: db/changelog/modules/38-reactive-commons.yaml
+  - include:
+      file: db/changelog/modules/39-motor-quotes.yaml
