@@ -3,6 +3,7 @@ package com.isec.platform.modules.applications.service.motor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteApplication;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
+import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
@@ -16,6 +17,7 @@ import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentRe
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
+import com.isec.platform.modules.integrations.quote.model.PolicyIssuanceResult;
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
 import com.isec.platform.common.multitenancy.TenantContext;
 import com.isec.platform.common.exception.BusinessException;
@@ -26,6 +28,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -51,6 +55,10 @@ class MotorQuoteOrchestratorTest {
     private PartnerQuoteProvider partnerProvider;
     @Mock
     private ObjectMapper objectMapper;
+    @Mock
+    private ReactiveRedisTemplate<String, Object> redisTemplate;
+    @Mock
+    private ReactiveValueOperations<String, Object> valueOperations;
 
     @InjectMocks
     private MotorQuoteOrchestrator orchestrator;
@@ -85,6 +93,8 @@ class MotorQuoteOrchestratorTest {
 
     @Test
     void calculatePremium_ShouldSucceed() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(anyString())).thenReturn(Mono.just(InitiateQuoteResponse.builder().build()));
         when(repository.findByQuoteId(anyString())).thenReturn(Mono.empty());
         when(mapper.toEntity(any())).thenReturn(application);
         when(repository.save(any())).thenReturn(Mono.just(application));
@@ -244,7 +254,7 @@ class MotorQuoteOrchestratorTest {
         StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectErrorMatches(throwable -> throwable instanceof BusinessException && 
-                        throwable.getMessage().contains("Minimum payment amount is 35%"))
+                        throwable.getMessage().equals("Minimum payment amount is 35% (KES 17500.00) of the total premium (KES 50000.00)"))
                 .verify();
     }
 
@@ -271,7 +281,7 @@ class MotorQuoteOrchestratorTest {
         StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectErrorMatches(throwable -> throwable instanceof BusinessException &&
-                        throwable.getMessage().contains("Minimum payment amount is 50%"))
+                        throwable.getMessage().equals("Minimum payment amount is 50% (KES 25000.00) of the total premium (KES 50000.00)"))
                 .verify();
     }
 
@@ -332,10 +342,14 @@ class MotorQuoteOrchestratorTest {
         MpesaInitiatePaymentResponse initRes = MpesaInitiatePaymentResponse.builder()
                 .checkoutId("CH-123")
                 .build();
+        // First call will fail Status check and succeed Initiation check
+        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class)))
+                .thenThrow(new RuntimeException("Not a status response"));
         when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaInitiatePaymentResponse.class))).thenReturn(initRes);
         
         MpesaPaymentStatusResponse statusRes = MpesaPaymentStatusResponse.builder()
                 .status(MpesaPaymentStatus.SUCCESS)
+                .checkoutId("CH-123")
                 .build();
         when(partnerProvider.checkPaymentStatus(any())).thenReturn(Mono.just(statusRes));
         
@@ -351,5 +365,84 @@ class MotorQuoteOrchestratorTest {
                 .verifyComplete();
 
         verify(partnerProvider).checkPaymentStatus(any());
+    }
+
+    @Test
+    void checkPaymentStatus_ShouldSucceedOnSubsequentCalls() throws Exception {
+        application.setStatus(MotorQuoteStatus.PAYMENT_PENDING);
+        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\"}");
+        // Previously saved Status response
+        application.setPaymentResult("{\"checkoutId\":\"CH-123\",\"status\":\"PENDING\"}");
+
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(repository.save(any())).thenReturn(Mono.just(application));
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+
+        DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
+                .draftQuoteRef("REF-123")
+                .build();
+        when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+
+        MpesaPaymentStatusResponse previousStatus = MpesaPaymentStatusResponse.builder()
+                .checkoutId("CH-123")
+                .status(MpesaPaymentStatus.PENDING)
+                .build();
+        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class))).thenReturn(previousStatus);
+
+        MpesaPaymentStatusResponse statusRes = MpesaPaymentStatusResponse.builder()
+                .status(MpesaPaymentStatus.SUCCESS)
+                .checkoutId("CH-123")
+                .build();
+        when(partnerProvider.checkPaymentStatus(any())).thenReturn(Mono.just(statusRes));
+
+        MotorQuoteResponse response = MotorQuoteResponse.builder()
+                .quoteId("Q-123")
+                .status(MotorQuoteStatus.PAYMENT_SUCCESSFUL)
+                .build();
+        when(mapper.toResponse(any())).thenReturn(response);
+
+        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123")
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL)
+                .verifyComplete();
+
+        verify(partnerProvider).checkPaymentStatus(argThat(req -> req.getCheckoutId().equals("CH-123")));
+    }
+
+    @Test
+    void issuePolicy_ShouldSucceed() throws Exception {
+        application.setStatus(MotorQuoteStatus.PAYMENT_SUCCESSFUL);
+        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\"}");
+        application.setPaymentResult("{\"checkoutId\":\"CH-123\",\"status\":\"SUCCESS\"}");
+
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(repository.save(any())).thenReturn(Mono.just(application));
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        when(partnerProvider.supportedCapabilities()).thenReturn(Set.of(QuoteLifecycleCapability.ISSUE_POLICY));
+
+        DraftQuoteResponse draftRes = DraftQuoteResponse.builder().draftQuoteRef("REF-123").build();
+        when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+
+        MpesaPaymentStatusResponse paymentRes = MpesaPaymentStatusResponse.builder().status(MpesaPaymentStatus.SUCCESS).build();
+        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class))).thenReturn(paymentRes);
+
+        PolicyIssuanceResult policyResult = PolicyIssuanceResult.builder()
+                .status("POLICY_ISSUED")
+                .policyReference("P-123")
+                .build();
+        when(partnerProvider.issuePolicy(anyString(), any(), any())).thenReturn(Mono.just(policyResult));
+
+        MotorQuoteResponse response = MotorQuoteResponse.builder()
+                .quoteId("Q-123")
+                .status(MotorQuoteStatus.POLICY_ISSUED)
+                .build();
+        when(mapper.toResponse(any())).thenReturn(response);
+
+        StepVerifier.create(orchestrator.issuePolicy("Q-123")
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.POLICY_ISSUED)
+                .verifyComplete();
+
+        verify(partnerProvider).issuePolicy(anyString(), any(), any());
     }
 }

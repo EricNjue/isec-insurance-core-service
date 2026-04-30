@@ -59,4 +59,11 @@ public class MotorQuoteController {
         return orchestrator.getQuoteApplication(quoteId)
                 .map(ResponseEntity::ok);
     }
+
+    @PostMapping("/{quoteId}/issue-policy")
+    public Mono<ResponseEntity<MotorQuoteResponse>> issuePolicy(@PathVariable String quoteId) {
+        log.info("REST request to issue policy for quote: {}", quoteId);
+        return orchestrator.issuePolicy(quoteId)
+                .map(ResponseEntity::ok);
+    }
 }

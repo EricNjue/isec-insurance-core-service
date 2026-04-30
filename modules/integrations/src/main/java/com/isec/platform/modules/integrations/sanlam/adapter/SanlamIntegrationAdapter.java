@@ -155,6 +155,7 @@ public class SanlamIntegrationAdapter implements InsuranceIntegrationAdapter {
                     .hasDuplicate(hasDuplicate)
                     .status(response.getStatus())
                     .message(response.getMessage())
+                    .transactionRef(response.getTransactionRef())
                     .build();
 
             if (hasDuplicate && response.getEvidence() != null) {

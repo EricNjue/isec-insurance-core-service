@@ -135,6 +135,8 @@ integrations:
       base-url: ${SANLAM_QUOTE_BASE_URL:https://gisalesuat-gvcbguf7gkh9hfbe.a03.azurefd.net}
       create-draft-quote-path: /quotes/create_draft_quote
       get-draft-quote-path: /quotes/draft_quote/{draftQuoteSysId}
+      update-draft-quote-path: /quotes/draft_quote/{draftQuoteSysId}
+      send-documents-email-path: /quotes/send-insurance-documents-email
       timeout: 5s
       retry:
         enabled: true

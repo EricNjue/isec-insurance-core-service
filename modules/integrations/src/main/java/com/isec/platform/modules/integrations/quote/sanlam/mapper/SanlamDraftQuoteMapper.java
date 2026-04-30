@@ -1,11 +1,14 @@
 package com.isec.platform.modules.integrations.quote.sanlam.mapper;
 
+import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.quote.model.*;
 import com.isec.platform.modules.integrations.quote.provider.PartnerType;
 import com.isec.platform.modules.integrations.quote.sanlam.dto.*;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -31,6 +34,7 @@ public class SanlamDraftQuoteMapper {
         if (data == null) return null;
 
         return SanlamInsuranceData.builder()
+                .rateEngine(toSanlamRateEngine(data.getPremium(), data.getCover()))
                 .vehicle(toSanlamVehicle(data.getVehicle()))
                 .premium(toSanlamPremium(data.getPremium()))
                 .premiums(toSanlamPremiums(data.getPremium()))
@@ -43,6 +47,24 @@ public class SanlamDraftQuoteMapper {
                 .disclaimers(toSanlamDisclaimers(data.getDisclaimers()))
                 .dmvicCheck(toSanlamDmvicCheck(data.getDmvicCheck()))
                 .submittedAt(data.getSubmittedAt())
+                .build();
+    }
+
+    private SanlamRateEngine toSanlamRateEngine(QuotePremiumDetails premium, QuoteCoverDetails cover) {
+        if (premium == null || premium.getRateSetUsed() == null) return null;
+        
+        return SanlamRateEngine.builder()
+                .baseRateSetId(premium.getBaseRateSetId() != null ? premium.getBaseRateSetId().intValue() : null)
+                .specialRateSetId(null)
+                .rateSetUsed(premium.getRateSetUsed())
+                .asOfDate(cover != null ? cover.getCoverStartDate() : null)
+                .calculationDetails(SanlamRateEngine.CalculationDetails.builder()
+                        .baseRateSetId(premium.getBaseRateSetId() != null ? premium.getBaseRateSetId().intValue() : null)
+                        .baseRateSetName(premium.getBaseRateSetName())
+                        .specialRateApplied(premium.isSpecialRateApplied())
+                        .pvtInclusiveApplicable(premium.isPvtInclusiveApplicable())
+                        .excessProtectorInclusiveApplicable(premium.isExcessProtectorInclusiveApplicable())
+                        .build())
                 .build();
     }
 
@@ -160,12 +182,13 @@ public class SanlamDraftQuoteMapper {
     }
 
     private SanlamDisclaimers toSanlamDisclaimers(QuoteDisclaimers disclaimers) {
-        if (disclaimers == null) return null;
+        // Hardcoded for now as per requirement
+        // TODO: Map from disclaimers object when available in common model
         return SanlamDisclaimers.builder()
-                .ownershipDeclaration(disclaimers.isOwnershipDeclaration())
-                .vehicleInspection(disclaimers.isVehicleInspection())
-                .termsConditions(disclaimers.isTermsConditions())
-                .selfDeclaration(disclaimers.isSelfDeclaration())
+                .ownershipDeclaration(true)
+                .vehicleInspection(true)
+                .termsConditions(true)
+                .selfDeclaration(true)
                 .build();
     }
 
@@ -377,6 +400,99 @@ public class SanlamDraftQuoteMapper {
                 .status(summary.getStatus())
                 .transactions(summary.getTransactions())
                 .installments(summary.getInstallments())
+                .build();
+    }
+
+    public SanlamUpdateDraftQuoteRequest toUpdateDraftQuoteRequest(DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {
+        if (draftQuote == null || paymentStatus == null) return null;
+
+        QuotePaymentSummary summary = draftQuote.getPaymentSummary();
+        BigDecimal amount = BigDecimal.valueOf(paymentStatus.getAmount() != null ? paymentStatus.getAmount() : 0.0);
+        
+        // Clean phone number (strip leading zero if present for Sanlam)
+        String phoneNumber = draftQuote.getClientPhone();
+        if (phoneNumber != null && phoneNumber.startsWith("0")) {
+            phoneNumber = phoneNumber.substring(1);
+        }
+
+        SanlamUpdateDraftQuoteRequest.InstallmentData currentInstallment = SanlamUpdateDraftQuoteRequest.InstallmentData.builder()
+                .installmentNumber(1)
+                .amount(amount)
+                .receipt(paymentStatus.getReceiptNumber())
+                .paidAt(paymentStatus.getPaidAt())
+                .method("stk")
+                .checkoutId(paymentStatus.getCheckoutId())
+                .phoneNumber(phoneNumber)
+                .build();
+
+        BigDecimal totalPremium = amount;
+        if (draftQuote.getInsuranceData() != null && draftQuote.getInsuranceData().getPremium() != null) {
+            totalPremium = draftQuote.getInsuranceData().getPremium().getNetPremium();
+            if (totalPremium == null) {
+                totalPremium = draftQuote.getInsuranceData().getPremium().getGrossPremium();
+            }
+        }
+        if (totalPremium == null) {
+            totalPremium = summary != null ? summary.getTotalAmount() : amount;
+        }
+
+        BigDecimal totalPaid = amount;
+        if (summary != null && summary.getTotalPaid() != null) {
+            totalPaid = summary.getTotalPaid().add(amount);
+        }
+
+        BigDecimal remainingBalance = BigDecimal.ZERO;
+        if (summary != null && summary.getRemainingBalance() != null) {
+            remainingBalance = summary.getRemainingBalance().subtract(amount);
+        }
+
+        return SanlamUpdateDraftQuoteRequest.builder()
+                .insuranceData(SanlamUpdateDraftQuoteRequest.InsuranceData.builder()
+                        .payment(SanlamUpdateDraftQuoteRequest.PaymentData.builder()
+                                .method("stk")
+                                .status("success")
+                                .checkoutId(paymentStatus.getCheckoutId())
+                                .receipt(paymentStatus.getReceiptNumber())
+                                .amount(amount)
+                                .paidAt(paymentStatus.getPaidAt())
+                                .phoneNumber(phoneNumber)
+                                .totalAmount(totalPremium)
+                                .totalPaid(totalPaid)
+                                .remainingBalance(remainingBalance)
+                                .installmentCount(summary != null ? summary.getInstallmentCount() : 1)
+                                .numberOfInstallments(summary != null ? summary.getInstallmentCount() : 1)
+                                .maxInstallments(3) // Default to 3 as per example
+                                .installments(List.of(currentInstallment))
+                                .paymentContext("initial")
+                                .lastPayment(SanlamUpdateDraftQuoteRequest.LastPaymentData.builder()
+                                        .method("stk")
+                                        .status("success")
+                                        .checkoutId(paymentStatus.getCheckoutId())
+                                        .receipt(paymentStatus.getReceiptNumber())
+                                        .amount(amount)
+                                        .paidAt(paymentStatus.getPaidAt())
+                                        .phoneNumber(phoneNumber)
+                                        .installmentNumber(1)
+                                        .build())
+                                .build())
+                        .build())
+                .build();
+    }
+
+    public PolicyIssuanceResult toPolicyIssuanceResult(SanlamDraftQuoteResponse response, SanlamEmailResponse emailResponse) {
+        if (response == null) return null;
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("quot_sys_id", response.getQuotSysId());
+        metadata.put("draft_quote_sys_id", response.getDraftQuoteSysId());
+
+        return PolicyIssuanceResult.builder()
+                .status("POLICY_ISSUED")
+                .message(emailResponse != null ? emailResponse.getMessage() : "Policy updated successfully")
+                .policyReference(String.valueOf(response.getQuotSysId()))
+                .externalReference(response.getDraftQuoteRef())
+                .emailSent(emailResponse != null)
+                .metadata(metadata)
                 .build();
     }
 }

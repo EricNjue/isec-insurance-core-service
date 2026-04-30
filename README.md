@@ -93,6 +93,7 @@ Authentication and Authorization are handled via **Keycloak**.
 3. **Initiate M-Pesa Payment**: `POST /api/v1/motor/quotes/{quoteId}/payments/initiate` to start the payment process. You can optionally provide `kycDetails` to update the application if they were missing during premium calculation.
 4. **Check Payment Status**: `GET /api/v1/motor/quotes/{quoteId}/payments/status` to verify payment.
 5. **Get Quote Application**: `GET /api/v1/motor/quotes/{quoteId}` to fetch the current state of the journey.
+6. **Issue Policy**: `POST /api/v1/motor/quotes/{quoteId}/issue-policy` to finalize the policy after successful payment. This triggers certificate issuance and sends documents via email.
 
 ---
 
@@ -108,6 +109,7 @@ The platform implements a partner-agnostic orchestrator for the motor insurance 
 | 3. Pay | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/initiate` | POST | Initiates M-Pesa STK Push. Accepts optional `kycDetails` for late registration. |
 | 4. Status | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/status` | GET | Polls or checks for payment confirmation and updates quote state. |
 | 5. View | `/api/v1/motor/quotes/{quoteId}` | GET | Returns full canonical state of the quote journey and `nextActions`. |
+| 6. Issue | `/api/v1/motor/quotes/{quoteId}/issue-policy` | POST | Finalizes policy after payment, triggers issuance, and sends email. |
 
 ### Lifecycle Statuses & Transitions
 
@@ -123,7 +125,9 @@ The orchestrator enforces a strict state machine to ensure integrity:
 *   **PAYMENT_PENDING**: Awaiting callback or verification.
 *   **PAYMENT_SUCCESSFUL**: Payment confirmed; ready for issuance.
 *   **PAYMENT_FAILED**: Payment rejected or timed out.
+*   **POLICY_ISSUANCE_IN_PROGRESS**: Final step triggered.
 *   **POLICY_ISSUED**: Final policy generated and sent.
+*   **POLICY_ISSUANCE_FAILED**: Error during final issuance steps.
 
 ### Persistence & Database
 
@@ -664,6 +668,7 @@ The platform supports a modular quote lifecycle where partners can implement spe
 - `GET_DRAFT_QUOTE`: Sanlam.
 - `INITIATE_PAYMENT`: Sanlam.
 - `CHECK_PAYMENT_STATUS`: Sanlam.
+- `ISSUE_POLICY`: Sanlam.
 
 #### Sanlam Draft Quote Integration
 Sanlam allows creating a draft quote on their system before a full application is submitted. This is modeled as an optional capability via the `PartnerQuoteProvider` interface.

@@ -13,6 +13,8 @@ public class SanlamQuoteProperties {
     private String baseUrl;
     private String createDraftQuotePath = "/quotes/create_draft_quote";
     private String getDraftQuotePath = "/quotes/draft_quote/{draftQuoteSysId}";
+    private String updateDraftQuotePath = "/quotes/draft_quote/{draftQuoteSysId}";
+    private String sendDocumentsEmailPath = "/quotes/send-insurance-documents-email";
     private Duration timeout = Duration.ofSeconds(5);
     private RetryProperties retry = new RetryProperties();
 

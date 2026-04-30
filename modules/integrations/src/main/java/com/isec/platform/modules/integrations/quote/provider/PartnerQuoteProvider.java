@@ -9,6 +9,7 @@ import com.isec.platform.modules.integrations.premium.model.PremiumCalculationRe
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteRequest;
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
 import com.isec.platform.modules.integrations.quote.model.GetDraftQuoteRequest;
+import com.isec.platform.modules.integrations.quote.model.PolicyIssuanceResult;
 import reactor.core.publisher.Mono;
 
 import java.util.Set;
@@ -42,6 +43,12 @@ public interface PartnerQuoteProvider {
     default Mono<MpesaPaymentStatusResponse> checkPaymentStatus(MpesaCheckStatusRequest request) {
         return Mono.error(new UnsupportedPartnerCapabilityException(
                 providerType(), QuoteLifecycleCapability.CHECK_PAYMENT_STATUS
+        ));
+    }
+
+    default Mono<PolicyIssuanceResult> issuePolicy(String quoteId, DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {
+        return Mono.error(new UnsupportedPartnerCapabilityException(
+                providerType(), QuoteLifecycleCapability.ISSUE_POLICY
         ));
     }
 }

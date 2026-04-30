@@ -33,16 +33,24 @@ public class SanlamMpesaProvider implements MpesaPaymentProvider {
     @Override
     public Mono<MpesaInitiatePaymentResponse> initiatePayment(MpesaInitiatePaymentRequest request) {
         validateInitiateRequest(request);
-        
+
         SanlamStkPushRequest sanlamRequest = mapper.toSanlamStkPushRequest(request);
-        
-        log.info("[{}] Initiating payment for quoteRef: {}, phone: {}", 
+
+        log.info("[{}] Initiating payment for quoteRef: {}, phone: {}",
                 providerType(), request.getQuoteRef(), maskPhoneNumber(request.getPhoneNumber()));
-        
+
         return mpesaClient.initiateStkPush(sanlamRequest)
                 .map(mapper::toMpesaInitiatePaymentResponse)
-                .doOnNext(res -> log.info("[{}] Payment initiated for quoteRef: {}, checkoutId: {}, status: {}", 
-                        providerType(), request.getQuoteRef(), res.getCheckoutId(), res.getStatus()));
+                .doOnNext(res -> {
+                    if (res.getStatus() == com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.FAILED || res.getCheckoutId() == null) {
+                        String errorMsg = String.format("[SANLAM] Payment initiated for quoteRef: %s, checkoutId: %s, status: %s",
+                                request.getQuoteRef(), res.getCheckoutId(), res.getStatus());
+                        log.error(errorMsg);
+                        throw new BusinessException("We could not initiate the payment. Please try again later.");
+                    }
+                    log.info("[{}] Payment initiated for quoteRef: {}, checkoutId: {}, status: {}",
+                            providerType(), request.getQuoteRef(), res.getCheckoutId(), res.getStatus());
+                });
     }
 
     @Override
@@ -52,12 +60,12 @@ public class SanlamMpesaProvider implements MpesaPaymentProvider {
 
         SanlamStkStatusRequest sanlamRequest = mapper.toSanlamStkStatusRequest(request.getQuoteRef(), request.getCheckoutId());
 
-        log.info("[{}] Checking status for quoteRef: {}, checkoutId: {}", 
+        log.info("[{}] Checking status for quoteRef: {}, checkoutId: {}",
                 providerType(), request.getQuoteRef(), request.getCheckoutId());
 
         return mpesaClient.checkStkStatus(sanlamRequest)
                 .map(res -> mapper.toMpesaPaymentStatusResponse(res, request.getCheckoutId()))
-                .doOnNext(res -> log.info("[{}] Status check for quoteRef: {}, checkoutId: {}, status: {}", 
+                .doOnNext(res -> log.info("[{}] Status check for quoteRef: {}, checkoutId: {}, status: {}",
                         providerType(), request.getQuoteRef(), request.getCheckoutId(), res.getStatus()));
     }
 
