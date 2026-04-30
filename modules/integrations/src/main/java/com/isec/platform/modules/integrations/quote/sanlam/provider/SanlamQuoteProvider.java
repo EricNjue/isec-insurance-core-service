@@ -114,13 +114,13 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
 
             return policyClient.updateDraftQuote(draftQuote.getDraftQuoteSysId(), mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus))
                     .flatMap(updateResponse -> {
-                        Long quotSysId = updateResponse.getQuotSysId();
-                        if (quotSysId == null) {
-                            return Mono.error(new IllegalStateException("Failed to extract quot_sys_id from Sanlam response"));
+                        Long draftQuoteSysId = updateResponse.getDraftQuoteSysId();
+                        if (draftQuoteSysId == null) {
+                            return Mono.error(new IllegalStateException("Failed to extract draft_quote_sys_id from Sanlam response"));
                         }
 
                         SanlamEmailRequest emailRequest = SanlamEmailRequest.builder()
-                                .quotSysId(quotSysId)
+                                .quotSysId(draftQuoteSysId)
                                 .includeReceipt(true)
                                 .includeDebitNote(true)
                                 .recipientEmail(draftQuote.getClientEmail())

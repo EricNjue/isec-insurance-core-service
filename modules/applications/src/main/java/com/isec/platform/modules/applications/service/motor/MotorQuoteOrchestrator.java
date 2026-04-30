@@ -55,6 +55,10 @@ public class MotorQuoteOrchestrator {
                 .switchIfEmpty(Mono.error(new BusinessException("Missing required X-Tenant-Id header")))
                 .flatMap(tenantId -> repository.findByQuoteId(request.getQuoteId())
                         .flatMap(existing -> {
+                            if (existing.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
+                                existing.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                return Mono.error(new BusinessException("Cannot recalculate premium for an already issued policy or one in progress of issuance."));
+                            }
                             mapper.updateEntity(existing, request);
                             existing.setTenantId(tenantId);
                             return Mono.just(existing);
@@ -106,6 +110,10 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
+                                app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                return Mono.error(new BusinessException("Cannot accept quote for an already issued policy or one in progress of issuance."));
+                            }
                             if (app.getStatus() != MotorQuoteStatus.PREMIUM_CALCULATED && app.getStatus() != MotorQuoteStatus.QUOTE_ACCEPTED && app.getStatus() != MotorQuoteStatus.DRAFT_QUOTE_CREATED) {
                                 return Mono.error(new BusinessException("Invalid status for quote acceptance: " + app.getStatus()));
                             }
@@ -136,6 +144,10 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
+                                app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                return Mono.error(new BusinessException("Cannot initiate payment for an already issued policy or one in progress of issuance."));
+                            }
                             if (request.getKycDetails() != null) {
                                 mapper.updateKycDetails(app, request.getKycDetails());
                             }
@@ -218,6 +230,9 @@ public class MotorQuoteOrchestrator {
         return repository.findByQuoteId(quoteId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                 .flatMap(app -> {
+                    if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED) {
+                        return Mono.error(new BusinessException("Policy has already been issued for this quote."));
+                    }
                     if (app.getStatus() != MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
                         return Mono.error(new BusinessException("Policy can only be issued after successful payment. Current status: " + app.getStatus()));
                     }

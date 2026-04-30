@@ -124,6 +124,17 @@ class MotorQuoteOrchestratorTest {
     }
 
     @Test
+    void acceptQuote_ShouldFail_WhenPolicyAlreadyIssued() {
+        application.setStatus(MotorQuoteStatus.POLICY_ISSUED);
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+
+        StepVerifier.create(orchestrator.acceptQuote("Q-123")
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectErrorMatches(e -> e instanceof BusinessException && e.getMessage().contains("Cannot accept quote for an already issued policy or one in progress of issuance"))
+                .verify();
+    }
+
+    @Test
     void acceptQuote_ShouldCreateDraftQuote_WhenSupported() {
         application.setStatus(MotorQuoteStatus.PREMIUM_CALCULATED);
         when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
@@ -444,5 +455,55 @@ class MotorQuoteOrchestratorTest {
                 .verifyComplete();
 
         verify(partnerProvider).issuePolicy(anyString(), any(), any());
+    }
+
+    @Test
+    void initiatePayment_ShouldFail_WhenPolicyAlreadyIssued() {
+        application.setStatus(MotorQuoteStatus.POLICY_ISSUED);
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+
+        StepVerifier.create(orchestrator.initiatePayment("Q-123", new com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest())
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectErrorMatches(e -> e instanceof BusinessException && e.getMessage().contains("Cannot initiate payment for an already issued policy or one in progress of issuance"))
+                .verify();
+    }
+
+    @Test
+    void issuePolicy_ShouldFail_WhenPolicyAlreadyIssued() {
+        application.setStatus(MotorQuoteStatus.POLICY_ISSUED);
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+
+        StepVerifier.create(orchestrator.issuePolicy("Q-123")
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectErrorMatches(e -> e instanceof BusinessException && e.getMessage().contains("Policy has already been issued for this quote"))
+                .verify();
+    }
+
+    @Test
+    void calculatePremium_ShouldFail_WhenPolicyAlreadyIssued() {
+        application.setStatus(MotorQuoteStatus.POLICY_ISSUED);
+        CalculateMotorPremiumRequest request = new CalculateMotorPremiumRequest();
+        request.setQuoteId("Q-123");
+        
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+
+        StepVerifier.create(orchestrator.calculatePremium(request)
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectErrorMatches(e -> e instanceof BusinessException && e.getMessage().contains("Cannot recalculate premium for an already issued policy or one in progress of issuance"))
+                .verify();
+    }
+
+    @Test
+    void calculatePremium_ShouldFail_WhenPolicyIssuanceInProgress() {
+        application.setStatus(MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS);
+        CalculateMotorPremiumRequest request = new CalculateMotorPremiumRequest();
+        request.setQuoteId("Q-123");
+
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+
+        StepVerifier.create(orchestrator.calculatePremium(request)
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .expectErrorMatches(e -> e instanceof BusinessException && e.getMessage().contains("Cannot recalculate premium for an already issued policy or one in progress of issuance"))
+                .verify();
     }
 }

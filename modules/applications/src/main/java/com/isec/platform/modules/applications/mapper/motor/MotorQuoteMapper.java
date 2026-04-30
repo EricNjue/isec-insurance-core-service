@@ -289,6 +289,9 @@ public class MotorQuoteMapper {
             case PAYMENT_SUCCESSFUL:
                 actions.add("ISSUE_POLICY");
                 break;
+            case POLICY_ISSUED:
+                // Terminal state, no actions
+                break;
             case PREMIUM_CALCULATION_FAILED:
             case PAYMENT_FAILED:
                 actions.add("RETRY");
