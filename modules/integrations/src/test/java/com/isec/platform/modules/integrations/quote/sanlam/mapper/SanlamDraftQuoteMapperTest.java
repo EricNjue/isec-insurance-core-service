@@ -96,8 +96,31 @@ class SanlamDraftQuoteMapperTest {
         assertThat(sanlamRequest.getInsuranceData().getDisclaimers().isTermsConditions()).isTrue();
         assertThat(sanlamRequest.getInsuranceData().getDisclaimers().isSelfDeclaration()).isTrue();
 
-        // Verify submitted_at
-        assertThat(sanlamRequest.getInsuranceData().getSubmittedAt()).isNotNull();
+        // Verify hardcoded values
+        assertThat(sanlamRequest.getClientPhone()).isEqualTo("+254722129685");
+        assertThat(sanlamRequest.getInsuranceData().getVehicleType()).isEqualTo("premier_auto");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getBodyType()).isEqualTo("002");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getSeatingCapacity()).isEqualTo("7");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getTonnage()).isEqualTo("2");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getNumberOfPassengers()).isEqualTo("7");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getCc()).isEqualTo("3000");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getMotorClass()).isEqualTo("private");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getVehicleClass()).isEqualTo("C");
+
+        // Verify benefits hardcoded values
+        SanlamBenefits benefits = sanlamRequest.getInsuranceData().getBenefits();
+        assertThat(benefits).isNotNull();
+        assertThat(benefits.getPvt().getBenefit()).isEqualTo(new BigDecimal("17000"));
+        assertThat(benefits.getPvt().getInterest()).isEqualTo("yes");
+        assertThat(benefits.getExcessProtector().getBenefit()).isEqualTo("Inclusive");
+        assertThat(benefits.getExcessProtector().getInterest()).isEqualTo("yes");
+        assertThat(benefits.getCourtesyCar().getBenefit()).isEqualTo(new BigDecimal("7500"));
+        assertThat(benefits.getCourtesyCar().getInterest()).isEqualTo("yes");
+        assertThat(benefits.getCourtesyCar().getDays()).isEqualTo("10");
+        assertThat(benefits.getWindscreen().getBenefit()).isEqualTo(BigDecimal.ZERO);
+        assertThat(benefits.getRadioCassette().getBenefit()).isEqualTo(BigDecimal.ZERO);
+        assertThat(benefits.getPassengerLegalLiability().getBenefit()).isEqualTo(BigDecimal.ZERO);
+        assertThat(benefits.getPassengerLegalLiability().getInterest()).isEqualTo("no");
     }
 
     @Test

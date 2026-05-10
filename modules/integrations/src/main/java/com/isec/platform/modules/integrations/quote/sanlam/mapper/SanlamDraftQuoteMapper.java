@@ -42,7 +42,7 @@ public class SanlamDraftQuoteMapper {
                 .premiums(toSanlamPremiums(data.getPremium()))
                 .benefits(toSanlamBenefits(data.getBenefits()))
                 .subclass(data.getSubclass())
-                .vehicleType(data.getVehicleType())
+                .vehicleType("premier_auto") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
                 .status(data.getStatus())
                 .client(toSanlamClient(data.getClient()))
                 .cover(toSanlamCover(data.getCover()))
@@ -54,7 +54,7 @@ public class SanlamDraftQuoteMapper {
 
     private SanlamRateEngine toSanlamRateEngine(QuotePremiumDetails premium, QuoteCoverDetails cover) {
         if (premium == null || premium.getRateSetUsed() == null) return null;
-        
+
         return SanlamRateEngine.builder()
                 .baseRateSetId(premium.getBaseRateSetId() != null ? premium.getBaseRateSetId().intValue() : null)
                 .specialRateSetId(null)
@@ -81,14 +81,15 @@ public class SanlamDraftQuoteMapper {
                 .registration(vehicle.getRegistrationNumber())
                 .year(vehicle.getYearOfManufacture())
                 .value(vehicle.getSumInsured())
-                .bodyType(vehicle.getBodyType())
+                .bodyType("002") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
                 .chassisNumber(vehicle.getChassisNumber())
                 .engineNumber(vehicle.getEngineNumber())
-                .seatingCapacity(vehicle.getSeatingCapacity())
-                .tonnage(vehicle.getTonnage())
-                .cc(vehicle.getCc())
-                .motorClass(vehicle.getMotorClass())
-                .vehicleClass(vehicle.getVehicleClass())
+                .seatingCapacity("7") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .tonnage("2") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .numberOfPassengers("7") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .cc("3000") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .motorClass("private") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .vehicleClass("C") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
                 .build();
     }
 
@@ -113,35 +114,41 @@ public class SanlamDraftQuoteMapper {
     }
 
     private SanlamBenefits toSanlamBenefits(QuoteBenefitsDetails benefits) {
-        if (benefits == null || benefits.getItems() == null) return null;
-        
-        SanlamBenefits.SanlamBenefitsBuilder builder = SanlamBenefits.builder();
-        
-        if (benefits.getItems().containsKey("pvt")) {
-            builder.pvt(mapToSanlamBenefit(benefits.getItems().get("pvt")));
-        }
-        if (benefits.getItems().containsKey("excess_protector")) {
-            builder.excessProtector(mapToSanlamBenefit(benefits.getItems().get("excess_protector")));
-        }
-        if (benefits.getItems().containsKey("courtesy_car")) {
-            builder.courtesyCar(mapToSanlamBenefit(benefits.getItems().get("courtesy_car")));
-        }
-        if (benefits.getItems().containsKey("windscreen")) {
-            builder.windscreen(mapToSanlamWindscreen(benefits.getItems().get("windscreen")));
-        }
-        if (benefits.getItems().containsKey("radio_cassette")) {
-            builder.radioCassette(mapToSanlamWindscreen(benefits.getItems().get("radio_cassette")));
-        }
-        if (benefits.getItems().containsKey("passenger_legal_liability")) {
-            builder.passengerLegalLiability(mapToSanlamBenefit(benefits.getItems().get("passenger_legal_liability")));
-        }
-        
-        return builder.build();
+        // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+        return SanlamBenefits.builder()
+                .pvt(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit(new BigDecimal("17000"))
+                        .interest("yes")
+                        .build())
+                .excessProtector(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit("Inclusive")
+                        .interest("yes")
+                        .build())
+                .courtesyCar(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit(new BigDecimal("7500"))
+                        .interest("yes")
+                        .days("10")
+                        .build())
+                .windscreen(SanlamBenefits.SanlamWindscreenBenefit.builder()
+                        .benefit(BigDecimal.ZERO)
+                        .extraBenefit(BigDecimal.ZERO)
+                        .clientAdditionalAmount(BigDecimal.ZERO)
+                        .build())
+                .radioCassette(SanlamBenefits.SanlamWindscreenBenefit.builder()
+                        .benefit(BigDecimal.ZERO)
+                        .extraBenefit(BigDecimal.ZERO)
+                        .clientAdditionalAmount(BigDecimal.ZERO)
+                        .build())
+                .passengerLegalLiability(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit(BigDecimal.ZERO)
+                        .interest("no")
+                        .build())
+                .build();
     }
 
     private SanlamBenefits.SanlamBenefit mapToSanlamBenefit(QuoteBenefitsDetails.BenefitItem item) {
         return SanlamBenefits.SanlamBenefit.builder()
-                .benefit(item.getBenefit())
+                .benefit((Object) item.getBenefit())
                 .interest(item.getInterest())
                 .days(item.getDays())
                 .build();
@@ -302,7 +309,7 @@ public class SanlamDraftQuoteMapper {
     private QuoteBenefitsDetails toCommonBenefits(SanlamBenefits benefits) {
         if (benefits == null) return null;
         Map<String, QuoteBenefitsDetails.BenefitItem> items = new HashMap<>();
-        
+
         if (benefits.getPvt() != null) {
             items.put("pvt", toCommonBenefit(benefits.getPvt()));
         }
@@ -321,13 +328,13 @@ public class SanlamDraftQuoteMapper {
         if (benefits.getPassengerLegalLiability() != null) {
             items.put("passenger_legal_liability", toCommonBenefit(benefits.getPassengerLegalLiability()));
         }
-        
+
         return QuoteBenefitsDetails.builder().items(items).build();
     }
 
     private QuoteBenefitsDetails.BenefitItem toCommonBenefit(SanlamBenefits.SanlamBenefit item) {
         return QuoteBenefitsDetails.BenefitItem.builder()
-                .benefit(item.getBenefit())
+                .benefit(item.getBenefit() instanceof BigDecimal ? (BigDecimal) item.getBenefit() : null)
                 .interest(item.getInterest())
                 .days(item.getDays())
                 .build();
