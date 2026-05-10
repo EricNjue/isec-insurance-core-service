@@ -7,6 +7,8 @@ import com.isec.platform.modules.integrations.quote.sanlam.dto.*;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -408,81 +410,46 @@ public class SanlamDraftQuoteMapper {
 
         QuotePaymentSummary summary = draftQuote.getPaymentSummary();
         BigDecimal amount = BigDecimal.valueOf(paymentStatus.getAmount() != null ? paymentStatus.getAmount() : 0.0);
-        
-        // Clean phone number (strip leading zero if present for Sanlam)
+
+        // Format phone number as E.164 (e.g. +254722129685)
         String phoneNumber = draftQuote.getClientPhone();
-        if (phoneNumber != null && phoneNumber.startsWith("0")) {
-            phoneNumber = phoneNumber.substring(1);
-        }
-
-        SanlamUpdateDraftQuoteRequest.InstallmentData currentInstallment = SanlamUpdateDraftQuoteRequest.InstallmentData.builder()
-                .installmentNumber(1)
-                .amount(amount)
-                .receipt(paymentStatus.getReceiptNumber())
-                .paidAt(paymentStatus.getPaidAt())
-                .method("stk")
-                .checkoutId(paymentStatus.getCheckoutId())
-                .phoneNumber(phoneNumber)
-                .build();
-
-        BigDecimal totalPremium = amount;
-        if (draftQuote.getInsuranceData() != null && draftQuote.getInsuranceData().getPremium() != null) {
-            totalPremium = draftQuote.getInsuranceData().getPremium().getNetPremium();
-            if (totalPremium == null) {
-                totalPremium = draftQuote.getInsuranceData().getPremium().getGrossPremium();
+        if (phoneNumber != null) {
+            phoneNumber = phoneNumber.trim();
+            if (phoneNumber.startsWith("0")) {
+                phoneNumber = "+254" + phoneNumber.substring(1);
+            } else if (phoneNumber.startsWith("254") && !phoneNumber.startsWith("+")) {
+                phoneNumber = "+" + phoneNumber;
+            } else if (!phoneNumber.startsWith("+")) {
+                phoneNumber = "+254" + phoneNumber;
             }
         }
-        if (totalPremium == null) {
-            totalPremium = summary != null ? summary.getTotalAmount() : amount;
-        }
 
-        BigDecimal totalPaid = amount;
-        if (summary != null && summary.getTotalPaid() != null) {
-            totalPaid = summary.getTotalPaid().add(amount);
-        }
-
-        BigDecimal remainingBalance = BigDecimal.ZERO;
-        if (summary != null && summary.getRemainingBalance() != null) {
-            remainingBalance = summary.getRemainingBalance().subtract(amount);
-        }
-
-        SanlamVehicle vehicle = null;
-        SanlamBenefits benefits = null;
-        if (draftQuote.getInsuranceData() != null) {
-            vehicle = toSanlamVehicle(draftQuote.getInsuranceData().getVehicle());
-            benefits = toSanlamBenefits(draftQuote.getInsuranceData().getBenefits());
+        // Format paid_at as ISO 8601 with timezone
+        String paidAt = paymentStatus.getPaidAt();
+        try {
+            if (paidAt != null) {
+                OffsetDateTime odt = OffsetDateTime.parse(paidAt, DateTimeFormatter.ISO_DATE_TIME);
+                paidAt = odt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            } else {
+                paidAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            }
+        } catch (Exception e) {
+            paidAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         }
 
         return SanlamUpdateDraftQuoteRequest.builder()
                 .insuranceData(SanlamUpdateDraftQuoteRequest.InsuranceData.builder()
-                        .vehicle(vehicle)
-                        .benefits(benefits)
                         .payment(SanlamUpdateDraftQuoteRequest.PaymentData.builder()
                                 .method("stk")
                                 .status("success")
                                 .checkoutId(paymentStatus.getCheckoutId())
                                 .receipt(paymentStatus.getReceiptNumber())
                                 .amount(amount)
-                                .paidAt(paymentStatus.getPaidAt())
+                                .paidAt(paidAt)
                                 .phoneNumber(phoneNumber)
-                                .totalAmount(totalPremium)
-                                .totalPaid(totalPaid)
-                                .remainingBalance(remainingBalance)
-                                .installmentCount(summary != null ? summary.getInstallmentCount() : 1)
+                                .installmentNumber(1)
                                 .numberOfInstallments(summary != null ? summary.getInstallmentCount() : 1)
-                                .maxInstallments(3) // Default to 3 as per example
-                                .installments(List.of(currentInstallment))
                                 .paymentContext("initial")
-                                .lastPayment(SanlamUpdateDraftQuoteRequest.LastPaymentData.builder()
-                                        .method("stk")
-                                        .status("success")
-                                        .checkoutId(paymentStatus.getCheckoutId())
-                                        .receipt(paymentStatus.getReceiptNumber())
-                                        .amount(amount)
-                                        .paidAt(paymentStatus.getPaidAt())
-                                        .phoneNumber(phoneNumber)
-                                        .installmentNumber(1)
-                                        .build())
                                 .build())
                         .build())
                 .build();

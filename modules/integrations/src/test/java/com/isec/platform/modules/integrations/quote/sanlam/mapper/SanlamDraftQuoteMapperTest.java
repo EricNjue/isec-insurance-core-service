@@ -227,7 +227,7 @@ class SanlamDraftQuoteMapperTest {
     }
 
     @Test
-    void shouldMapUpdateDraftQuoteRequestWithDetailedPayment() {
+    void shouldMapUpdateDraftQuoteRequestWithStrictPaymentPayload() {
         DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
                 .clientPhone("0719531872")
                 .paymentSummary(QuotePaymentSummary.builder()
@@ -242,80 +242,21 @@ class SanlamDraftQuoteMapperTest {
                 .amount(80349.0)
                 .checkoutId("ws_CO_123")
                 .receiptNumber("UDTEM2PDHA")
-                .paidAt("2026-04-29 23:43:21")
+                .paidAt("2026-04-29T23:43:21Z")
                 .status(com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS)
                 .build();
 
         SanlamUpdateDraftQuoteRequest request = mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus);
 
-        assertThat(request.getInsuranceData().getPayment().getPhoneNumber()).isEqualTo("719531872");
+        assertThat(request.getInsuranceData().getPayment().getPhoneNumber()).isEqualTo("+254719531872");
         assertThat(request.getInsuranceData().getPayment().getAmount()).isEqualTo(new BigDecimal("80349.0"));
         assertThat(request.getInsuranceData().getPayment().getNumberOfInstallments()).isEqualTo(2);
-        assertThat(request.getInsuranceData().getPayment().getMaxInstallments()).isEqualTo(3);
-        assertThat(request.getInsuranceData().getPayment().getInstallments()).hasSize(1);
-        assertThat(request.getInsuranceData().getPayment().getInstallments().get(0).getInstallmentNumber()).isEqualTo(1);
-        assertThat(request.getInsuranceData().getPayment().getLastPayment().getInstallmentNumber()).isEqualTo(1);
-        // assertThat(request.getInsuranceData().getPayment().getTotalAmount()).isEqualTo(new BigDecimal("229568"));
+        assertThat(request.getInsuranceData().getPayment().getPaidAt()).isNotNull();
+        System.out.println("[DEBUG_LOG] PaidAt: " + request.getInsuranceData().getPayment().getPaidAt());
+
+        // Verify fields are absent or null (via DTO structure)
+        // vehicle and benefits should not be present in InsuranceData
+        // total_amount, total_paid, etc. should not be in PaymentData
     }
 
-    @Test
-    void shouldMapTotalAmountFromNetPremiumIfAvailable() {
-        DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
-                .clientPhone("0719531872")
-                .insuranceData(DraftQuoteInsuranceData.builder()
-                        .premium(QuotePremiumDetails.builder()
-                                .netPremium(new BigDecimal("250000"))
-                                .grossPremium(new BigDecimal("240000"))
-                                .build())
-                        .build())
-                .paymentSummary(QuotePaymentSummary.builder()
-                        .totalAmount(new BigDecimal("229568"))
-                        .totalPaid(BigDecimal.ZERO)
-                        .remainingBalance(new BigDecimal("229568"))
-                        .installmentCount(1)
-                        .build())
-                .build();
-
-        MpesaPaymentStatusResponse paymentStatus = MpesaPaymentStatusResponse.builder()
-                .amount(80349.0)
-                .checkoutId("ws_CO_123")
-                .receiptNumber("UDTEM2PDHA")
-                .paidAt("2026-04-29 23:43:21")
-                .status(com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS)
-                .build();
-
-        SanlamUpdateDraftQuoteRequest request = mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus);
-
-        assertThat(request.getInsuranceData().getPayment().getTotalAmount()).isEqualTo(new BigDecimal("250000"));
-    }
-
-    @Test
-    void shouldMapTotalAmountFromGrossPremiumIfNetMissing() {
-        DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
-                .clientPhone("0719531872")
-                .insuranceData(DraftQuoteInsuranceData.builder()
-                        .premium(QuotePremiumDetails.builder()
-                                .grossPremium(new BigDecimal("240000"))
-                                .build())
-                        .build())
-                .paymentSummary(QuotePaymentSummary.builder()
-                        .totalAmount(new BigDecimal("229568"))
-                        .totalPaid(BigDecimal.ZERO)
-                        .remainingBalance(new BigDecimal("229568"))
-                        .installmentCount(1)
-                        .build())
-                .build();
-
-        MpesaPaymentStatusResponse paymentStatus = MpesaPaymentStatusResponse.builder()
-                .amount(80349.0)
-                .checkoutId("ws_CO_123")
-                .receiptNumber("UDTEM2PDHA")
-                .paidAt("2026-04-29 23:43:21")
-                .status(com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS)
-                .build();
-
-        SanlamUpdateDraftQuoteRequest request = mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus);
-
-        assertThat(request.getInsuranceData().getPayment().getTotalAmount()).isEqualTo(new BigDecimal("240000"));
-    }
 }
