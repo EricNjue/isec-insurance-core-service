@@ -37,7 +37,7 @@ public class MotorQuoteControllerExceptionTest {
     @Test
     void initiatePayment_ShouldReturnBusinessExceptionMessage_WhenOrchestratorThrowsIt() {
         String quoteId = "test-quote-id";
-        String errorMessage = "Minimum payment amount is 35% (KES 1000.00) of the total premium";
+        String errorMessage = "Minimum payment amount is 35% (KES 1000.00) of the total premium (KES 2857.14)";
         
         when(orchestrator.initiatePayment(eq(quoteId), any(MpesaInitiationRequest.class)))
                 .thenReturn(Mono.error(new BusinessException(errorMessage)));

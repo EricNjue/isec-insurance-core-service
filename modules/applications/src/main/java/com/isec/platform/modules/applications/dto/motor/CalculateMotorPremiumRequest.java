@@ -1,5 +1,6 @@
 package com.isec.platform.modules.applications.dto.motor;
 
+import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
 import com.isec.platform.modules.integrations.quote.provider.PartnerType;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import jakarta.validation.Valid;

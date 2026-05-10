@@ -107,9 +107,20 @@ public class SanlamClient {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(body)
                         .retrieve()
-                        .bodyToMono(SanlamDoubleInsuranceResponse.class)
-                        .doOnNext(response -> log.info("Sanlam double insurance response: status={}, message={}", 
-                                response.getStatus(), response.getMessage()))
+                        .bodyToMono(String.class)
+                        .flatMap(rawBody -> {
+                            log.info("Sanlam double insurance raw response: {}", rawBody);
+                            try {
+                                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                                mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                                return Mono.just(mapper.readValue(rawBody, SanlamDoubleInsuranceResponse.class));
+                            } catch (Exception e) {
+                                log.error("Failed to parse Sanlam double insurance response: {}", e.getMessage());
+                                return Mono.error(e);
+                            }
+                        })
+                        .doOnNext(response -> log.info("Sanlam double insurance parsed response: status={}, message={}, transaction_ref={}", 
+                                response.getStatus(), response.getMessage(), response.getTransactionRef()))
                         .doOnError(error -> log.error("Sanlam double insurance check failed: {}", error.getMessage()));
             });
     }

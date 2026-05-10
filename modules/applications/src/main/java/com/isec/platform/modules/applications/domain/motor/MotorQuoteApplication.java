@@ -30,6 +30,8 @@ public class MotorQuoteApplication extends TenantBaseEntity {
     private String premiumResult;
     private String draftQuoteResult;
     private String paymentResult;
+    private String policyIssuanceResult;
+    private String dmvicCheckResult;
     
     // Partner references
     private String partnerReferences;

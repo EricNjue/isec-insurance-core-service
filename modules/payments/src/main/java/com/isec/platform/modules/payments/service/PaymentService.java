@@ -74,7 +74,8 @@ public class PaymentService {
                                     if (amount.compareTo(threshold) < 0) {
                                         log.warn("First payment threshold not met for application {}: amount {} is less than 35% of premium {}", 
                                                 applicationId, amount, policy.getTotalAnnualPremium());
-                                        return Mono.error(new BusinessException("The first payment must be at least 35% of the total annual premium (KES " + threshold + ")"));
+                                        return Mono.error(new BusinessException(String.format("Minimum payment amount is 35%% (KES %.2f) of the total premium (KES %.2f)", 
+                                                threshold, policy.getTotalAnnualPremium())));
                                     }
                                 }
 

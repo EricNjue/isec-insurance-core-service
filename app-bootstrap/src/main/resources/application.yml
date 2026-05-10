@@ -115,14 +115,14 @@ integrations:
 
   mpesa:
     sanlam:
-      base-url: ${SANLAM_MPESA_BASE_URL:https://gisalesuat-gvcbguf7gkh9hfbe.a03.azurefd.net}
+      base-url: ${SANLAM_MPESA_BASE_URL:https://giapiuat-fhapb9ebcvbke6h5.a03.azurefd.net}
       stk-push-path: ${SANLAM_MPESA_STK_PUSH_PATH:/external_apis/mpesa/stk-push-request}
       stk-status-path: ${SANLAM_MPESA_STK_STATUS_PATH:/external_apis/mpesa/stk-push-status}
       timeout: ${SANLAM_MPESA_TIMEOUT:5s}
 
   premium:
     sanlam:
-      base-url: ${SANLAM_PREMIUM_BASE_URL:https://gisalesuat-gvcbguf7gkh9hfbe.a03.azurefd.net}
+      base-url: ${SANLAM_PREMIUM_BASE_URL:https://giapiuat-fhapb9ebcvbke6h5.a03.azurefd.net}
       calculate-premium-path: /rates/motor/calculate-premium
       timeout: 5s
       retry:
@@ -132,9 +132,11 @@ integrations:
 
   quote:
     sanlam:
-      base-url: ${SANLAM_QUOTE_BASE_URL:https://gisalesuat-gvcbguf7gkh9hfbe.a03.azurefd.net}
+      base-url: ${SANLAM_QUOTE_BASE_URL:https://giapiuat-fhapb9ebcvbke6h5.a03.azurefd.net}
       create-draft-quote-path: /quotes/create_draft_quote
       get-draft-quote-path: /quotes/draft_quote/{draftQuoteSysId}
+      update-draft-quote-path: /quotes/draft_quote/{draftQuoteSysId}
+      send-documents-email-path: /quotes/send-insurance-documents-email
       timeout: 5s
       retry:
         enabled: true

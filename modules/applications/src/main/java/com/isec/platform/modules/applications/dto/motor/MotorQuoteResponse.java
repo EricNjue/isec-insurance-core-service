@@ -30,6 +30,7 @@ public class MotorQuoteResponse {
     private PremiumInfo premium;
     private DraftQuoteInfo draftQuote;
     private PaymentInfo payment;
+    private PolicyInfo policy;
     private List<String> nextActions;
 
     @Data
@@ -68,6 +69,18 @@ public class MotorQuoteResponse {
         private String checkoutId;
         private MpesaPaymentStatus status;
         private String receiptNumber;
+        private String message;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PolicyInfo {
+        private String policyReference;
+        private String externalReference;
+        private boolean emailSent;
+        private String status;
         private String message;
     }
 }

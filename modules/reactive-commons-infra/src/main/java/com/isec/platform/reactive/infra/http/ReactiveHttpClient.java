@@ -1,10 +1,12 @@
 package com.isec.platform.reactive.infra.http;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Component
+@Slf4j
 public class ReactiveHttpClient {
 
     private final WebClient webClient;
@@ -25,8 +27,10 @@ public class ReactiveHttpClient {
             request.headers(options.getHeaders());
         }
 
-        Mono<T> mono = request.retrieve()
-                .bodyToMono(responseType)
+        Mono<T> mono = request.exchangeToMono(response -> {
+                    log.info("HTTP GET {} - Status: {}", url, response.statusCode());
+                    return response.bodyToMono(responseType);
+                })
                 .timeout(options.getTimeout());
         
         if (options.getRetrySpec() != null) {
@@ -49,8 +53,10 @@ public class ReactiveHttpClient {
         }
 
         Mono<T> mono = request.bodyValue(body)
-                .retrieve()
-                .bodyToMono(responseType)
+                .exchangeToMono(response -> {
+                    log.info("HTTP POST {} - Status: {}", url, response.statusCode());
+                    return response.bodyToMono(responseType);
+                })
                 .timeout(options.getTimeout());
 
         if (options.getRetrySpec() != null) {
@@ -73,8 +79,10 @@ public class ReactiveHttpClient {
         }
 
         Mono<T> mono = request.bodyValue(body)
-                .retrieve()
-                .bodyToMono(responseType)
+                .exchangeToMono(response -> {
+                    log.info("HTTP PUT {} - Status: {}", url, response.statusCode());
+                    return response.bodyToMono(responseType);
+                })
                 .timeout(options.getTimeout());
 
         if (options.getRetrySpec() != null) {
@@ -96,8 +104,10 @@ public class ReactiveHttpClient {
             request.headers(options.getHeaders());
         }
 
-        Mono<Void> mono = request.retrieve()
-                .bodyToMono(Void.class)
+        Mono<Void> mono = request.exchangeToMono(response -> {
+                    log.info("HTTP DELETE {} - Status: {}", url, response.statusCode());
+                    return response.bodyToMono(Void.class);
+                })
                 .timeout(options.getTimeout());
 
         if (options.getRetrySpec() != null) {

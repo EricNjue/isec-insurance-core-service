@@ -77,3 +77,7 @@ databaseChangeLog:
       file: db/changelog/modules/38-reactive-commons.yaml
   - include:
       file: db/changelog/modules/39-motor-quotes.yaml
+  - include:
+      file: db/changelog/modules/40-motor-quotes-policy-issuance.yaml
+  - include:
+      file: db/changelog/modules/41-motor-quotes-dmvic-check.yaml

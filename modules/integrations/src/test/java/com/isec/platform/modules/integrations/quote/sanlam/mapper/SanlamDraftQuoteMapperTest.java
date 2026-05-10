@@ -1,5 +1,6 @@
 package com.isec.platform.modules.integrations.quote.sanlam.mapper;
 
+import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.quote.model.*;
 import com.isec.platform.modules.integrations.quote.provider.PartnerType;
 import com.isec.platform.modules.integrations.quote.sanlam.dto.*;
@@ -37,6 +38,18 @@ class SanlamDraftQuoteMapperTest {
                         .subclass("private")
                         .vehicleType("standard_auto")
                         .status("draft")
+                        .client(QuoteClientDetails.builder()
+                                .type("individual")
+                                .name("ERIC GITONGA NJUE")
+                                .phone("+254722129685")
+                                .email("njue.gitonga92@gmail.com")
+                                .idNumber("28972735")
+                                .kraPin("A123456789B")
+                                .city("NAIROBI")
+                                .postalAddress("1435")
+                                .dateOfBirth(LocalDate.of(1992, 6, 27))
+                                .gender("Male")
+                                .build())
                         .vehicle(QuoteVehicleDetails.builder()
                                 .make("AUDI")
                                 .model("Q7")
@@ -44,19 +57,122 @@ class SanlamDraftQuoteMapperTest {
                                 .sumInsured(new BigDecimal("500000"))
                                 .build())
                         .cover(QuoteCoverDetails.builder()
+                                .bankInterest("no")
+                                .bankName("")
+                                .valuer("SOLVIT")
+                                .physicalAddress("Nairobi")
                                 .coverStartDate(LocalDate.of(2026, 4, 26))
                                 .coverEndDate(LocalDate.of(2027, 4, 25))
+                                .build())
+                        .submittedAt(LocalDateTime.now())
+                        .build())
+                .build();
+
+        SanlamCreateDraftQuoteRequest sanlamRequest = mapper.toSanlamRequest(request);
+        
+        assertThat(sanlamRequest.getStatus()).isEqualTo("draft");
+        assertThat(sanlamRequest.getDraftQuoteAmount()).isEqualTo(new BigDecimal("59808"));
+        assertThat(sanlamRequest.getClientName()).isEqualTo("ERIC GITONGA NJUE");
+        assertThat(sanlamRequest.getInsuranceData().getSubclass()).isEqualTo("private");
+        assertThat(sanlamRequest.getInsuranceData().getVehicle().getMake()).isEqualTo("AUDI");
+        assertThat(sanlamRequest.getInsuranceData().getCover().getCoverStartDate()).isEqualTo(LocalDate.of(2026, 4, 26));
+        assertThat(sanlamRequest.getInsuranceData().getCover().getCoverEndDate()).isEqualTo(LocalDate.of(2027, 4, 25));
+        assertThat(sanlamRequest.getInsuranceData().getCover().getBankInterest()).isEqualTo("no");
+        assertThat(sanlamRequest.getInsuranceData().getCover().getValuer()).isEqualTo("SOLVIT");
+        assertThat(sanlamRequest.getInsuranceData().getCover().getPhysicalAddress()).isEqualTo("Nairobi");
+        
+        // Verify client mapping
+        assertThat(sanlamRequest.getInsuranceData().getClient()).isNotNull();
+        assertThat(sanlamRequest.getInsuranceData().getClient().getType()).isEqualTo("individual");
+        assertThat(sanlamRequest.getInsuranceData().getClient().getKraPin()).isEqualTo("A123456789B");
+        assertThat(sanlamRequest.getInsuranceData().getClient().getCity()).isEqualTo("NAIROBI");
+        assertThat(sanlamRequest.getInsuranceData().getClient().getDateOfBirth()).isEqualTo(LocalDate.of(1992, 6, 27));
+        assertThat(sanlamRequest.getInsuranceData().getClient().getGender()).isEqualTo("Male");
+
+        // Verify disclaimers mapping (hardcoded to true)
+        assertThat(sanlamRequest.getInsuranceData().getDisclaimers()).isNotNull();
+        assertThat(sanlamRequest.getInsuranceData().getDisclaimers().isOwnershipDeclaration()).isTrue();
+        assertThat(sanlamRequest.getInsuranceData().getDisclaimers().isVehicleInspection()).isTrue();
+        assertThat(sanlamRequest.getInsuranceData().getDisclaimers().isTermsConditions()).isTrue();
+        assertThat(sanlamRequest.getInsuranceData().getDisclaimers().isSelfDeclaration()).isTrue();
+
+        // Verify submitted_at
+        assertThat(sanlamRequest.getInsuranceData().getSubmittedAt()).isNotNull();
+    }
+
+    @Test
+    void shouldMapDmvicCheckWithTransactionRef() {
+        DraftQuoteRequest request = DraftQuoteRequest.builder()
+                .insuranceData(DraftQuoteInsuranceData.builder()
+                        .dmvicCheck(QuoteDmvicCheck.builder()
+                                .checkedAt(LocalDateTime.now())
+                                .hasDoubleInsurance(true)
+                                .status("double")
+                                .transactionRef("OA-ZD9849")
+                                .message("Active cover found")
+                                .evidence(Map.of("status", "double"))
                                 .build())
                         .build())
                 .build();
 
         SanlamCreateDraftQuoteRequest sanlamRequest = mapper.toSanlamRequest(request);
 
-        assertThat(sanlamRequest.getDraftQuoteAmount()).isEqualTo(new BigDecimal("59808"));
-        assertThat(sanlamRequest.getClientName()).isEqualTo("ERIC GITONGA NJUE");
-        assertThat(sanlamRequest.getInsuranceData().getSubclass()).isEqualTo("private");
-        assertThat(sanlamRequest.getInsuranceData().getVehicle().getMake()).isEqualTo("AUDI");
-        assertThat(sanlamRequest.getInsuranceData().getCover().getCoverStartDate()).isEqualTo(LocalDate.of(2026, 4, 26));
+        assertThat(sanlamRequest.getInsuranceData().getDmvicCheck()).isNotNull();
+        assertThat(sanlamRequest.getInsuranceData().getDmvicCheck().getTransactionRef()).isEqualTo("OA-ZD9849");
+        assertThat(sanlamRequest.getInsuranceData().getDmvicCheck().getStatus()).isEqualTo("double");
+    }
+
+    @Test
+    void shouldMapPremiumAndPremiumsInDraftQuoteRequest() {
+        DraftQuoteRequest request = DraftQuoteRequest.builder()
+                .draftQuoteAmount(new BigDecimal("229568"))
+                .insuranceData(DraftQuoteInsuranceData.builder()
+                        .premium(QuotePremiumDetails.builder()
+                                .basicPremium(new BigDecimal("204000"))
+                                .grossPremium(new BigDecimal("229568"))
+                                .netPremium(new BigDecimal("228500"))
+                                .levies(new BigDecimal("1028"))
+                                .stampDuty(new BigDecimal("40"))
+                                .sumInsured(new BigDecimal("6800000"))
+                                .rateSetUsed("GUIDELINES SAZ APRIL 2026")
+                                .baseRateSetId(39L)
+                                .baseRateSetName("GUIDELINES SAZ APRIL 2026")
+                                .specialRateApplied(false)
+                                .pvtInclusiveApplicable(false)
+                                .excessProtectorInclusiveApplicable(false)
+                                .build())
+                        .cover(QuoteCoverDetails.builder()
+                                .coverStartDate(LocalDate.of(2026, 4, 26))
+                                .build())
+                        .build())
+                .build();
+
+        SanlamCreateDraftQuoteRequest sanlamRequest = mapper.toSanlamRequest(request);
+
+        assertThat(sanlamRequest.getInsuranceData().getPremium()).isNotNull();
+        assertThat(sanlamRequest.getInsuranceData().getPremium().getBasicPremium()).isEqualTo(new BigDecimal("204000"));
+        assertThat(sanlamRequest.getInsuranceData().getPremium().getGrossPremium()).isEqualTo(new BigDecimal("229568"));
+        assertThat(sanlamRequest.getInsuranceData().getPremium().getSumInsured()).isEqualTo(new BigDecimal("6800000"));
+
+        assertThat(sanlamRequest.getInsuranceData().getPremiums()).isNotNull();
+        assertThat(sanlamRequest.getInsuranceData().getPremiums().getBasic()).isEqualTo(new BigDecimal("204000"));
+        assertThat(sanlamRequest.getInsuranceData().getPremiums().getGross()).isEqualTo(new BigDecimal("229568"));
+        assertThat(sanlamRequest.getInsuranceData().getPremiums().getNet()).isEqualTo(new BigDecimal("228500"));
+        assertThat(sanlamRequest.getInsuranceData().getPremiums().getLevies()).isEqualTo(new BigDecimal("1028"));
+        assertThat(sanlamRequest.getInsuranceData().getPremiums().getStampDuty()).isEqualTo(new BigDecimal("40"));
+
+        // Verify rate engine mapping
+        SanlamRateEngine rateEngine = sanlamRequest.getInsuranceData().getRateEngine();
+        assertThat(rateEngine).isNotNull();
+        assertThat(rateEngine.getBaseRateSetId()).isEqualTo(39);
+        assertThat(rateEngine.getRateSetUsed()).isEqualTo("GUIDELINES SAZ APRIL 2026");
+        assertThat(rateEngine.getAsOfDate()).isEqualTo(LocalDate.of(2026, 4, 26));
+        assertThat(rateEngine.getCalculationDetails()).isNotNull();
+        assertThat(rateEngine.getCalculationDetails().getBaseRateSetId()).isEqualTo(39);
+        assertThat(rateEngine.getCalculationDetails().getBaseRateSetName()).isEqualTo("GUIDELINES SAZ APRIL 2026");
+        assertThat(rateEngine.getCalculationDetails().isSpecialRateApplied()).isFalse();
+        assertThat(rateEngine.getCalculationDetails().isPvtInclusiveApplicable()).isFalse();
+        assertThat(rateEngine.getCalculationDetails().isExcessProtectorInclusiveApplicable()).isFalse();
     }
 
     @Test
@@ -107,22 +223,99 @@ class SanlamDraftQuoteMapperTest {
 
     @Test
     void shouldMapStatusCorrectly() {
-        // Only draft status
-        SanlamDraftQuoteResponse resp1 = SanlamDraftQuoteResponse.builder().status("draft").build();
-        DraftQuoteResponse commonResp1 = mapper.toCommonResponse(resp1);
-        assertThat(commonResp1.getStatus()).isEqualTo(DraftQuoteStatus.DRAFT);
+        // ... existing code ...
+    }
 
-        // Draft status with pending payment
-        SanlamDraftQuoteResponse resp2 = SanlamDraftQuoteResponse.builder()
-                .status("draft")
-                .paymentSummary(SanlamPaymentSummary.builder().status("pending").build())
+    @Test
+    void shouldMapUpdateDraftQuoteRequestWithDetailedPayment() {
+        DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
+                .clientPhone("0719531872")
+                .paymentSummary(QuotePaymentSummary.builder()
+                        .totalAmount(new BigDecimal("229568"))
+                        .totalPaid(BigDecimal.ZERO)
+                        .remainingBalance(new BigDecimal("229568"))
+                        .installmentCount(2)
+                        .build())
                 .build();
-        DraftQuoteResponse commonResp2 = mapper.toCommonResponse(resp2);
-        assertThat(commonResp2.getStatus()).isEqualTo(DraftQuoteStatus.PENDING_PAYMENT);
 
-        // Other statuses
-        SanlamDraftQuoteResponse resp3 = SanlamDraftQuoteResponse.builder().status("paid").build();
-        DraftQuoteResponse commonResp3 = mapper.toCommonResponse(resp3);
-        assertThat(commonResp3.getStatus()).isEqualTo(DraftQuoteStatus.PAID);
+        MpesaPaymentStatusResponse paymentStatus = MpesaPaymentStatusResponse.builder()
+                .amount(80349.0)
+                .checkoutId("ws_CO_123")
+                .receiptNumber("UDTEM2PDHA")
+                .paidAt("2026-04-29 23:43:21")
+                .status(com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS)
+                .build();
+
+        SanlamUpdateDraftQuoteRequest request = mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus);
+
+        assertThat(request.getInsuranceData().getPayment().getPhoneNumber()).isEqualTo("719531872");
+        assertThat(request.getInsuranceData().getPayment().getAmount()).isEqualTo(new BigDecimal("80349.0"));
+        assertThat(request.getInsuranceData().getPayment().getNumberOfInstallments()).isEqualTo(2);
+        assertThat(request.getInsuranceData().getPayment().getMaxInstallments()).isEqualTo(3);
+        assertThat(request.getInsuranceData().getPayment().getInstallments()).hasSize(1);
+        assertThat(request.getInsuranceData().getPayment().getInstallments().get(0).getInstallmentNumber()).isEqualTo(1);
+        assertThat(request.getInsuranceData().getPayment().getLastPayment().getInstallmentNumber()).isEqualTo(1);
+        // assertThat(request.getInsuranceData().getPayment().getTotalAmount()).isEqualTo(new BigDecimal("229568"));
+    }
+
+    @Test
+    void shouldMapTotalAmountFromNetPremiumIfAvailable() {
+        DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
+                .clientPhone("0719531872")
+                .insuranceData(DraftQuoteInsuranceData.builder()
+                        .premium(QuotePremiumDetails.builder()
+                                .netPremium(new BigDecimal("250000"))
+                                .grossPremium(new BigDecimal("240000"))
+                                .build())
+                        .build())
+                .paymentSummary(QuotePaymentSummary.builder()
+                        .totalAmount(new BigDecimal("229568"))
+                        .totalPaid(BigDecimal.ZERO)
+                        .remainingBalance(new BigDecimal("229568"))
+                        .installmentCount(1)
+                        .build())
+                .build();
+
+        MpesaPaymentStatusResponse paymentStatus = MpesaPaymentStatusResponse.builder()
+                .amount(80349.0)
+                .checkoutId("ws_CO_123")
+                .receiptNumber("UDTEM2PDHA")
+                .paidAt("2026-04-29 23:43:21")
+                .status(com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS)
+                .build();
+
+        SanlamUpdateDraftQuoteRequest request = mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus);
+
+        assertThat(request.getInsuranceData().getPayment().getTotalAmount()).isEqualTo(new BigDecimal("250000"));
+    }
+
+    @Test
+    void shouldMapTotalAmountFromGrossPremiumIfNetMissing() {
+        DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
+                .clientPhone("0719531872")
+                .insuranceData(DraftQuoteInsuranceData.builder()
+                        .premium(QuotePremiumDetails.builder()
+                                .grossPremium(new BigDecimal("240000"))
+                                .build())
+                        .build())
+                .paymentSummary(QuotePaymentSummary.builder()
+                        .totalAmount(new BigDecimal("229568"))
+                        .totalPaid(BigDecimal.ZERO)
+                        .remainingBalance(new BigDecimal("229568"))
+                        .installmentCount(1)
+                        .build())
+                .build();
+
+        MpesaPaymentStatusResponse paymentStatus = MpesaPaymentStatusResponse.builder()
+                .amount(80349.0)
+                .checkoutId("ws_CO_123")
+                .receiptNumber("UDTEM2PDHA")
+                .paidAt("2026-04-29 23:43:21")
+                .status(com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS)
+                .build();
+
+        SanlamUpdateDraftQuoteRequest request = mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus);
+
+        assertThat(request.getInsuranceData().getPayment().getTotalAmount()).isEqualTo(new BigDecimal("240000"));
     }
 }

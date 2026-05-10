@@ -1,23 +1,22 @@
 package com.isec.platform.modules.integrations.quote.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class QuoteDmvicCheck {
-    private LocalDateTime checkedAt;
-    private boolean hasDoubleInsurance;
+public class PolicyIssuanceResult {
     private String status;
-    private String transactionRef;
     private String message;
-    private Map<String, Object> evidence;
+    private String policyReference;
+    private String externalReference;
+    private boolean emailSent;
+    private Map<String, Object> metadata;
+    private String rawResponse;
 }

@@ -113,8 +113,8 @@ public class QuoteService {
                     .registrationNumber(registrationNumber)
                     .chassisNumber(chassisNumber)
                     .build())
-                    .doOnNext(response -> log.info("Double insurance check result for {}: hasDuplicate={}", 
-                            registrationNumber, response.isHasDuplicate()));
+                    .doOnNext(response -> log.info("Double insurance check result for {}: {}", 
+                            registrationNumber, response));
         } else {
             log.error("No integration adapter found for tenant: {}. This is a terminal error.", tenantId);
             return Mono.error(new BusinessException("No integration adapter configured for tenant: " + tenantId));

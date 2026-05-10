@@ -8,13 +8,13 @@ import com.isec.platform.modules.integrations.mpesa.sanlam.service.SanlamMpesaPr
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationRequest;
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationResponse;
 import com.isec.platform.modules.integrations.premium.sanlam.provider.SanlamPremiumCalculationProvider;
-import com.isec.platform.modules.integrations.quote.model.DraftQuoteRequest;
-import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
-import com.isec.platform.modules.integrations.quote.model.GetDraftQuoteRequest;
+import com.isec.platform.modules.integrations.quote.model.*;
 import com.isec.platform.modules.integrations.quote.provider.PartnerQuoteProvider;
 import com.isec.platform.modules.integrations.quote.provider.PartnerType;
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
 import com.isec.platform.modules.integrations.quote.sanlam.client.SanlamDraftQuoteClient;
+import com.isec.platform.modules.integrations.quote.sanlam.client.SanlamPolicyClient;
+import com.isec.platform.modules.integrations.quote.sanlam.dto.SanlamEmailRequest;
 import com.isec.platform.modules.integrations.quote.sanlam.mapper.SanlamDraftQuoteMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +32,7 @@ import java.util.Set;
 public class SanlamQuoteProvider implements PartnerQuoteProvider {
 
     private final SanlamDraftQuoteClient client;
+    private final SanlamPolicyClient policyClient;
     private final SanlamDraftQuoteMapper mapper;
     private final SanlamPremiumCalculationProvider premiumProvider;
     private final SanlamMpesaProvider mpesaProvider;
@@ -48,7 +49,8 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
                 QuoteLifecycleCapability.CREATE_DRAFT_QUOTE,
                 QuoteLifecycleCapability.GET_DRAFT_QUOTE,
                 QuoteLifecycleCapability.INITIATE_PAYMENT,
-                QuoteLifecycleCapability.CHECK_PAYMENT_STATUS
+                QuoteLifecycleCapability.CHECK_PAYMENT_STATUS,
+                QuoteLifecycleCapability.ISSUE_POLICY
         );
     }
 
@@ -101,6 +103,45 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
     @Override
     public Mono<MpesaPaymentStatusResponse> checkPaymentStatus(MpesaCheckStatusRequest request) {
         return mpesaProvider.checkStatus(request);
+    }
+
+    @Override
+    public Mono<PolicyIssuanceResult> issuePolicy(String quoteId, DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {
+        return Mono.defer(() -> {
+            log.info("Starting Sanlam policy issuance for quoteId: {}, draftQuoteSysId: {}", quoteId, draftQuote.getDraftQuoteSysId());
+            
+            validatePolicyIssuance(draftQuote, paymentStatus);
+
+            return policyClient.updateDraftQuote(draftQuote.getDraftQuoteSysId(), mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus))
+                    .flatMap(updateResponse -> {
+                        Long draftQuoteSysId = updateResponse.getDraftQuoteSysId();
+                        if (draftQuoteSysId == null) {
+                            return Mono.error(new IllegalStateException("Failed to extract draft_quote_sys_id from Sanlam response"));
+                        }
+
+                        SanlamEmailRequest emailRequest = SanlamEmailRequest.builder()
+                                .quotSysId(draftQuoteSysId)
+                                .includeReceipt(true)
+                                .includeDebitNote(true)
+                                .recipientEmail(draftQuote.getClientEmail())
+                                .build();
+
+                        return policyClient.sendDocuments(emailRequest)
+                                .map(emailResponse -> mapper.toPolicyIssuanceResult(updateResponse, emailResponse));
+                    })
+                    .doOnNext(result -> log.info("Sanlam policy issuance completed for quoteId: {}, quotSysId: {}", quoteId, result.getPolicyReference()))
+                    .doOnError(error -> log.error("Sanlam policy issuance failed for quoteId: {}. Error: {}", quoteId, error.getMessage()));
+        });
+    }
+
+    private void validatePolicyIssuance(DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {
+        Assert.notNull(draftQuote, "Draft quote must not be null");
+        Assert.notNull(paymentStatus, "Payment status must not be null");
+        Assert.notNull(draftQuote.getDraftQuoteSysId(), "draft_quote_sys_id is missing");
+        Assert.notNull(draftQuote.getDraftQuoteRef(), "draft_quote_ref is missing");
+        Assert.notNull(paymentStatus.getCheckoutId(), "checkout_id is missing");
+        Assert.notNull(paymentStatus.getReceiptNumber(), "receipt is missing");
+        Assert.isTrue(paymentStatus.getStatus() == com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS, "Payment must be successful");
     }
 
     private void validateDraftQuoteRequest(DraftQuoteRequest request) {

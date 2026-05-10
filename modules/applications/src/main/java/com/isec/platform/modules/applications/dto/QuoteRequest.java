@@ -77,5 +77,11 @@ public class QuoteRequest {
         private String fullName;
         private String phoneNumber;
         private String physicalAddress;
+        private String idNumber;
+        private String kraPin;
+        private String city;
+        private String postalAddress;
+        private java.time.LocalDate dateOfBirth;
+        private String gender;
     }
 }

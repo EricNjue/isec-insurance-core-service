@@ -8,6 +8,7 @@ import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
+import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationRequest;
@@ -18,9 +19,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -111,15 +116,54 @@ public class MotorQuoteMapper {
             startDate = LocalDate.parse(insurance.getInsuranceStartDate(), DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         }
 
+        QuoteCoverDetails cover = QuoteCoverDetails.builder()
+                .bankInterest("no")
+                .bankName("")
+                .valuer("SOLVIT") // TODO: Hardcoded for now
+                .physicalAddress("Nairobi") // TODO: Hardcoded for now
+                .coverStartDate(startDate)
+                .coverEndDate(startDate.plusYears(1).minusDays(1))
+                .build();
+
+        QuoteDmvicCheck dmvicCheck = null;
+        if (app.getDmvicCheckResult() != null) {
+            DoubleInsuranceCheckResponse check = deserialize(app.getDmvicCheckResult(), DoubleInsuranceCheckResponse.class);
+            dmvicCheck = QuoteDmvicCheck.builder()
+                    .checkedAt(LocalDateTime.now()) // We don't have the original checkedAt, use now
+                    .hasDoubleInsurance(check.isHasDuplicate())
+                    .status(check.getStatus())
+                    .transactionRef(check.getTransactionRef() != null ? check.getTransactionRef() :
+                            (check.getDetails() != null ? "TXN-" + check.getDetails().getCertificateNumber() : "N/A"))
+                    .message(check.getMessage())
+                    .evidence(check.getDetails() != null ? objectMapper.convertValue(check.getDetails(), Map.class) : new HashMap<>())
+                    .build();
+        }
+
         return DraftQuoteRequest.builder()
                 .provider(app.getPartner())
                 .draftQuoteAmount(premium.getGrossPremium())
                 .clientName(kyc.getFullName())
                 .clientPhone(kyc.getPhoneNumber())
                 .clientEmail(kyc.getEmail())
-                .clientIdNumber("N/A") // Need to handle ID number if available
-                .draftQuoteUserId(1L) // Default or get from context
+                .clientIdNumber(kyc.getIdNumber() != null ? kyc.getIdNumber() : "N/A")
+                .status("draft")
+                .draftQuoteUserId(561L) // todo:- Default, need to know how this value shd be derived
                 .insuranceData(DraftQuoteInsuranceData.builder()
+                        .subclass("private")
+                        .vehicleType("standard_auto")
+                        .status("draft")
+                        .client(QuoteClientDetails.builder()
+                                .type("individual")
+                                .name(kyc.getFullName())
+                                .phone(kyc.getPhoneNumber())
+                                .email(kyc.getEmail())
+                                .idNumber(kyc.getIdNumber())
+                                .kraPin(kyc.getKraPin())
+                                .city(kyc.getCity())
+                                .postalAddress(kyc.getPostalAddress())
+                                .dateOfBirth(kyc.getDateOfBirth())
+                                .gender(kyc.getGender())
+                                .build())
                         .vehicle(QuoteVehicleDetails.builder()
                                 .make(vehicle.getMakeCode())
                                 .model(vehicle.getModelCode())
@@ -129,10 +173,23 @@ public class MotorQuoteMapper {
                                 .chassisNumber(vehicle.getChassisNumber())
                                 .engineNumber(vehicle.getEngineNumber())
                                 .build())
-                        .cover(QuoteCoverDetails.builder()
-                                .coverStartDate(startDate)
-                                .coverEndDate(startDate.plusYears(1).minusDays(1))
+                        .premium(QuotePremiumDetails.builder()
+                                .basicPremium(premium.getBasicPremium())
+                                .grossPremium(premium.getGrossPremium())
+                                .netPremium(premium.getNetPremium())
+                                .levies(premium.getLevies())
+                                .stampDuty(premium.getStampDuty())
+                                .sumInsured(vehicle.getValuationAmount())
+                                .rateSetUsed(premium.getRateSetUsed())
+                                .baseRateSetId(premium.getCalculationMetadata() != null ? premium.getCalculationMetadata().getBaseRateSetId() : null)
+                                .baseRateSetName(premium.getCalculationMetadata() != null ? premium.getCalculationMetadata().getBaseRateSetName() : null)
+                                .specialRateApplied(premium.isSpecialRateApplied())
+                                .pvtInclusiveApplicable(premium.getCalculationMetadata() != null && premium.getCalculationMetadata().isPvtInclusiveApplicable())
+                                .excessProtectorInclusiveApplicable(premium.getCalculationMetadata() != null && premium.getCalculationMetadata().isExcessProtectorInclusiveApplicable())
                                 .build())
+                        .cover(cover)
+                        .dmvicCheck(dmvicCheck)
+                        .submittedAt(LocalDateTime.now())
                         .build())
                 .build();
     }
@@ -174,25 +231,39 @@ public class MotorQuoteMapper {
 
         if (app.getPaymentResult() != null) {
             try {
-                // Try as Initiation response
-                MpesaInitiatePaymentResponse init = objectMapper.readValue(app.getPaymentResult(), MpesaInitiatePaymentResponse.class);
-                builder.payment(MotorQuoteResponse.PaymentInfo.builder()
-                        .checkoutId(init.getCheckoutId())
-                        .status(init.getStatus())
-                        .message(init.getMessage())
-                        .build());
-                
-                // Try as Status response if available
+                // Try as Status response first
                 MpesaPaymentStatusResponse status = objectMapper.readValue(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
-                if (status.getReceiptNumber() != null) {
+                if (status.getCheckoutId() != null && status.getStatus() != null) {
                     builder.payment(MotorQuoteResponse.PaymentInfo.builder()
                             .checkoutId(status.getCheckoutId())
                             .status(status.getStatus())
                             .message(status.getMessage())
                             .receiptNumber(status.getReceiptNumber())
                             .build());
+                } else {
+                    // Try as Initiation response
+                    MpesaInitiatePaymentResponse init = objectMapper.readValue(app.getPaymentResult(), MpesaInitiatePaymentResponse.class);
+                    builder.payment(MotorQuoteResponse.PaymentInfo.builder()
+                            .checkoutId(init.getCheckoutId())
+                            .status(init.getStatus())
+                            .message(init.getMessage())
+                            .build());
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (app.getPolicyIssuanceResult() != null) {
+            PolicyIssuanceResult policy = deserialize(app.getPolicyIssuanceResult(), PolicyIssuanceResult.class);
+            if (policy != null) {
+                builder.policy(MotorQuoteResponse.PolicyInfo.builder()
+                        .policyReference(policy.getPolicyReference())
+                        .externalReference(policy.getExternalReference())
+                        .emailSent(policy.isEmailSent())
+                        .status(policy.getStatus())
+                        .message(policy.getMessage())
+                        .build());
+            }
         }
 
         builder.nextActions(deriveNextActions(app.getStatus()));
@@ -217,6 +288,9 @@ public class MotorQuoteMapper {
                 break;
             case PAYMENT_SUCCESSFUL:
                 actions.add("ISSUE_POLICY");
+                break;
+            case POLICY_ISSUED:
+                // Terminal state, no actions
                 break;
             case PREMIUM_CALCULATION_FAILED:
             case PAYMENT_FAILED:

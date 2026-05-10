@@ -103,7 +103,8 @@ class PaymentServiceTest {
         BigDecimal lowAmount = new BigDecimal("1000");
 
         StepVerifier.create(paymentService.initiateSTKPush(applicationId, lowAmount, phoneNumber))
-            .expectError(BusinessException.class)
+            .expectErrorMatches(throwable -> throwable instanceof BusinessException && 
+                throwable.getMessage().equals("Minimum payment amount is 35% (KES 1400.00) of the total premium (KES 4000.00)"))
             .verify();
     }
 

@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20240430-1
+      author: junie
+      changes:
+        - addColumn:
+            tableName: motor_quote_applications
+            columns:
+              - column:
+                  name: dmvic_check_result
+                  type: text

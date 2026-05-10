@@ -7,6 +7,7 @@ import com.isec.platform.common.exception.ResourceNotFoundException;
 import com.isec.platform.common.multitenancy.TenantContext;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteApplication;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
+import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
 import com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest;
@@ -15,15 +16,16 @@ import com.isec.platform.modules.applications.repository.motor.MotorQuoteReposit
 import com.isec.platform.modules.integrations.mpesa.model.MpesaCheckStatusRequest;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentRequest;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus;
+import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.mpesa.provider.MpesaProviderType;
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
-import com.isec.platform.modules.integrations.quote.model.GetDraftQuoteRequest;
 import com.isec.platform.modules.integrations.quote.provider.PartnerQuoteProvider;
 import com.isec.platform.modules.integrations.quote.provider.PartnerQuoteProviderFactory;
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -36,6 +38,7 @@ public class MotorQuoteOrchestrator {
     private final MotorQuoteMapper mapper;
     private final PartnerQuoteProviderFactory partnerFactory;
     private final ObjectMapper objectMapper;
+    private final ReactiveRedisTemplate<String, Object> redisTemplate;
 
     @Value("${quote.min-payment-percentage:0.35}")
     private double minPaymentPercentage;
@@ -52,6 +55,10 @@ public class MotorQuoteOrchestrator {
                 .switchIfEmpty(Mono.error(new BusinessException("Missing required X-Tenant-Id header")))
                 .flatMap(tenantId -> repository.findByQuoteId(request.getQuoteId())
                         .flatMap(existing -> {
+                            if (existing.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
+                                existing.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                return Mono.error(new BusinessException("Cannot recalculate premium for an already issued policy or one in progress of issuance."));
+                            }
                             mapper.updateEntity(existing, request);
                             existing.setTenantId(tenantId);
                             return Mono.just(existing);
@@ -61,6 +68,18 @@ public class MotorQuoteOrchestrator {
                             newApp.setTenantId(tenantId);
                             return Mono.just(newApp);
                         })))
+                .flatMap(app -> redisTemplate.opsForValue().get("quote_init:" + app.getQuoteId())
+                        .cast(InitiateQuoteResponse.class)
+                        .doOnNext(initResponse -> {
+                            if (initResponse.getDoubleInsuranceCheck() != null) {
+                                try {
+                                    app.setDmvicCheckResult(objectMapper.writeValueAsString(initResponse.getDoubleInsuranceCheck()));
+                                } catch (JsonProcessingException e) {
+                                    log.warn("Failed to serialize DMVIC check result for quoteId: {}", app.getQuoteId());
+                                }
+                            }
+                        })
+                        .thenReturn(app))
                 .flatMap(app -> {
                     app.setStatus(MotorQuoteStatus.PREMIUM_CALCULATION_IN_PROGRESS);
                     return repository.save(app);
@@ -91,6 +110,10 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
+                                app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                return Mono.error(new BusinessException("Cannot accept quote for an already issued policy or one in progress of issuance."));
+                            }
                             if (app.getStatus() != MotorQuoteStatus.PREMIUM_CALCULATED && app.getStatus() != MotorQuoteStatus.QUOTE_ACCEPTED && app.getStatus() != MotorQuoteStatus.DRAFT_QUOTE_CREATED) {
                                 return Mono.error(new BusinessException("Invalid status for quote acceptance: " + app.getStatus()));
                             }
@@ -121,6 +144,10 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
+                                app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                return Mono.error(new BusinessException("Cannot initiate payment for an already issued policy or one in progress of issuance."));
+                            }
                             if (request.getKycDetails() != null) {
                                 mapper.updateKycDetails(app, request.getKycDetails());
                             }
@@ -158,7 +185,7 @@ public class MotorQuoteOrchestrator {
         if (requestAmount < fullAmount) {
             double minAmount = fullAmount * minPaymentPercentage;
             if (requestAmount < minAmount) {
-                throw new BusinessException(String.format("Minimum payment amount is %.0f%% (KES %.2f) of the total premium", minPaymentPercentage * 100, minAmount));
+                throw new BusinessException(String.format("Minimum payment amount is %.0f%% (KES %.2f) of the total premium (KES %.2f)", minPaymentPercentage * 100, minAmount, fullAmount));
             }
         }
         return requestAmount;
@@ -198,21 +225,80 @@ public class MotorQuoteOrchestrator {
                 .map(mapper::toResponse);
     }
 
+    public Mono<MotorQuoteResponse> issuePolicy(String quoteId) {
+        log.info("Starting policy issuance for quoteId: {}", quoteId);
+        return repository.findByQuoteId(quoteId)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
+                .flatMap(app -> {
+                    if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED) {
+                        return Mono.error(new BusinessException("Policy has already been issued for this quote."));
+                    }
+                    if (app.getStatus() != MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
+                        return Mono.error(new BusinessException("Policy can only be issued after successful payment. Current status: " + app.getStatus()));
+                    }
+                    app.setStatus(MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS);
+                    return repository.save(app);
+                })
+                .flatMap(app -> {
+                    PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
+                    if (!provider.supportedCapabilities().contains(QuoteLifecycleCapability.ISSUE_POLICY)) {
+                        return Mono.error(new BusinessException("Partner does not support policy issuance: " + app.getPartner()));
+                    }
+
+                    DraftQuoteResponse draftQuote = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
+                    MpesaPaymentStatusResponse paymentStatus = deserialize(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
+
+                    return provider.issuePolicy(app.getQuoteId(), draftQuote, paymentStatus)
+                            .flatMap(result -> {
+                                app.setStatus(MotorQuoteStatus.POLICY_ISSUED);
+                                app.setPolicyIssuanceResult(serialize(result));
+                                // Update partner references with quotSysId if available
+                                if (result.getMetadata() != null && result.getMetadata().containsKey("quot_sys_id")) {
+                                    app.setPartnerReferences(serialize(result.getMetadata()));
+                                }
+                                app.setRawPartnerResponses(serialize(result));
+                                return repository.save(app);
+                            })
+                            .onErrorResume(e -> {
+                                log.error("Policy issuance failed for quoteId: {}", quoteId, e);
+                                app.setStatus(MotorQuoteStatus.POLICY_ISSUANCE_FAILED);
+                                return repository.save(app).then(Mono.error(e));
+                            });
+                })
+                .map(mapper::toResponse);
+    }
+
     private MpesaCheckStatusRequest buildCheckStatusRequest(MotorQuoteApplication app) {
         DraftQuoteResponse draft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
+        String checkoutId = null;
         try {
-            // Need checkoutId from previous payment result
-            com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse initRes =
-                    objectMapper.readValue(app.getPaymentResult(), com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse.class);
-
-            return MpesaCheckStatusRequest.builder()
-                    .partner(MpesaProviderType.valueOf(app.getPartner().name()))
-                    .quoteRef(draft.getDraftQuoteRef())
-                    .checkoutId(initRes.getCheckoutId())
-                    .build();
+            // Try as Status response first (most recent)
+            MpesaPaymentStatusResponse statusRes = objectMapper.readValue(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
+            checkoutId = statusRes.getCheckoutId();
         } catch (Exception e) {
+            // Ignore and try Initiation response
+        }
+
+        if (checkoutId == null) {
+            try {
+                // Try as Initiation response
+                com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse initRes =
+                        objectMapper.readValue(app.getPaymentResult(), com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse.class);
+                checkoutId = initRes.getCheckoutId();
+            } catch (Exception e) {
+                log.error("Failed to deserialize payment initiation result for quoteId: {}", app.getQuoteId());
+            }
+        }
+
+        if (checkoutId == null) {
             throw new BusinessException("Failed to resolve checkout ID for status check");
         }
+
+        return MpesaCheckStatusRequest.builder()
+                .partner(MpesaProviderType.valueOf(app.getPartner().name()))
+                .quoteRef(draft.getDraftQuoteRef())
+                .checkoutId(checkoutId)
+                .build();
     }
 
     private String serialize(Object obj) {

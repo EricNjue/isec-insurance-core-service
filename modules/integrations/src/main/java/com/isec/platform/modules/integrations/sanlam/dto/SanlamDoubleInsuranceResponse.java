@@ -17,6 +17,7 @@ public class SanlamDoubleInsuranceResponse {
     private String message;
     @JsonProperty("transaction_ref")
     private String transactionRef;
+    @JsonProperty("evidence")
     private Evidence evidence;
 
     @Data
@@ -25,7 +26,9 @@ public class SanlamDoubleInsuranceResponse {
     public static class Evidence {
         @JsonProperty("api_request_number")
         private String apiRequestNumber;
+        @JsonProperty("status")
         private Boolean status;
+        @JsonProperty("error")
         private String error;
         @JsonProperty("double_insurance")
         private List<Object> doubleInsurance;
@@ -37,6 +40,7 @@ public class SanlamDoubleInsuranceResponse {
         private String certificateNumber;
         @JsonProperty("policy_number")
         private String policyNumber;
+        @JsonProperty("insurer")
         private String insurer;
         @JsonProperty("vehicle_registration_number")
         private String vehicleRegistrationNumber;

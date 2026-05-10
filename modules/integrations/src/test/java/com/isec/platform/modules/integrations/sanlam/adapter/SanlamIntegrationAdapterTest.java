@@ -63,6 +63,7 @@ class SanlamIntegrationAdapterTest {
         SanlamDoubleInsuranceResponse sanlamResponse = new SanlamDoubleInsuranceResponse();
         sanlamResponse.setStatus("clear");
         sanlamResponse.setMessage("No active cover");
+        sanlamResponse.setTransactionRef("OA-12345");
 
         when(cacheManager.getCache(CachingConfig.SANLAM_DOUBLE_INSURANCE_CACHE)).thenReturn(cache);
         when(cache.get(cacheKey, DoubleInsuranceCheckResponse.class)).thenReturn(null);
@@ -74,6 +75,7 @@ class SanlamIntegrationAdapterTest {
                     assertNotNull(response);
                     assertFalse(response.isHasDuplicate());
                     assertEquals("clear", response.getStatus());
+                    assertEquals("OA-12345", response.getTransactionRef());
                 })
                 .verifyComplete();
 
