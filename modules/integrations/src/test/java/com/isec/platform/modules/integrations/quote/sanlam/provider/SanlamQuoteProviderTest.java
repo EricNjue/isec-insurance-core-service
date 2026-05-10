@@ -88,7 +88,7 @@ class SanlamQuoteProviderTest {
                 .verifyComplete();
 
         verify(policyClient).updateDraftQuote(eq(1001L), any());
-        verify(policyClient).sendDocuments(argThat(request -> request.getQuotSysId().equals(2001L)));
+        verify(policyClient).sendDocuments(argThat(request -> request.getQuotSysId().equals(1001L)));
     }
 
     @Test

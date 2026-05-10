@@ -62,7 +62,12 @@ public class SanlamPolicyClient {
     }
 
     public Mono<SanlamEmailResponse> sendDocuments(SanlamEmailRequest request) {
-        log.info("SanlamPolicyClient: Sending insurance documents. QuotSysId: {}", request.getQuotSysId());
+        try {
+            log.info("SanlamPolicyClient: Sending insurance documents. QuotSysId: {}, Payload: {}", 
+                    request.getQuotSysId(), objectMapper.writeValueAsString(request));
+        } catch (Exception e) {
+            log.info("SanlamPolicyClient: Sending insurance documents. QuotSysId: {}", request.getQuotSysId());
+        }
 
         return sanlamAuthClient.getAccessToken()
                 .flatMap(token -> {
@@ -77,9 +82,17 @@ public class SanlamPolicyClient {
                             })
                             .build();
 
-                    return httpClient.post(url, request, SanlamEmailResponse.class, options);
+                    return httpClient.post(url, request, String.class, options)
+                            .flatMap(rawResponse -> {
+                                log.info("SanlamPolicyClient: Raw email response: {}", rawResponse);
+                                try {
+                                    return Mono.just(objectMapper.readValue(rawResponse, SanlamEmailResponse.class));
+                                } catch (Exception e) {
+                                    log.error("SanlamPolicyClient: Failed to parse email response. Error: {}", e.getMessage());
+                                    return Mono.error(e);
+                                }
+                            });
                 })
-                .doOnNext(response -> log.info("SanlamPolicyClient: Email response: {}", response.getMessage()))
                 .doOnError(error -> log.error("SanlamPolicyClient: Failed to send documents. Error: {}", error.getMessage()));
     }
 
