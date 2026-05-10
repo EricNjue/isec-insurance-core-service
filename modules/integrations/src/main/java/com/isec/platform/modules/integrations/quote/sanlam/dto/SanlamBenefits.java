@@ -36,7 +36,7 @@ public class SanlamBenefits {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class SanlamBenefit {
-        private BigDecimal benefit;
+        private Object benefit;
         private String interest;
         private String days;
     }

@@ -58,6 +58,7 @@ class SanlamQuoteProviderTest {
                 .status(MpesaPaymentStatus.SUCCESS)
                 .checkoutId("CH-123")
                 .receiptNumber("REC-123")
+                .amount(1000.0)
                 .build();
 
         SanlamDraftQuoteResponse sanlamResponse = new SanlamDraftQuoteResponse();
@@ -88,7 +89,39 @@ class SanlamQuoteProviderTest {
                 .verifyComplete();
 
         verify(policyClient).updateDraftQuote(eq(1001L), any());
-        verify(policyClient).sendDocuments(argThat(request -> request.getQuotSysId().equals(1001L)));
+        verify(policyClient).sendDocuments(argThat(request -> request.getQuotSysId().equals(2001L)));
+    }
+
+    @Test
+    void issuePolicy_ShouldFail_WhenQuotSysIdIsNull() {
+        // Arrange
+        String quoteId = "Q-123";
+        DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
+                .draftQuoteSysId(1001L)
+                .draftQuoteRef("REF-123")
+                .clientEmail("test@example.com")
+                .build();
+        MpesaPaymentStatusResponse paymentStatus = MpesaPaymentStatusResponse.builder()
+                .status(MpesaPaymentStatus.SUCCESS)
+                .checkoutId("CH-123")
+                .receiptNumber("REC-123")
+                .amount(1000.0)
+                .build();
+
+        SanlamDraftQuoteResponse sanlamResponse = new SanlamDraftQuoteResponse();
+        sanlamResponse.setQuotSysId(null);
+        sanlamResponse.setDraftQuoteSysId(1001L);
+
+        when(mapper.toUpdateDraftQuoteRequest(any(), any())).thenReturn(new SanlamUpdateDraftQuoteRequest());
+        when(policyClient.updateDraftQuote(eq(1001L), any())).thenReturn(Mono.just(sanlamResponse));
+
+        // Act & Assert
+        StepVerifier.create(provider.issuePolicy(quoteId, draftQuote, paymentStatus))
+                .expectError(IllegalStateException.class)
+                .verify();
+
+        verify(policyClient).updateDraftQuote(eq(1001L), any());
+        verify(policyClient, never()).sendDocuments(any());
     }
 
     @Test

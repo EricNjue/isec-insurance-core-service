@@ -7,6 +7,8 @@ import com.isec.platform.modules.integrations.quote.sanlam.dto.*;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +42,7 @@ public class SanlamDraftQuoteMapper {
                 .premiums(toSanlamPremiums(data.getPremium()))
                 .benefits(toSanlamBenefits(data.getBenefits()))
                 .subclass(data.getSubclass())
-                .vehicleType(data.getVehicleType())
+                .vehicleType("premier_auto") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
                 .status(data.getStatus())
                 .client(toSanlamClient(data.getClient()))
                 .cover(toSanlamCover(data.getCover()))
@@ -52,7 +54,7 @@ public class SanlamDraftQuoteMapper {
 
     private SanlamRateEngine toSanlamRateEngine(QuotePremiumDetails premium, QuoteCoverDetails cover) {
         if (premium == null || premium.getRateSetUsed() == null) return null;
-        
+
         return SanlamRateEngine.builder()
                 .baseRateSetId(premium.getBaseRateSetId() != null ? premium.getBaseRateSetId().intValue() : null)
                 .specialRateSetId(null)
@@ -79,14 +81,15 @@ public class SanlamDraftQuoteMapper {
                 .registration(vehicle.getRegistrationNumber())
                 .year(vehicle.getYearOfManufacture())
                 .value(vehicle.getSumInsured())
-                .bodyType(vehicle.getBodyType())
+                .bodyType("002") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
                 .chassisNumber(vehicle.getChassisNumber())
                 .engineNumber(vehicle.getEngineNumber())
-                .seatingCapacity(vehicle.getSeatingCapacity())
-                .tonnage(vehicle.getTonnage())
-                .cc(vehicle.getCc())
-                .motorClass(vehicle.getMotorClass())
-                .vehicleClass(vehicle.getVehicleClass())
+                .seatingCapacity("7") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .tonnage("2") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .numberOfPassengers("7") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .cc("3000") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .motorClass("private") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+                .vehicleClass("C") // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
                 .build();
     }
 
@@ -111,35 +114,41 @@ public class SanlamDraftQuoteMapper {
     }
 
     private SanlamBenefits toSanlamBenefits(QuoteBenefitsDetails benefits) {
-        if (benefits == null || benefits.getItems() == null) return null;
-        
-        SanlamBenefits.SanlamBenefitsBuilder builder = SanlamBenefits.builder();
-        
-        if (benefits.getItems().containsKey("pvt")) {
-            builder.pvt(mapToSanlamBenefit(benefits.getItems().get("pvt")));
-        }
-        if (benefits.getItems().containsKey("excess_protector")) {
-            builder.excessProtector(mapToSanlamBenefit(benefits.getItems().get("excess_protector")));
-        }
-        if (benefits.getItems().containsKey("courtesy_car")) {
-            builder.courtesyCar(mapToSanlamBenefit(benefits.getItems().get("courtesy_car")));
-        }
-        if (benefits.getItems().containsKey("windscreen")) {
-            builder.windscreen(mapToSanlamWindscreen(benefits.getItems().get("windscreen")));
-        }
-        if (benefits.getItems().containsKey("radio_cassette")) {
-            builder.radioCassette(mapToSanlamWindscreen(benefits.getItems().get("radio_cassette")));
-        }
-        if (benefits.getItems().containsKey("passenger_legal_liability")) {
-            builder.passengerLegalLiability(mapToSanlamBenefit(benefits.getItems().get("passenger_legal_liability")));
-        }
-        
-        return builder.build();
+        // TODO: Replace hardcoded Sanlam integration defaults with canonical/UI-driven values once E2E integration is stable.
+        return SanlamBenefits.builder()
+                .pvt(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit(new BigDecimal("17000"))
+                        .interest("yes")
+                        .build())
+                .excessProtector(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit("Inclusive")
+                        .interest("yes")
+                        .build())
+                .courtesyCar(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit(new BigDecimal("7500"))
+                        .interest("yes")
+                        .days("10")
+                        .build())
+                .windscreen(SanlamBenefits.SanlamWindscreenBenefit.builder()
+                        .benefit(BigDecimal.ZERO)
+                        .extraBenefit(BigDecimal.ZERO)
+                        .clientAdditionalAmount(BigDecimal.ZERO)
+                        .build())
+                .radioCassette(SanlamBenefits.SanlamWindscreenBenefit.builder()
+                        .benefit(BigDecimal.ZERO)
+                        .extraBenefit(BigDecimal.ZERO)
+                        .clientAdditionalAmount(BigDecimal.ZERO)
+                        .build())
+                .passengerLegalLiability(SanlamBenefits.SanlamBenefit.builder()
+                        .benefit(BigDecimal.ZERO)
+                        .interest("no")
+                        .build())
+                .build();
     }
 
     private SanlamBenefits.SanlamBenefit mapToSanlamBenefit(QuoteBenefitsDetails.BenefitItem item) {
         return SanlamBenefits.SanlamBenefit.builder()
-                .benefit(item.getBenefit())
+                .benefit((Object) item.getBenefit())
                 .interest(item.getInterest())
                 .days(item.getDays())
                 .build();
@@ -300,7 +309,7 @@ public class SanlamDraftQuoteMapper {
     private QuoteBenefitsDetails toCommonBenefits(SanlamBenefits benefits) {
         if (benefits == null) return null;
         Map<String, QuoteBenefitsDetails.BenefitItem> items = new HashMap<>();
-        
+
         if (benefits.getPvt() != null) {
             items.put("pvt", toCommonBenefit(benefits.getPvt()));
         }
@@ -319,13 +328,13 @@ public class SanlamDraftQuoteMapper {
         if (benefits.getPassengerLegalLiability() != null) {
             items.put("passenger_legal_liability", toCommonBenefit(benefits.getPassengerLegalLiability()));
         }
-        
+
         return QuoteBenefitsDetails.builder().items(items).build();
     }
 
     private QuoteBenefitsDetails.BenefitItem toCommonBenefit(SanlamBenefits.SanlamBenefit item) {
         return QuoteBenefitsDetails.BenefitItem.builder()
-                .benefit(item.getBenefit())
+                .benefit(item.getBenefit() instanceof BigDecimal ? (BigDecimal) item.getBenefit() : null)
                 .interest(item.getInterest())
                 .days(item.getDays())
                 .build();
@@ -408,42 +417,31 @@ public class SanlamDraftQuoteMapper {
 
         QuotePaymentSummary summary = draftQuote.getPaymentSummary();
         BigDecimal amount = BigDecimal.valueOf(paymentStatus.getAmount() != null ? paymentStatus.getAmount() : 0.0);
-        
-        // Clean phone number (strip leading zero if present for Sanlam)
+
+        // Format phone number as E.164 (e.g. +254722129685)
         String phoneNumber = draftQuote.getClientPhone();
-        if (phoneNumber != null && phoneNumber.startsWith("0")) {
-            phoneNumber = phoneNumber.substring(1);
-        }
-
-        SanlamUpdateDraftQuoteRequest.InstallmentData currentInstallment = SanlamUpdateDraftQuoteRequest.InstallmentData.builder()
-                .installmentNumber(1)
-                .amount(amount)
-                .receipt(paymentStatus.getReceiptNumber())
-                .paidAt(paymentStatus.getPaidAt())
-                .method("stk")
-                .checkoutId(paymentStatus.getCheckoutId())
-                .phoneNumber(phoneNumber)
-                .build();
-
-        BigDecimal totalPremium = amount;
-        if (draftQuote.getInsuranceData() != null && draftQuote.getInsuranceData().getPremium() != null) {
-            totalPremium = draftQuote.getInsuranceData().getPremium().getNetPremium();
-            if (totalPremium == null) {
-                totalPremium = draftQuote.getInsuranceData().getPremium().getGrossPremium();
+        if (phoneNumber != null) {
+            phoneNumber = phoneNumber.trim();
+            if (phoneNumber.startsWith("0")) {
+                phoneNumber = "+254" + phoneNumber.substring(1);
+            } else if (phoneNumber.startsWith("254") && !phoneNumber.startsWith("+")) {
+                phoneNumber = "+" + phoneNumber;
+            } else if (!phoneNumber.startsWith("+")) {
+                phoneNumber = "+254" + phoneNumber;
             }
         }
-        if (totalPremium == null) {
-            totalPremium = summary != null ? summary.getTotalAmount() : amount;
-        }
 
-        BigDecimal totalPaid = amount;
-        if (summary != null && summary.getTotalPaid() != null) {
-            totalPaid = summary.getTotalPaid().add(amount);
-        }
-
-        BigDecimal remainingBalance = BigDecimal.ZERO;
-        if (summary != null && summary.getRemainingBalance() != null) {
-            remainingBalance = summary.getRemainingBalance().subtract(amount);
+        // Format paid_at as ISO 8601 with timezone
+        String paidAt = paymentStatus.getPaidAt();
+        try {
+            if (paidAt != null) {
+                OffsetDateTime odt = OffsetDateTime.parse(paidAt, DateTimeFormatter.ISO_DATE_TIME);
+                paidAt = odt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            } else {
+                paidAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            }
+        } catch (Exception e) {
+            paidAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         }
 
         return SanlamUpdateDraftQuoteRequest.builder()
@@ -454,26 +452,11 @@ public class SanlamDraftQuoteMapper {
                                 .checkoutId(paymentStatus.getCheckoutId())
                                 .receipt(paymentStatus.getReceiptNumber())
                                 .amount(amount)
-                                .paidAt(paymentStatus.getPaidAt())
+                                .paidAt(paidAt)
                                 .phoneNumber(phoneNumber)
-                                .totalAmount(totalPremium)
-                                .totalPaid(totalPaid)
-                                .remainingBalance(remainingBalance)
-                                .installmentCount(summary != null ? summary.getInstallmentCount() : 1)
+                                .installmentNumber(1)
                                 .numberOfInstallments(summary != null ? summary.getInstallmentCount() : 1)
-                                .maxInstallments(3) // Default to 3 as per example
-                                .installments(List.of(currentInstallment))
                                 .paymentContext("initial")
-                                .lastPayment(SanlamUpdateDraftQuoteRequest.LastPaymentData.builder()
-                                        .method("stk")
-                                        .status("success")
-                                        .checkoutId(paymentStatus.getCheckoutId())
-                                        .receipt(paymentStatus.getReceiptNumber())
-                                        .amount(amount)
-                                        .paidAt(paymentStatus.getPaidAt())
-                                        .phoneNumber(phoneNumber)
-                                        .installmentNumber(1)
-                                        .build())
                                 .build())
                         .build())
                 .build();

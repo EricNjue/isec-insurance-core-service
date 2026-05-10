@@ -46,7 +46,7 @@ public class SanlamMpesaProvider implements MpesaPaymentProvider {
                         String errorMsg = String.format("[SANLAM] Payment initiated for quoteRef: %s, checkoutId: %s, status: %s",
                                 request.getQuoteRef(), res.getCheckoutId(), res.getStatus());
                         log.error(errorMsg);
-                        throw new BusinessException("We could not initiate the payment. Please try again later.");
+                        throw new BusinessException(errorMsg);
                     }
                     log.info("[{}] Payment initiated for quoteRef: {}, checkoutId: {}, status: {}",
                             providerType(), request.getQuoteRef(), res.getCheckoutId(), res.getStatus());
