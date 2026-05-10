@@ -446,8 +446,17 @@ public class SanlamDraftQuoteMapper {
             remainingBalance = summary.getRemainingBalance().subtract(amount);
         }
 
+        SanlamVehicle vehicle = null;
+        SanlamBenefits benefits = null;
+        if (draftQuote.getInsuranceData() != null) {
+            vehicle = toSanlamVehicle(draftQuote.getInsuranceData().getVehicle());
+            benefits = toSanlamBenefits(draftQuote.getInsuranceData().getBenefits());
+        }
+
         return SanlamUpdateDraftQuoteRequest.builder()
                 .insuranceData(SanlamUpdateDraftQuoteRequest.InsuranceData.builder()
+                        .vehicle(vehicle)
+                        .benefits(benefits)
                         .payment(SanlamUpdateDraftQuoteRequest.PaymentData.builder()
                                 .method("stk")
                                 .status("success")

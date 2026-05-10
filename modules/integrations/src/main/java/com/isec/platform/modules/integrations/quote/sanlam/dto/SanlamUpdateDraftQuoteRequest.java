@@ -24,6 +24,10 @@ public class SanlamUpdateDraftQuoteRequest {
     public static class InsuranceData {
         @JsonProperty("payment")
         private PaymentData payment;
+        @JsonProperty("vehicle")
+        private SanlamVehicle vehicle;
+        @JsonProperty("benefits")
+        private SanlamBenefits benefits;
     }
 
     @Data

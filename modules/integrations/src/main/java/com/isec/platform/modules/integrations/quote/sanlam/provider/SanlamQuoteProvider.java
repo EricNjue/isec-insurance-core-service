@@ -109,28 +109,40 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
     public Mono<PolicyIssuanceResult> issuePolicy(String quoteId, DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {
         return Mono.defer(() -> {
             log.info("Starting Sanlam policy issuance for quoteId: {}, draftQuoteSysId: {}", quoteId, draftQuote.getDraftQuoteSysId());
-            
+
             validatePolicyIssuance(draftQuote, paymentStatus);
 
             return policyClient.updateDraftQuote(draftQuote.getDraftQuoteSysId(), mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus))
                     .flatMap(updateResponse -> {
                         Long draftQuoteSysId = updateResponse.getDraftQuoteSysId();
-                        if (draftQuoteSysId == null) {
-                            return Mono.error(new IllegalStateException("Failed to extract draft_quote_sys_id from Sanlam response"));
+                        Long quotSysId = updateResponse.getQuotSysId();
+
+                        log.info("Draft quote updated successfully. draftQuoteSysId={}, quotSysId={}", draftQuoteSysId, quotSysId);
+
+                        if (quotSysId == null) {
+                            log.warn("Sanlam policy issuance incomplete. quot_sys_id is null. Skipping document dispatch.");
+                            return Mono.error(new IllegalStateException("Sanlam policy issuance incomplete. quot_sys_id is null."));
                         }
 
                         SanlamEmailRequest emailRequest = SanlamEmailRequest.builder()
-                                .quotSysId(draftQuoteSysId)
+                                .quotSysId(quotSysId)
                                 .includeReceipt(true)
                                 .includeDebitNote(true)
                                 .recipientEmail(draftQuote.getClientEmail())
                                 .build();
 
+                        log.info("Sending insurance documents for quotSysId: {}", quotSysId);
                         return policyClient.sendDocuments(emailRequest)
-                                .map(emailResponse -> mapper.toPolicyIssuanceResult(updateResponse, emailResponse));
+                                .map(emailResponse -> {
+                                    log.info("Insurance documents email response: {}", emailResponse.getMessage());
+                                    return mapper.toPolicyIssuanceResult(updateResponse, emailResponse);
+                                });
                     })
                     .doOnNext(result -> log.info("Sanlam policy issuance completed for quoteId: {}, quotSysId: {}", quoteId, result.getPolicyReference()))
-                    .doOnError(error -> log.error("Sanlam policy issuance failed for quoteId: {}. Error: {}", quoteId, error.getMessage()));
+                    .onErrorResume(e -> {
+                        log.error("Sanlam policy issuance failed for quoteId: {}. Error: {}", quoteId, e.getMessage());
+                        return Mono.error(e);
+                    });
         });
     }
 
@@ -139,9 +151,20 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
         Assert.notNull(paymentStatus, "Payment status must not be null");
         Assert.notNull(draftQuote.getDraftQuoteSysId(), "draft_quote_sys_id is missing");
         Assert.notNull(draftQuote.getDraftQuoteRef(), "draft_quote_ref is missing");
+
+        // Payment validation
         Assert.notNull(paymentStatus.getCheckoutId(), "checkout_id is missing");
         Assert.notNull(paymentStatus.getReceiptNumber(), "receipt is missing");
+        Assert.notNull(paymentStatus.getAmount(), "payment amount is missing");
+        Assert.isTrue(paymentStatus.getAmount() > 0, "payment amount must be greater than zero");
         Assert.isTrue(paymentStatus.getStatus() == com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS, "Payment must be successful");
+
+        QuotePaymentSummary summary = draftQuote.getPaymentSummary();
+        if (summary != null) {
+            log.info("Validating payment for quoteId: {}. Receipt: {}, Amount: {}, Installment Count: {}, Remaining Balance: {}",
+                    draftQuote.getDraftQuoteRef(), paymentStatus.getReceiptNumber(), paymentStatus.getAmount(),
+                    summary.getInstallmentCount(), summary.getRemainingBalance());
+        }
     }
 
     private void validateDraftQuoteRequest(DraftQuoteRequest request) {
