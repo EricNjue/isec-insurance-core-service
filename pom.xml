@@ -22,6 +22,7 @@
         <spring-cloud.version>2023.0.1</spring-cloud.version>
         <aws.sdk.version>2.25.27</aws.sdk.version>
         <openpdf.version>2.0.2</openpdf.version>
+        <skip.migrations>false</skip.migrations>
     </properties>
 
     <modules>
