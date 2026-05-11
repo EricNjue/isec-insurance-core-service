@@ -23,6 +23,7 @@
         <aws.sdk.version>2.25.27</aws.sdk.version>
         <openpdf.version>2.0.2</openpdf.version>
         <skip.migrations>false</skip.migrations>
+        <postgresql.version>42.7.3</postgresql.version>
     </properties>
 
     <modules>
