@@ -3,19 +3,23 @@ package com.isec.platform.modules.integrations.quote.sanlam.mapper;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.quote.model.*;
 import com.isec.platform.modules.integrations.quote.provider.PartnerType;
+import com.isec.platform.modules.integrations.quote.sanlam.config.SanlamQuoteProperties;
 import com.isec.platform.modules.integrations.quote.sanlam.dto.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 public class SanlamDraftQuoteMapper {
+
+    private final SanlamQuoteProperties properties;
 
     public SanlamCreateDraftQuoteRequest toSanlamRequest(DraftQuoteRequest request) {
         if (request == null) return null;
@@ -203,6 +207,19 @@ public class SanlamDraftQuoteMapper {
 
     private SanlamDmvicCheck toSanlamDmvicCheck(QuoteDmvicCheck check) {
         if (check == null) return null;
+
+        // If no active cover found, ensure exact portal-style payload
+        if ("clear".equalsIgnoreCase(check.getStatus()) && "No active cover found".equalsIgnoreCase(check.getMessage())) {
+            return SanlamDmvicCheck.builder()
+                    .status("clear")
+                    .message("No active cover found")
+                    .evidence(Map.of("status", "clear"))
+                    .checkedAt(check.getCheckedAt())
+                    .transactionRef(null)
+                    .hasDoubleInsurance(false)
+                    .build();
+        }
+
         return SanlamDmvicCheck.builder()
                 .checkedAt(check.getCheckedAt())
                 .hasDoubleInsurance(check.isHasDoubleInsurance())
@@ -235,7 +252,7 @@ public class SanlamDraftQuoteMapper {
                 .build();
     }
 
-    private DraftQuoteStatus mapStatus(String status, SanlamPaymentSummary paymentSummary) {
+    public DraftQuoteStatus mapStatus(String status, SanlamPaymentSummary paymentSummary) {
         if (status == null) {
             return DraftQuoteStatus.UNKNOWN;
         }
@@ -244,6 +261,9 @@ public class SanlamDraftQuoteMapper {
                 return DraftQuoteStatus.PENDING_PAYMENT;
             }
             return DraftQuoteStatus.DRAFT;
+        }
+        if ("valuation_pending".equalsIgnoreCase(status)) {
+            return DraftQuoteStatus.VALUATION_PENDING;
         }
         try {
             return DraftQuoteStatus.valueOf(status.toUpperCase());
@@ -415,34 +435,9 @@ public class SanlamDraftQuoteMapper {
     public SanlamUpdateDraftQuoteRequest toUpdateDraftQuoteRequest(DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {
         if (draftQuote == null || paymentStatus == null) return null;
 
-        QuotePaymentSummary summary = draftQuote.getPaymentSummary();
-        BigDecimal amount = BigDecimal.valueOf(paymentStatus.getAmount() != null ? paymentStatus.getAmount() : 0.0);
-
-        // Format phone number as E.164 (e.g. +254722129685)
-        String phoneNumber = draftQuote.getClientPhone();
-        if (phoneNumber != null) {
-            phoneNumber = phoneNumber.trim();
-            if (phoneNumber.startsWith("0")) {
-                phoneNumber = "+254" + phoneNumber.substring(1);
-            } else if (phoneNumber.startsWith("254") && !phoneNumber.startsWith("+")) {
-                phoneNumber = "+" + phoneNumber;
-            } else if (!phoneNumber.startsWith("+")) {
-                phoneNumber = "+254" + phoneNumber;
-            }
-        }
-
-        // Format paid_at as ISO 8601 with timezone
+        BigDecimal amount = draftQuote.getDraftQuoteAmount();
         String paidAt = paymentStatus.getPaidAt();
-        try {
-            if (paidAt != null) {
-                OffsetDateTime odt = OffsetDateTime.parse(paidAt, DateTimeFormatter.ISO_DATE_TIME);
-                paidAt = odt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-            } else {
-                paidAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-            }
-        } catch (Exception e) {
-            paidAt = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-        }
+        String phoneNumber = draftQuote.getClientPhone();
 
         return SanlamUpdateDraftQuoteRequest.builder()
                 .insuranceData(SanlamUpdateDraftQuoteRequest.InsuranceData.builder()
@@ -455,12 +450,12 @@ public class SanlamDraftQuoteMapper {
                                 .paidAt(paidAt)
                                 .phoneNumber(phoneNumber)
                                 .installmentNumber(1)
-                                .numberOfInstallments(summary != null ? summary.getInstallmentCount() : 1)
-                                .paymentContext("initial")
+                                .numberOfInstallments(1)
                                 .build())
                         .build())
                 .build();
     }
+
 
     public PolicyIssuanceResult toPolicyIssuanceResult(SanlamDraftQuoteResponse response, SanlamEmailResponse emailResponse) {
         if (response == null) return null;
@@ -468,6 +463,8 @@ public class SanlamDraftQuoteMapper {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("quot_sys_id", response.getQuotSysId());
         metadata.put("draft_quote_sys_id", response.getDraftQuoteSysId());
+        metadata.put("draft_quote_ref", response.getDraftQuoteRef());
+        metadata.put("status", response.getStatus());
 
         return PolicyIssuanceResult.builder()
                 .status("POLICY_ISSUED")
@@ -476,6 +473,39 @@ public class SanlamDraftQuoteMapper {
                 .externalReference(response.getDraftQuoteRef())
                 .emailSent(emailResponse != null)
                 .metadata(metadata)
+                .build();
+    }
+
+    public SanlamDraftQuoteResponse toSanlamDraftQuoteResponse(DraftQuoteResponse response) {
+        if (response == null) return null;
+        return SanlamDraftQuoteResponse.builder()
+                .draftQuoteSysId(response.getDraftQuoteSysId())
+                .draftQuoteRef(response.getDraftQuoteRef())
+                .draftQuoteUserId(response.getDraftQuoteUserId())
+                .draftQuoteAmount(response.getDraftQuoteAmount())
+                .status(response.getStatus() != null ? response.getStatus().name() : null)
+                .productId(response.getProductId())
+                .clientName(response.getClientName())
+                .clientPhone(response.getClientPhone())
+                .clientEmail(response.getClientEmail())
+                .clientIdNumber(response.getClientIdNumber())
+                .createdAt(response.getCreatedAt())
+                .updatedAt(response.getUpdatedAt())
+                .paymentSummary(toSanlamPaymentSummary(response.getPaymentSummary()))
+                .build();
+    }
+
+    private SanlamPaymentSummary toSanlamPaymentSummary(QuotePaymentSummary summary) {
+        if (summary == null) return null;
+        return SanlamPaymentSummary.builder()
+                .totalAmount(summary.getTotalAmount())
+                .totalPaid(summary.getTotalPaid())
+                .remainingBalance(summary.getRemainingBalance())
+                .installmentCount(summary.getInstallmentCount())
+                .installmentAmounts(summary.getInstallmentAmounts())
+                .status(summary.getStatus())
+                .transactions(summary.getTransactions())
+                .installments(summary.getInstallments())
                 .build();
     }
 }

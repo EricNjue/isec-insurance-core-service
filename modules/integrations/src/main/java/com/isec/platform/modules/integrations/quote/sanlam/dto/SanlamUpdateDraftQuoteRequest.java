@@ -49,7 +49,5 @@ public class SanlamUpdateDraftQuoteRequest {
         private Integer installmentNumber;
         @JsonProperty("numberOf_installments")
         private Integer numberOfInstallments;
-        @JsonProperty("payment_context")
-        private String paymentContext;
     }
 }

@@ -1,8 +1,11 @@
 package com.isec.platform.modules.integrations.quote.sanlam.mapper;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.quote.model.*;
 import com.isec.platform.modules.integrations.quote.provider.PartnerType;
+import com.isec.platform.modules.integrations.quote.sanlam.config.SanlamQuoteProperties;
 import com.isec.platform.modules.integrations.quote.sanlam.dto.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +24,10 @@ class SanlamDraftQuoteMapperTest {
 
     @BeforeEach
     void setUp() {
-        mapper = new SanlamDraftQuoteMapper();
+        SanlamQuoteProperties properties = new SanlamQuoteProperties();
+        properties.getPayment().setDefaultInstallmentCount(2);
+        properties.getPayment().setMaxInstallments(3);
+        mapper = new SanlamDraftQuoteMapper(properties);
     }
 
     @Test
@@ -33,7 +39,7 @@ class SanlamDraftQuoteMapperTest {
                 .clientEmail("njue.gitonga92@gmail.com")
                 .clientIdNumber("28972735")
                 .status("draft")
-                .draftQuoteUserId(561L)
+                .draftQuoteUserId(12345L)
                 .insuranceData(DraftQuoteInsuranceData.builder()
                         .subclass("private")
                         .vehicleType("standard_auto")
@@ -128,7 +134,7 @@ class SanlamDraftQuoteMapperTest {
         DraftQuoteRequest request = DraftQuoteRequest.builder()
                 .insuranceData(DraftQuoteInsuranceData.builder()
                         .dmvicCheck(QuoteDmvicCheck.builder()
-                                .checkedAt(LocalDateTime.now())
+                                .checkedAt(LocalDateTime.of(2026, 5, 10, 18, 33, 31))
                                 .hasDoubleInsurance(true)
                                 .status("double")
                                 .transactionRef("OA-ZD9849")
@@ -143,6 +149,34 @@ class SanlamDraftQuoteMapperTest {
         assertThat(sanlamRequest.getInsuranceData().getDmvicCheck()).isNotNull();
         assertThat(sanlamRequest.getInsuranceData().getDmvicCheck().getTransactionRef()).isEqualTo("OA-ZD9849");
         assertThat(sanlamRequest.getInsuranceData().getDmvicCheck().getStatus()).isEqualTo("double");
+    }
+
+    @Test
+    void shouldMapDmvicCheckForNoActiveCoverFound() {
+        LocalDateTime now = LocalDateTime.of(2026, 5, 10, 18, 33, 31);
+        DraftQuoteRequest request = DraftQuoteRequest.builder()
+                .insuranceData(DraftQuoteInsuranceData.builder()
+                        .dmvicCheck(QuoteDmvicCheck.builder()
+                                .checkedAt(now)
+                                .hasDoubleInsurance(false)
+                                .status("clear")
+                                .transactionRef("N/A")
+                                .message("No active cover found")
+                                .evidence(Map.of())
+                                .build())
+                        .build())
+                .build();
+
+        SanlamCreateDraftQuoteRequest sanlamRequest = mapper.toSanlamRequest(request);
+
+        SanlamDmvicCheck dmvicCheck = sanlamRequest.getInsuranceData().getDmvicCheck();
+        assertThat(dmvicCheck).isNotNull();
+        assertThat(dmvicCheck.getStatus()).isEqualTo("clear");
+        assertThat(dmvicCheck.getMessage()).isEqualTo("No active cover found");
+        assertThat(dmvicCheck.getEvidence()).containsEntry("status", "clear");
+        assertThat(dmvicCheck.getCheckedAt()).isEqualTo(now);
+        assertThat(dmvicCheck.getTransactionRef()).isNull();
+        assertThat(dmvicCheck.isHasDoubleInsurance()).isFalse();
     }
 
     @Test
@@ -246,40 +280,63 @@ class SanlamDraftQuoteMapperTest {
 
     @Test
     void shouldMapStatusCorrectly() {
-        // ... existing code ...
+        assertThat(mapper.mapStatus("draft", null)).isEqualTo(DraftQuoteStatus.DRAFT);
+        assertThat(mapper.mapStatus("draft", SanlamPaymentSummary.builder().status("pending").build())).isEqualTo(DraftQuoteStatus.PENDING_PAYMENT);
+        assertThat(mapper.mapStatus("valuation_pending", null)).isEqualTo(DraftQuoteStatus.VALUATION_PENDING);
+        assertThat(mapper.mapStatus("PAID", null)).isEqualTo(DraftQuoteStatus.PAID);
+        assertThat(mapper.mapStatus("unknown_status", null)).isEqualTo(DraftQuoteStatus.UNKNOWN);
+        assertThat(mapper.mapStatus(null, null)).isEqualTo(DraftQuoteStatus.UNKNOWN);
     }
 
     @Test
     void shouldMapUpdateDraftQuoteRequestWithStrictPaymentPayload() {
         DraftQuoteResponse draftQuote = DraftQuoteResponse.builder()
-                .clientPhone("0719531872")
-                .paymentSummary(QuotePaymentSummary.builder()
-                        .totalAmount(new BigDecimal("229568"))
-                        .totalPaid(BigDecimal.ZERO)
-                        .remainingBalance(new BigDecimal("229568"))
-                        .installmentCount(2)
-                        .build())
+                .clientPhone("+254719531872")
+                .draftQuoteAmount(new BigDecimal("204958"))
                 .build();
 
         MpesaPaymentStatusResponse paymentStatus = MpesaPaymentStatusResponse.builder()
-                .amount(80349.0)
+                .amount(102479.0)
                 .checkoutId("ws_CO_123")
                 .receiptNumber("UDTEM2PDHA")
-                .paidAt("2026-04-29T23:43:21Z")
+                .paidAt("2026-05-10 21:34:07")
                 .status(com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus.SUCCESS)
                 .build();
 
         SanlamUpdateDraftQuoteRequest request = mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus);
 
         assertThat(request.getInsuranceData().getPayment().getPhoneNumber()).isEqualTo("+254719531872");
-        assertThat(request.getInsuranceData().getPayment().getAmount()).isEqualTo(new BigDecimal("80349.0"));
-        assertThat(request.getInsuranceData().getPayment().getNumberOfInstallments()).isEqualTo(2);
-        assertThat(request.getInsuranceData().getPayment().getPaidAt()).isNotNull();
-        System.out.println("[DEBUG_LOG] PaidAt: " + request.getInsuranceData().getPayment().getPaidAt());
-
-        // Verify fields are absent or null (via DTO structure)
-        // vehicle and benefits should not be present in InsuranceData
-        // total_amount, total_paid, etc. should not be in PaymentData
+        assertThat(request.getInsuranceData().getPayment().getAmount()).isEqualTo(new BigDecimal("204958"));
+        assertThat(request.getInsuranceData().getPayment().getCheckoutId()).isEqualTo("ws_CO_123");
+        assertThat(request.getInsuranceData().getPayment().getReceipt()).isEqualTo("UDTEM2PDHA");
+        assertThat(request.getInsuranceData().getPayment().getPaidAt()).isEqualTo("2026-05-10 21:34:07");
+        assertThat(request.getInsuranceData().getPayment().getInstallmentNumber()).isEqualTo(1);
+        assertThat(request.getInsuranceData().getPayment().getNumberOfInstallments()).isEqualTo(1);
     }
+
+    @Test
+    void shouldOmitNullValuesInBenefitsJson() throws JsonProcessingException {
+        DraftQuoteRequest request = DraftQuoteRequest.builder()
+                .insuranceData(DraftQuoteInsuranceData.builder()
+                        .subclass("private")
+                        .vehicleType("standard_auto")
+                        .build())
+                .build();
+
+        SanlamCreateDraftQuoteRequest sanlamRequest = mapper.toSanlamRequest(request);
+        SanlamBenefits benefits = sanlamRequest.getInsuranceData().getBenefits();
+        
+        // Ensure some fields are null by default in our current toSanlamBenefits implementation
+        // e.g., pvt.days is null
+        assertThat(benefits.getPvt().getDays()).isNull();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String json = objectMapper.writeValueAsString(sanlamRequest.getInsuranceData().getBenefits());
+
+        assertThat(json).doesNotContain("\"days\":null");
+        assertThat(json).contains("\"interest\":\"yes\"");
+        assertThat(json).contains("\"benefit\":17000");
+    }
+
 
 }

@@ -19,6 +19,7 @@ import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.mpesa.provider.MpesaProviderType;
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
+import com.isec.platform.modules.integrations.quote.model.DraftQuoteStatus;
 import com.isec.platform.modules.integrations.quote.provider.PartnerQuoteProvider;
 import com.isec.platform.modules.integrations.quote.provider.PartnerQuoteProviderFactory;
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
@@ -117,13 +118,19 @@ public class MotorQuoteOrchestrator {
                             if (app.getStatus() != MotorQuoteStatus.PREMIUM_CALCULATED && app.getStatus() != MotorQuoteStatus.QUOTE_ACCEPTED && app.getStatus() != MotorQuoteStatus.DRAFT_QUOTE_CREATED) {
                                 return Mono.error(new BusinessException("Invalid status for quote acceptance: " + app.getStatus()));
                             }
-                            app.setStatus(MotorQuoteStatus.QUOTE_ACCEPTED);
-                            return repository.save(app);
+                            
+                            // Synchronize on quoteId string to prevent concurrent creation for the same quoteId in the same JVM.
+                            // For distributed locking, a Redis lock would be preferred.
+                            synchronized (quoteId.intern()) {
+                                app.setStatus(MotorQuoteStatus.QUOTE_ACCEPTED);
+                                return repository.save(app);
+                            }
                         }))
                 .flatMap(app -> {
                     PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
                     if (provider.supportedCapabilities().contains(QuoteLifecycleCapability.CREATE_DRAFT_QUOTE)) {
-                        return provider.createDraftQuote(mapper.toDraftQuoteRequest(app))
+                        return mapper.toDraftQuoteRequest(app)
+                                .flatMap(provider::createDraftQuote)
                                 .flatMap(res -> {
                                     app.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
                                     app.setDraftQuoteResult(serialize(res));
@@ -252,10 +259,35 @@ public class MotorQuoteOrchestrator {
                             .flatMap(result -> {
                                 app.setStatus(MotorQuoteStatus.POLICY_ISSUED);
                                 app.setPolicyIssuanceResult(serialize(result));
+                                
                                 // Update partner references with quotSysId if available
                                 if (result.getMetadata() != null && result.getMetadata().containsKey("quot_sys_id")) {
                                     app.setPartnerReferences(serialize(result.getMetadata()));
                                 }
+                                
+                                // NEW: Update draftQuoteResult with latest state from result metadata if available
+                                if (result.getMetadata() != null && result.getMetadata().containsKey("draft_quote_sys_id")) {
+                                    DraftQuoteResponse.DraftQuoteResponseBuilder draftBuilder = DraftQuoteResponse.builder()
+                                            .draftQuoteSysId(((Number) result.getMetadata().get("draft_quote_sys_id")).longValue())
+                                            .draftQuoteRef((String) result.getMetadata().get("draft_quote_ref"));
+                                    
+                                    if (result.getMetadata().get("quot_sys_id") != null) {
+                                        draftBuilder.quotSysId(((Number) result.getMetadata().get("quot_sys_id")).longValue());
+                                    }
+                                    
+                                    if (result.getMetadata().get("status") != null) {
+                                        String statusStr = (String) result.getMetadata().get("status");
+                                        try {
+                                            draftBuilder.status(DraftQuoteStatus.valueOf(statusStr.toUpperCase()));
+                                        } catch (Exception e) {
+                                            log.warn("Unknown draft quote status received from metadata: {}. Defaulting to UNKNOWN", statusStr);
+                                            draftBuilder.status(DraftQuoteStatus.UNKNOWN);
+                                        }
+                                    }
+                                    
+                                    app.setDraftQuoteResult(serialize(draftBuilder.build()));
+                                }
+
                                 app.setRawPartnerResponses(serialize(result));
                                 return repository.save(app);
                             })

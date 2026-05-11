@@ -1,5 +1,6 @@
 package com.isec.platform.modules.integrations.quote.sanlam.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,6 +13,7 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class SanlamBenefits {
     @JsonProperty("pvt")
     private SanlamBenefit pvt;
@@ -35,6 +37,7 @@ public class SanlamBenefits {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class SanlamBenefit {
         private Object benefit;
         private String interest;
@@ -45,6 +48,7 @@ public class SanlamBenefits {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class SanlamWindscreenBenefit {
         private BigDecimal benefit;
         @JsonProperty("extra_benefit")

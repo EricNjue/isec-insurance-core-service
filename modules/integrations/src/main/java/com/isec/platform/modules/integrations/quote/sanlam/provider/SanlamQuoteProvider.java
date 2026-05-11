@@ -1,5 +1,6 @@
 package com.isec.platform.modules.integrations.quote.sanlam.provider;
 
+import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaCheckStatusRequest;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentRequest;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse;
@@ -21,9 +22,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -61,20 +65,42 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
 
     @Override
     public Mono<DraftQuoteResponse> createDraftQuote(DraftQuoteRequest request) {
-        return Mono.fromRunnable(() -> validateDraftQuoteRequest(request))
-                .then(Mono.defer(() -> {
-                    long startTime = Instant.now().toEpochMilli();
-                    log.info("Starting Sanlam draft quote creation for client: {}", request.getClientName());
+        validateDraftQuoteRequest(request);
+        return Mono.defer(() -> {
+            if (request.getDraftQuoteSysId() != null && request.getDraftQuoteRef() != null) {
+                log.info("Sanlam draft quote already exists. Refreshing existing draft quote. draftQuoteSysId={}, draftQuoteRef={}",
+                        request.getDraftQuoteSysId(), request.getDraftQuoteRef());
 
-                    return client.createDraftQuote(mapper.toSanlamRequest(request))
-                            .map(mapper::toCommonResponse)
-                            .doOnNext(response -> {
-                                long latency = Instant.now().toEpochMilli() - startTime;
-                                log.info("Sanlam draft quote creation completed. Ref: {}, Latency: {}ms",
-                                        response.getDraftQuoteRef(), latency);
-                            })
-                            .doOnError(error -> log.error("Sanlam draft quote creation failed. Error: {}", error.getMessage()));
-                }));
+                return getDraftQuote(GetDraftQuoteRequest.builder()
+                        .provider(PartnerType.SANLAM)
+                        .draftQuoteSysId(request.getDraftQuoteSysId())
+                        .build())
+                        .doOnNext(response -> log.info("Sanlam draft quote refreshed successfully. draftQuoteSysId={}, draftQuoteRef={}, quotSysId={}",
+                                response.getDraftQuoteSysId(), response.getDraftQuoteRef(), response.getQuotSysId()))
+                        .onErrorResume(error -> {
+                            log.error("Failed to refresh existing Sanlam draft quote. draftQuoteSysId={}. Error: {}",
+                                    request.getDraftQuoteSysId(), error.getMessage());
+                            return Mono.error(new BusinessException("Failed to refresh existing Sanlam draft quote. Please retry later."));
+                        });
+            }
+
+            log.info("No existing Sanlam draft quote found. Creating new draft quote for client: {}", request.getClientName());
+            long startTime = Instant.now().toEpochMilli();
+
+            return client.createDraftQuote(mapper.toSanlamRequest(request))
+                    .flatMap(createResponse -> {
+                        log.info("Sanlam draft quote created. SysId: {}, Ref: {}. Fetching canonical state.",
+                                createResponse.getDraftQuoteSysId(), createResponse.getDraftQuoteRef());
+                        return client.getDraftQuote(createResponse.getDraftQuoteSysId());
+                    })
+                    .map(mapper::toCommonResponse)
+                    .doOnNext(response -> {
+                        long latency = Instant.now().toEpochMilli() - startTime;
+                        log.info("Sanlam draft quote creation and refresh completed. Ref: {}, Latency: {}ms",
+                                response.getDraftQuoteRef(), latency);
+                    })
+                    .doOnError(error -> log.error("Sanlam draft quote creation failed. Error: {}", error.getMessage()));
+        });
     }
 
     @Override
@@ -112,38 +138,87 @@ public class SanlamQuoteProvider implements PartnerQuoteProvider {
 
             validatePolicyIssuance(draftQuote, paymentStatus);
 
+            // Idempotency: Check if this receipt is already in the draft quote
+            if (isPaymentAlreadySynced(draftQuote, paymentStatus)) {
+                log.info("Payment for receipt {} already synced for draft quote {}. Refreshing state.", 
+                        paymentStatus.getReceiptNumber(), draftQuote.getDraftQuoteSysId());
+                return getDraftQuote(GetDraftQuoteRequest.builder()
+                        .provider(PartnerType.SANLAM)
+                        .draftQuoteSysId(draftQuote.getDraftQuoteSysId())
+                        .build())
+                        .map(latestDraft -> mapper.toPolicyIssuanceResult(mapper.toSanlamDraftQuoteResponse(latestDraft), null));
+            }
+
             return policyClient.updateDraftQuote(draftQuote.getDraftQuoteSysId(), mapper.toUpdateDraftQuoteRequest(draftQuote, paymentStatus))
                     .flatMap(updateResponse -> {
-                        Long draftQuoteSysId = updateResponse.getDraftQuoteSysId();
-                        Long quotSysId = updateResponse.getQuotSysId();
+                        log.info("Draft quote updated successfully. draftQuoteSysId={}, quotSysId={}", 
+                                updateResponse.getDraftQuoteSysId(), updateResponse.getQuotSysId());
 
-                        log.info("Draft quote updated successfully. draftQuoteSysId={}, quotSysId={}", draftQuoteSysId, quotSysId);
+                        // Flow requirement: Then GET /quotes/draft_quote/{draft_quote_sys_id}
+                        return client.getDraftQuote(draftQuote.getDraftQuoteSysId())
+                                .flatMap(latestDraft -> {
+                                    Long quotSysId = latestDraft.getQuotSysId();
+                                    
+                                    if (quotSysId == null) {
+                                        log.warn("Sanlam policy issuance incomplete. quot_sys_id is still null. Keeping status as pending and skipping document dispatch.");
+                                        Map<String, Object> metadata = new HashMap<>();
+                                        metadata.put("draft_quote_sys_id", latestDraft.getDraftQuoteSysId());
+                                        metadata.put("draft_quote_ref", latestDraft.getDraftQuoteRef());
+                                        metadata.put("quot_sys_id", quotSysId);
+                                        metadata.put("status", latestDraft.getStatus());
 
-                        if (quotSysId == null) {
-                            log.warn("Sanlam policy issuance incomplete. quot_sys_id is null. Skipping document dispatch.");
-                            return Mono.error(new IllegalStateException("Sanlam policy issuance incomplete. quot_sys_id is null."));
-                        }
+                                        return Mono.just(PolicyIssuanceResult.builder()
+                                                .status("PAYMENT_SYNCED")
+                                                .message("Payment synced, policy conversion pending")
+                                                .externalReference(latestDraft.getDraftQuoteRef())
+                                                .metadata(metadata)
+                                                .build());
+                                    }
 
-                        SanlamEmailRequest emailRequest = SanlamEmailRequest.builder()
-                                .quotSysId(quotSysId)
-                                .includeReceipt(true)
-                                .includeDebitNote(true)
-                                .recipientEmail(draftQuote.getClientEmail())
-                                .build();
+                                    SanlamEmailRequest emailRequest = SanlamEmailRequest.builder()
+                                            .quotSysId(quotSysId)
+                                            .includeReceipt(true)
+                                            .includeDebitNote(true)
+                                            .recipientEmail(draftQuote.getClientEmail())
+                                            .build();
 
-                        log.info("Sending insurance documents for quotSysId: {}", quotSysId);
-                        return policyClient.sendDocuments(emailRequest)
-                                .map(emailResponse -> {
-                                    log.info("Insurance documents email response: {}", emailResponse.getMessage());
-                                    return mapper.toPolicyIssuanceResult(updateResponse, emailResponse);
+                                    log.info("Proceeding to send documents for quotSysId: {}", quotSysId);
+                                    return policyClient.sendDocuments(emailRequest)
+                                            .map(emailResponse -> {
+                                                log.info("Insurance documents email response: {}", emailResponse.getMessage());
+                                                return mapper.toPolicyIssuanceResult(latestDraft, emailResponse);
+                                            })
+                                            .onErrorResume(e -> {
+                                                log.error("Failed to send insurance documents for quotSysId: {}. Error: {}", quotSysId, e.getMessage());
+                                                return Mono.just(mapper.toPolicyIssuanceResult(latestDraft, null));
+                                            });
                                 });
                     })
-                    .doOnNext(result -> log.info("Sanlam policy issuance completed for quoteId: {}, quotSysId: {}", quoteId, result.getPolicyReference()))
+                    .doOnNext(result -> log.info("Sanlam policy issuance result for quoteId {}: {}", quoteId, result.getStatus()))
                     .onErrorResume(e -> {
                         log.error("Sanlam policy issuance failed for quoteId: {}. Error: {}", quoteId, e.getMessage());
                         return Mono.error(e);
                     });
         });
+    }
+
+    private boolean isPaymentAlreadySynced(DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {
+        QuotePaymentSummary summary = draftQuote.getPaymentSummary();
+        if (summary == null || summary.getTransactions() == null) {
+            return false;
+        }
+        
+        String receipt = paymentStatus.getReceiptNumber();
+        String checkoutId = paymentStatus.getCheckoutId();
+        
+        return summary.getTransactions().stream()
+                .anyMatch(tx -> {
+                    if (tx instanceof Map) {
+                        Map<?, ?> txMap = (Map<?, ?>) tx;
+                        return receipt.equals(txMap.get("receipt")) || checkoutId.equals(txMap.get("checkout_id"));
+                    }
+                    return false;
+                });
     }
 
     private void validatePolicyIssuance(DraftQuoteResponse draftQuote, MpesaPaymentStatusResponse paymentStatus) {

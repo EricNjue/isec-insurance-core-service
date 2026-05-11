@@ -29,5 +29,6 @@ public class DraftQuoteResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private QuotePaymentSummary paymentSummary;
+    private Long quotSysId;
     private String rawResponse;
 }

@@ -53,19 +53,21 @@ public class SanlamClient {
 
     public Mono<String> getAccessToken() {
         return redisTemplate.opsForValue().get(tokenCacheKey)
-                .doOnNext(cachedToken -> log.debug("Sanlam access token retrieved from cache"))
+                .doOnNext(cachedToken -> log.info("Sanlam access token retrieved from cache: {}", cachedToken))
                 .switchIfEmpty(Mono.defer(() -> {
                     log.info("Sanlam access token expired or not found. Fetching new token from Sanlam...");
                     return fetchNewToken()
                             .flatMap(response -> {
                                 if (response != null && response.getAccessToken() != null) {
+                                    String token = response.getAccessToken();
+                                    log.info("New Sanlam access token fetched: {}", token);
                                     long expiresIn = 86400;
-                                    log.info("Sanlam access token fetched successfully. Caching for {} seconds", expiresIn);
+                                    log.info("Caching Sanlam access token for {} seconds", expiresIn);
                                     return redisTemplate.opsForValue().set(
                                             tokenCacheKey,
-                                            response.getAccessToken(),
+                                            token,
                                             Duration.ofSeconds(expiresIn).minusMinutes(tokenExpiryBufferMinutes)
-                                    ).thenReturn(response.getAccessToken());
+                                    ).thenReturn(token);
                                 }
                                 return Mono.error(new RuntimeException("Failed to fetch Sanlam access token"));
                             });
