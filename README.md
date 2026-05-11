@@ -133,22 +133,34 @@ The orchestrator enforces a strict state machine to ensure integrity:
 
 The state is persisted in PostgreSQL using R2DBC. Database migrations are managed via Liquibase.
 
-**Running Migrations via Liquibase (MANDATORY):**
+**Running Migrations via Liquibase (Automated):**
 
-Because the project uses Spring Data R2DBC, migrations **do not run automatically** on application startup. They must be executed manually via the CLI before starting the application:
+Database migrations are automated and will run during the Maven build process (specifically the `process-resources` phase).
 
-1.  **Prepare Properties**: Copy the example properties file and update it with your local database credentials:
+1.  **Prepare Properties**: Ensure you have your local database credentials configured:
     ```bash
     cp app-bootstrap/liquibase.example.properties app-bootstrap/liquibase.properties
     ```
     *Edit `app-bootstrap/liquibase.properties` to set `url`, `username`, and `password`.*
 
-2.  **Run Migration**:
+2.  **Run with Build**: When you run `./mvnw clean install` or `./mvnw spring-boot:run`, the migrations will automatically execute.
+
+3.  **Manual Execution** (Optional):
+    If you want to run only the migrations:
     ```bash
-    ./mvnw liquibase:update -pl app-bootstrap -Dliquibase.propertyFile=app-bootstrap/liquibase.properties
+    ./mvnw liquibase:update -pl app-bootstrap
     ```
 
-**Note on Automation**:
+4.  **Skipping Migrations**:
+    If you need to skip migrations during build (e.g., if the DB is offline or in CI):
+    ```bash
+    ./mvnw clean install -Dskip.migrations=true
+    ```
+
+**Note on IDEs**:
+Most IDEs (like IntelliJ IDEA) will automatically pick up the Maven configuration and run migrations when you build or run the project using the IDE's built-in support.
+
+**Note on Automation (Docker)**:
 The project is configured to run migrations automatically when starting via Docker. The `Dockerfile` uses an `entrypoint.sh` script that executes the Liquibase update before launching the application JAR. This ensures the database schema is always in sync with the code in containerized environments.
 
 **Important Notes:**

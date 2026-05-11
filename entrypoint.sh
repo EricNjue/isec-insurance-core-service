@@ -8,7 +8,7 @@ if [ -n "$DB_URL" ]; then sed -i "s|url=.*|url=$DB_URL|g" app-bootstrap/liquibas
 if [ -n "$DB_USERNAME" ]; then sed -i "s|username=.*|username=$DB_USERNAME|g" app-bootstrap/liquibase.properties || sed -i "" "s|username=.*|username=$DB_USERNAME|g" app-bootstrap/liquibase.properties; fi
 if [ -n "$DB_PASSWORD" ]; then sed -i "s|password=.*|password=$DB_PASSWORD|g" app-bootstrap/liquibase.properties || sed -i "" "s|password=.*|password=$DB_PASSWORD|g" app-bootstrap/liquibase.properties; fi
 
-./mvnw liquibase:update -pl app-bootstrap -Dliquibase.propertyFile=app-bootstrap/liquibase.properties
+./mvnw liquibase:update -pl app-bootstrap -am -Dliquibase.propertyFile=app-bootstrap/liquibase.properties
 
 # Start the Application
 echo "Starting the application..."
