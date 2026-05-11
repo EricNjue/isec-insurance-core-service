@@ -23,5 +23,7 @@ public class DraftQuoteRequest {
     private String status;
     private DraftQuoteInsuranceData insuranceData;
     private Long draftQuoteUserId;
+    private Long draftQuoteSysId;
+    private String draftQuoteRef;
     private Map<String, Object> metadata;
 }

@@ -8,6 +8,7 @@ import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
+import com.isec.platform.modules.applications.utils.DateParsingUtil;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
@@ -113,7 +114,7 @@ public class MotorQuoteMapper {
 
         LocalDate startDate = LocalDate.now().plusDays(1);
         if (insurance.getInsuranceStartDate() != null) {
-            startDate = LocalDate.parse(insurance.getInsuranceStartDate(), DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            startDate = DateParsingUtil.parseInsuranceStartDate(insurance.getInsuranceStartDate());
         }
 
         QuoteCoverDetails cover = QuoteCoverDetails.builder()
@@ -139,7 +140,7 @@ public class MotorQuoteMapper {
                     .build();
         }
 
-        return DraftQuoteRequest.builder()
+        DraftQuoteRequest.DraftQuoteRequestBuilder builder = DraftQuoteRequest.builder()
                 .provider(app.getPartner())
                 .draftQuoteAmount(premium.getGrossPremium())
                 .clientName(kyc.getFullName())
@@ -147,7 +148,7 @@ public class MotorQuoteMapper {
                 .clientEmail(kyc.getEmail())
                 .clientIdNumber(kyc.getIdNumber() != null ? kyc.getIdNumber() : "N/A")
                 .status("draft")
-                .draftQuoteUserId(561L) // todo:- Default, need to know how this value shd be derived
+                .draftQuoteUserId(528L) // todo:- Default, need to know how this value shd be derived
                 .insuranceData(DraftQuoteInsuranceData.builder()
                         .subclass("private")
                         .vehicleType("standard_auto")
@@ -190,8 +191,17 @@ public class MotorQuoteMapper {
                         .cover(cover)
                         .dmvicCheck(dmvicCheck)
                         .submittedAt(LocalDateTime.now())
-                        .build())
-                .build();
+                        .build());
+
+        if (app.getDraftQuoteResult() != null) {
+            DraftQuoteResponse existingDraft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
+            if (existingDraft != null) {
+                builder.draftQuoteSysId(existingDraft.getDraftQuoteSysId());
+                builder.draftQuoteRef(existingDraft.getDraftQuoteRef());
+            }
+        }
+
+        return builder.build();
     }
 
     public MotorQuoteResponse toResponse(MotorQuoteApplication app) {

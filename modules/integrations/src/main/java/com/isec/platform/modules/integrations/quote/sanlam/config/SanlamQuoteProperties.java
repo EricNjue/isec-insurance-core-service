@@ -16,7 +16,14 @@ public class SanlamQuoteProperties {
     private String updateDraftQuotePath = "/quotes/draft_quote/{draftQuoteSysId}";
     private String sendDocumentsEmailPath = "/quotes/send-insurance-documents-email";
     private Duration timeout = Duration.ofSeconds(5);
+    private PaymentProperties payment = new PaymentProperties();
     private RetryProperties retry = new RetryProperties();
+
+    @Data
+    public static class PaymentProperties {
+        private int defaultInstallmentCount = 2;
+        private int maxInstallments = 3;
+    }
 
     @Data
     public static class RetryProperties {

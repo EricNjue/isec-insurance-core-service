@@ -4,6 +4,7 @@ public enum DraftQuoteStatus {
     DRAFT,
     PENDING_PAYMENT,
     PAID,
+    VALUATION_PENDING,
     CANCELLED,
     EXPIRED,
     UNKNOWN

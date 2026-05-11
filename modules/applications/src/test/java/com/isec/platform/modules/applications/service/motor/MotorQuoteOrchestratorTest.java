@@ -20,6 +20,7 @@ import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
 import com.isec.platform.modules.integrations.quote.model.PolicyIssuanceResult;
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
 import com.isec.platform.common.multitenancy.TenantContext;
+import com.isec.platform.modules.integrations.quote.model.DraftQuoteRequest;
 import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.common.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
