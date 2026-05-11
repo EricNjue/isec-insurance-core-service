@@ -145,8 +145,11 @@ Because the project uses Spring Data R2DBC, migrations **do not run automaticall
 
 2.  **Run Migration**:
     ```bash
-    ./mvnw liquibase:update -pl app-bootstrap -Dliquibase.propertyFile=liquibase.properties
+    ./mvnw liquibase:update -pl app-bootstrap -Dliquibase.propertyFile=app-bootstrap/liquibase.properties
     ```
+
+**Note on Automation**:
+The project is configured to run migrations automatically when starting via Docker. The `Dockerfile` uses an `entrypoint.sh` script that executes the Liquibase update before launching the application JAR. This ensures the database schema is always in sync with the code in containerized environments.
 
 **Important Notes:**
 - **Discouraged:** Manual SQL script execution is strongly discouraged as it may cause conflicts with the Liquibase tracking table (`databasechangelog`). Use the CLI command above to ensure the database schema remains in sync with the application code.
