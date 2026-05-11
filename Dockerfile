@@ -6,30 +6,32 @@ RUN ./mvnw clean package -DskipTests -Dskip.migrations=true -Dpostgresql.version
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
+# Install dependencies for Liquibase
+RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
+
+# Install Liquibase CLI
+ENV LIQUIBASE_VERSION=4.27.0
+RUN curl -L https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.zip -o liquibase.zip && \
+    unzip liquibase.zip -d /opt/liquibase && \
+    ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase && \
+    rm liquibase.zip
+
+# Download PostgreSQL JDBC driver for Liquibase
+ENV POSTGRES_VERSION=42.7.3
+RUN curl -L https://repo1.maven.org/maven2/org/postgresql/postgresql/${POSTGRES_VERSION}/postgresql-${POSTGRES_VERSION}.jar -o /opt/liquibase/lib/postgresql.jar
+
 # Copy the built jar
 COPY --from=build /app/app-bootstrap/target/*.jar app.jar
 
 # Copy necessary files for Liquibase migrations
-COPY --from=build /app/mvnw .
-COPY --from=build /app/.mvn .mvn
-COPY --from=build /app/pom.xml .
-COPY --from=build /app/app-bootstrap/pom.xml app-bootstrap/
-COPY --from=build /app/app-bootstrap/src app-bootstrap/src
-COPY --from=build /app/app-bootstrap/liquibase.properties app-bootstrap/
+# We only need the changelogs and properties file
+COPY --from=build /app/app-bootstrap/src/main/resources/db/changelog db/changelog
+COPY --from=build /app/app-bootstrap/liquibase.properties .
 
-# Copy all other module poms to satisfy Maven project structure at runtime
-# This includes common, messaging, and all subdirectories under modules/
-COPY --from=build /app/common/pom.xml common/
-COPY --from=build /app/messaging/pom.xml messaging/
-COPY --from=build /app/modules modules/
-
-# Clean up: keep only pom.xml files in the dependency modules to keep image small
-RUN find common messaging modules -type f ! -name "pom.xml" -delete
-# Also remove empty directories to keep things tidy
-RUN find common messaging modules -type d -empty -delete
+# Update liquibase.properties to point to the correct changelog path in the container
+RUN sed -i 's|changeLogFile=src/main/resources/|changeLogFile=|g' liquibase.properties
 
 COPY --from=build /app/entrypoint.sh .
-
-RUN chmod +x entrypoint.sh mvnw
+RUN chmod +x entrypoint.sh
 
 ENTRYPOINT ["./entrypoint.sh"]

@@ -161,7 +161,7 @@ Database migrations are automated and will run during the Maven build process (s
 Most IDEs (like IntelliJ IDEA) will automatically pick up the Maven configuration and run migrations when you build or run the project using the IDE's built-in support.
 
 **Note on Automation (Docker)**:
-The project is configured to run migrations automatically when starting via Docker. The `Dockerfile` uses an `entrypoint.sh` script that executes the Liquibase update before launching the application JAR. This ensures the database schema is always in sync with the code in containerized environments.
+The project is optimized for containerized environments. The `Dockerfile` installs the **Liquibase CLI** directly in the runtime image. This ensures that database migrations are executed in seconds without the overhead of starting Maven. The `entrypoint.sh` script triggers the migration automatically before the application starts.
 
 **Important Notes:**
 - **Discouraged:** Manual SQL script execution is strongly discouraged as it may cause conflicts with the Liquibase tracking table (`databasechangelog`). Use the CLI command above to ensure the database schema remains in sync with the application code.
