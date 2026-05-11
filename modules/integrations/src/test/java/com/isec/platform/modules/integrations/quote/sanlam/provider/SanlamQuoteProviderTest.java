@@ -164,7 +164,7 @@ class SanlamQuoteProviderTest {
                 .clientPhone("0712345678")
                 .clientEmail("test@example.com")
                 .clientIdNumber("12345678")
-                .draftQuoteUserId(561L)
+                .draftQuoteUserId(12345L)
                 .insuranceData(DraftQuoteInsuranceData.builder().build())
                 .build();
 
@@ -203,7 +203,7 @@ class SanlamQuoteProviderTest {
                 .clientPhone("0712345678")
                 .clientEmail("test@example.com")
                 .clientIdNumber("12345678")
-                .draftQuoteUserId(561L)
+                .draftQuoteUserId(12345L)
                 .insuranceData(DraftQuoteInsuranceData.builder().build())
                 .build();
 
@@ -250,7 +250,7 @@ class SanlamQuoteProviderTest {
                 .clientPhone("0712345678")
                 .clientEmail("test@example.com")
                 .clientIdNumber("12345678")
-                .draftQuoteUserId(561L)
+                .draftQuoteUserId(12345L)
                 .insuranceData(DraftQuoteInsuranceData.builder().build())
                 .build();
 

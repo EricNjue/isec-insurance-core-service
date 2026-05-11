@@ -16,9 +16,11 @@ import com.isec.platform.modules.integrations.premium.model.PremiumCalculationRe
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationResponse;
 import com.isec.platform.modules.integrations.premium.provider.PremiumProviderType;
 import com.isec.platform.modules.integrations.quote.model.*;
+import com.isec.platform.modules.integrations.quote.sanlam.service.SanlamTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,6 +38,7 @@ import java.util.Map;
 public class MotorQuoteMapper {
 
     private final ObjectMapper objectMapper;
+    private final SanlamTokenService sanlamTokenService;
 
     public MotorQuoteApplication toEntity(CalculateMotorPremiumRequest request) {
         try {
@@ -106,7 +109,7 @@ public class MotorQuoteMapper {
         return builder.build();
     }
 
-    public DraftQuoteRequest toDraftQuoteRequest(MotorQuoteApplication app) {
+    public Mono<DraftQuoteRequest> toDraftQuoteRequest(MotorQuoteApplication app) {
         QuoteRequest.InsuranceDetails insurance = deserialize(app.getInsuranceDetails(), QuoteRequest.InsuranceDetails.class);
         QuoteRequest.VehicleDetails vehicle = deserialize(app.getVehicleDetails(), QuoteRequest.VehicleDetails.class);
         QuoteRequest.KycDetails kyc = deserialize(app.getKycDetails(), QuoteRequest.KycDetails.class);
@@ -148,7 +151,6 @@ public class MotorQuoteMapper {
                 .clientEmail(kyc.getEmail())
                 .clientIdNumber(kyc.getIdNumber() != null ? kyc.getIdNumber() : "N/A")
                 .status("draft")
-                .draftQuoteUserId(528L) // todo:- Default, need to know how this value shd be derived
                 .insuranceData(DraftQuoteInsuranceData.builder()
                         .subclass("private")
                         .vehicleType("standard_auto")
@@ -201,7 +203,12 @@ public class MotorQuoteMapper {
             }
         }
 
-        return builder.build();
+        if (app.getPartner().name().equals("SANLAM")) {
+            return sanlamTokenService.resolveSanlamUserId()
+                    .map(userId -> builder.draftQuoteUserId(userId).build());
+        }
+
+        return Mono.just(builder.build());
     }
 
     public MotorQuoteResponse toResponse(MotorQuoteApplication app) {

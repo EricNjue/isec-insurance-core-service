@@ -142,6 +142,7 @@ class MotorQuoteOrchestratorTest {
         when(repository.save(any())).thenReturn(Mono.just(application));
         when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
         when(partnerProvider.supportedCapabilities()).thenReturn(Set.of(QuoteLifecycleCapability.CREATE_DRAFT_QUOTE));
+        when(mapper.toDraftQuoteRequest(any())).thenReturn(Mono.just(DraftQuoteRequest.builder().build()));
         
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
                 .draftQuoteRef("REF-123")

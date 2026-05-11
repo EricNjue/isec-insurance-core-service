@@ -129,7 +129,8 @@ public class MotorQuoteOrchestrator {
                 .flatMap(app -> {
                     PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
                     if (provider.supportedCapabilities().contains(QuoteLifecycleCapability.CREATE_DRAFT_QUOTE)) {
-                        return provider.createDraftQuote(mapper.toDraftQuoteRequest(app))
+                        return mapper.toDraftQuoteRequest(app)
+                                .flatMap(provider::createDraftQuote)
                                 .flatMap(res -> {
                                     app.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
                                     app.setDraftQuoteResult(serialize(res));

@@ -39,7 +39,7 @@ class SanlamDraftQuoteMapperTest {
                 .clientEmail("njue.gitonga92@gmail.com")
                 .clientIdNumber("28972735")
                 .status("draft")
-                .draftQuoteUserId(561L)
+                .draftQuoteUserId(12345L)
                 .insuranceData(DraftQuoteInsuranceData.builder()
                         .subclass("private")
                         .vehicleType("standard_auto")
