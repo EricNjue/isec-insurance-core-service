@@ -1,7 +1,7 @@
 FROM eclipse-temurin:17-jdk-jammy AS build
 WORKDIR /app
 COPY . .
-RUN ./mvnw clean package -DskipTests -Dskip.migrations=true
+RUN ./mvnw clean package -DskipTests -Dskip.migrations=true -Dpostgresql.version=42.7.3
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app

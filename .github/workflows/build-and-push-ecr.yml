@@ -63,7 +63,7 @@ jobs:
           cache: 'maven'
 
       - name: Build Application with Maven
-        run: ./mvnw clean package -DskipTests -Dskip.migrations=true
+        run: ./mvnw clean package -DskipTests -Dskip.migrations=true -Dpostgresql.version=42.7.3
 
       - name: Prepare Liquibase properties for Docker
         run: cp app-bootstrap/liquibase.example.properties app-bootstrap/liquibase.properties
