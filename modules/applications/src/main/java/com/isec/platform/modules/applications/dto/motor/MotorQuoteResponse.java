@@ -44,6 +44,8 @@ public class MotorQuoteResponse {
         private BigDecimal levies;
         private BigDecimal stampDuty;
         private BigDecimal grossPremium;
+        private BigDecimal annualPremium;
+        private BigDecimal monthlyPremium;
         private String currency;
         private String rateSetUsed;
         private boolean specialRateApplied;

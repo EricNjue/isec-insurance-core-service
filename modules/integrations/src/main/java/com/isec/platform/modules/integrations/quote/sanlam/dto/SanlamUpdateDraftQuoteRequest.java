@@ -22,6 +22,9 @@ public class SanlamUpdateDraftQuoteRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class InsuranceData {
+        @JsonProperty("client")
+        private SanlamClient client;
+
         @JsonProperty("payment")
         private PaymentData payment;
     }
