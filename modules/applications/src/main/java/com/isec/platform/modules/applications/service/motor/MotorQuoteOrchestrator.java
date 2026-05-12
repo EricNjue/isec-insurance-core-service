@@ -250,6 +250,13 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
+
+                            // If policy already issued or issuance in progress, just return current state
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED ||
+                                    app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                return Mono.just(app);
+                            }
+
                             MpesaCheckStatusRequest statusRequest = buildCheckStatusRequest(app);
                             PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
 
@@ -265,7 +272,7 @@ public class MotorQuoteOrchestrator {
                                         }
 
                                         String newPaymentResult = serialize(res);
-                                        
+
                                         // Optimization: Skip update if status and payment result haven't changed
                                         if (app.getStatus() == newStatus && StringUtils.equals(app.getPaymentResult(), newPaymentResult)) {
                                             log.debug("Payment status unchanged for quote: {}. Skipping database update.", quoteId);
@@ -276,6 +283,14 @@ public class MotorQuoteOrchestrator {
                                         app.setPaymentResult(newPaymentResult);
                                         app.setRawPartnerResponses(newPaymentResult); // Update raw response
                                         return repository.save(app);
+                                    })
+                                    .flatMap(updatedApp -> {
+                                        // Trigger policy issuance internally if payment is successful
+                                        if (updatedApp.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
+                                            log.info("Payment successful for quote: {}. Triggering automatic policy issuance.", quoteId);
+                                            return issuePolicyInternal(updatedApp);
+                                        }
+                                        return Mono.just(updatedApp);
                                     });
                         })
                         .retryWhen(Retry.backoff(3, Duration.ofMillis(100))
@@ -294,46 +309,52 @@ public class MotorQuoteOrchestrator {
         log.info("Starting policy issuance for quoteId: {}", quoteId);
         return repository.findByQuoteId(quoteId)
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
-                .flatMap(app -> {
-                    if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED) {
-                        return Mono.error(new BusinessException("Policy has already been issued for this quote."));
-                    }
-                    if (app.getStatus() != MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
-                        return Mono.error(new BusinessException("Policy can only be issued after successful payment. Current status: " + app.getStatus()));
-                    }
-                    app.setStatus(MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS);
-                    return repository.save(app);
-                })
-                .flatMap(app -> {
-                    PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
+                .flatMap(this::issuePolicyInternal)
+                .map(mapper::toResponse);
+    }
+
+    private Mono<MotorQuoteApplication> issuePolicyInternal(MotorQuoteApplication app) {
+        log.info("Internal policy issuance for quoteId: {}", app.getQuoteId());
+        if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED) {
+            log.info("Policy already issued for quoteId: {}", app.getQuoteId());
+            return Mono.just(app);
+        }
+        if (app.getStatus() != MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
+            return Mono.error(new BusinessException("Policy can only be issued after successful payment. Current status: " + app.getStatus()));
+        }
+
+        app.setStatus(MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS);
+        return repository.save(app)
+                .flatMap(savedApp -> {
+                    PartnerQuoteProvider provider = partnerFactory.getProvider(savedApp.getPartner());
                     if (!provider.supportedCapabilities().contains(QuoteLifecycleCapability.ISSUE_POLICY)) {
-                        return Mono.error(new BusinessException("Partner does not support policy issuance: " + app.getPartner()));
+                        return Mono.error(new BusinessException("Partner does not support policy issuance: " + savedApp.getPartner()));
                     }
 
-                    DraftQuoteResponse draftQuote = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
-                    mapper.mergeLatestKyc(draftQuote, app);
-                    MpesaPaymentStatusResponse paymentStatus = deserialize(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
+                    DraftQuoteResponse draftQuote = deserialize(savedApp.getDraftQuoteResult(), DraftQuoteResponse.class);
+                    mapper.mergeLatestKyc(draftQuote, savedApp);
+                    MpesaPaymentStatusResponse paymentStatus = deserialize(savedApp.getPaymentResult(), MpesaPaymentStatusResponse.class);
 
-                    return provider.issuePolicy(app.getQuoteId(), draftQuote, paymentStatus)
+                    return provider.issuePolicy(savedApp.getQuoteId(), draftQuote, paymentStatus)
                             .flatMap(result -> {
-                                app.setStatus(MotorQuoteStatus.POLICY_ISSUED);
-                                app.setPolicyIssuanceResult(serialize(result));
-                                
+                                savedApp.setStatus(MotorQuoteStatus.POLICY_ISSUED);
+                                savedApp.setPolicyIssuanceResult(serialize(result));
+
                                 // Update partner references with quotSysId if available
                                 if (result.getMetadata() != null && result.getMetadata().containsKey("quot_sys_id")) {
-                                    app.setPartnerReferences(serialize(result.getMetadata()));
+                                    savedApp.setPartnerReferences(serialize(result.getMetadata()));
                                 }
-                                
+
                                 // NEW: Update draftQuoteResult with latest state from result metadata if available
                                 if (result.getMetadata() != null && result.getMetadata().containsKey("draft_quote_sys_id")) {
                                     DraftQuoteResponse.DraftQuoteResponseBuilder draftBuilder = DraftQuoteResponse.builder()
                                             .draftQuoteSysId(((Number) result.getMetadata().get("draft_quote_sys_id")).longValue())
                                             .draftQuoteRef((String) result.getMetadata().get("draft_quote_ref"));
-                                    
+
                                     if (result.getMetadata().get("quot_sys_id") != null) {
                                         draftBuilder.quotSysId(((Number) result.getMetadata().get("quot_sys_id")).longValue());
                                     }
-                                    
+
                                     if (result.getMetadata().get("status") != null) {
                                         String statusStr = (String) result.getMetadata().get("status");
                                         try {
@@ -343,20 +364,19 @@ public class MotorQuoteOrchestrator {
                                             draftBuilder.status(DraftQuoteStatus.UNKNOWN);
                                         }
                                     }
-                                    
-                                    app.setDraftQuoteResult(serialize(draftBuilder.build()));
+
+                                    savedApp.setDraftQuoteResult(serialize(draftBuilder.build()));
                                 }
 
-                                app.setRawPartnerResponses(serialize(result));
-                                return repository.save(app);
+                                savedApp.setRawPartnerResponses(serialize(result));
+                                return repository.save(savedApp);
                             })
                             .onErrorResume(e -> {
-                                log.error("Policy issuance failed for quoteId: {}", quoteId, e);
-                                app.setStatus(MotorQuoteStatus.POLICY_ISSUANCE_FAILED);
-                                return repository.save(app).then(Mono.error(e));
+                                log.error("Policy issuance failed for quoteId: {}", savedApp.getQuoteId(), e);
+                                savedApp.setStatus(MotorQuoteStatus.POLICY_ISSUANCE_FAILED);
+                                return repository.save(savedApp).then(Mono.error(e));
                             });
-                })
-                .map(mapper::toResponse);
+                });
     }
 
     private MpesaCheckStatusRequest buildCheckStatusRequest(MotorQuoteApplication app) {
