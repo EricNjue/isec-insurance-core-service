@@ -159,6 +159,9 @@ public class MotorQuoteOrchestrator {
                                 mapper.updateKycDetails(app, request.getKycDetails());
                             }
                             DraftQuoteResponse draft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
+                            mapper.mergeLatestKyc(draft, app);
+                            app.setDraftQuoteResult(serialize(draft));
+                            
                             if (draft == null || draft.getDraftQuoteRef() == null) {
                                 return Mono.error(new BusinessException("Draft quote reference missing. Acceptance required."));
                             }
@@ -253,6 +256,7 @@ public class MotorQuoteOrchestrator {
                     }
 
                     DraftQuoteResponse draftQuote = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
+                    mapper.mergeLatestKyc(draftQuote, app);
                     MpesaPaymentStatusResponse paymentStatus = deserialize(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
 
                     return provider.issuePolicy(app.getQuoteId(), draftQuote, paymentStatus)

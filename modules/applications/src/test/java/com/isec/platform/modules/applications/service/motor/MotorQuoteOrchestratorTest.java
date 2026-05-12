@@ -109,6 +109,11 @@ class MotorQuoteOrchestratorTest {
         MotorQuoteResponse response = MotorQuoteResponse.builder()
                 .quoteId("Q-123")
                 .status(MotorQuoteStatus.PREMIUM_CALCULATED)
+                .premium(MotorQuoteResponse.PremiumInfo.builder()
+                        .grossPremium(new BigDecimal("50000"))
+                        .annualPremium(new BigDecimal("50000"))
+                        .monthlyPremium(new BigDecimal("17500"))
+                        .build())
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
@@ -242,6 +247,7 @@ class MotorQuoteOrchestratorTest {
                 .verifyComplete();
 
         verify(mapper).updateKycDetails(eq(application), eq(kyc));
+        verify(mapper).mergeLatestKyc(any(), eq(application));
         verify(partnerProvider).initiatePayment(any());
     }
 

@@ -441,6 +441,7 @@ public class SanlamDraftQuoteMapper {
 
         return SanlamUpdateDraftQuoteRequest.builder()
                 .insuranceData(SanlamUpdateDraftQuoteRequest.InsuranceData.builder()
+                        .client(toSanlamClient(draftQuote.getInsuranceData() != null ? draftQuote.getInsuranceData().getClient() : null))
                         .payment(SanlamUpdateDraftQuoteRequest.PaymentData.builder()
                                 .method("stk")
                                 .status("success")

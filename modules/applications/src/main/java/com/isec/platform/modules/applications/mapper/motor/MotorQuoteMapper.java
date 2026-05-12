@@ -19,9 +19,13 @@ import com.isec.platform.modules.integrations.quote.model.*;
 import com.isec.platform.modules.integrations.quote.sanlam.service.SanlamTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +43,9 @@ public class MotorQuoteMapper {
 
     private final ObjectMapper objectMapper;
     private final SanlamTokenService sanlamTokenService;
+
+    @Value("${quote.min-payment-percentage:0.35}")
+    private double minPaymentPercentage;
 
     public MotorQuoteApplication toEntity(CalculateMotorPremiumRequest request) {
         try {
@@ -75,6 +82,51 @@ public class MotorQuoteMapper {
         } catch (JsonProcessingException e) {
             throw new BusinessException("Failed to serialize KYC details");
         }
+    }
+
+    public void mergeLatestKyc(DraftQuoteResponse draft, MotorQuoteApplication app) {
+        if (draft == null || app.getKycDetails() == null) {
+            return;
+        }
+
+        QuoteRequest.KycDetails kyc = deserialize(app.getKycDetails(), QuoteRequest.KycDetails.class);
+        if (kyc == null) {
+            return;
+        }
+
+        if (draft.getInsuranceData() == null) {
+            draft.setInsuranceData(new DraftQuoteInsuranceData());
+        }
+
+        QuoteClientDetails client = draft.getInsuranceData().getClient();
+        if (client == null) {
+            client = new QuoteClientDetails();
+            draft.getInsuranceData().setClient(client);
+        }
+
+        // Only update if kyc from app is not blank, to avoid overwriting with null/empty if "N/A" was better than nothing
+        if (StringUtils.isNotBlank(kyc.getFullName())) {
+            client.setName(kyc.getFullName());
+            draft.setClientName(kyc.getFullName());
+        }
+        if (StringUtils.isNotBlank(kyc.getPhoneNumber())) {
+            client.setPhone(kyc.getPhoneNumber());
+            draft.setClientPhone(kyc.getPhoneNumber());
+        }
+        if (StringUtils.isNotBlank(kyc.getEmail())) {
+            client.setEmail(kyc.getEmail());
+            draft.setClientEmail(kyc.getEmail());
+        }
+        if (StringUtils.isNotBlank(kyc.getIdNumber())) {
+            client.setIdNumber(kyc.getIdNumber());
+            draft.setClientIdNumber(kyc.getIdNumber());
+        }
+
+        if (StringUtils.isNotBlank(kyc.getKraPin())) client.setKraPin(kyc.getKraPin());
+        if (StringUtils.isNotBlank(kyc.getCity())) client.setCity(kyc.getCity());
+        if (StringUtils.isNotBlank(kyc.getPostalAddress())) client.setPostalAddress(kyc.getPostalAddress());
+        if (kyc.getDateOfBirth() != null) client.setDateOfBirth(kyc.getDateOfBirth());
+        if (StringUtils.isNotBlank(kyc.getGender())) client.setGender(kyc.getGender());
     }
 
     public PremiumCalculationRequest toPremiumRequest(MotorQuoteApplication app) {
@@ -115,8 +167,12 @@ public class MotorQuoteMapper {
         QuoteRequest.KycDetails kyc = deserialize(app.getKycDetails(), QuoteRequest.KycDetails.class);
         PremiumCalculationResponse premium = deserialize(app.getPremiumResult(), PremiumCalculationResponse.class);
 
+        if (kyc == null) {
+            kyc = new QuoteRequest.KycDetails();
+        }
+
         LocalDate startDate = LocalDate.now().plusDays(1);
-        if (insurance.getInsuranceStartDate() != null) {
+        if (insurance != null && insurance.getInsuranceStartDate() != null) {
             startDate = DateParsingUtil.parseInsuranceStartDate(insurance.getInsuranceStartDate());
         }
 
@@ -146,10 +202,10 @@ public class MotorQuoteMapper {
         DraftQuoteRequest.DraftQuoteRequestBuilder builder = DraftQuoteRequest.builder()
                 .provider(app.getPartner())
                 .draftQuoteAmount(premium.getGrossPremium())
-                .clientName(kyc.getFullName())
-                .clientPhone(kyc.getPhoneNumber())
-                .clientEmail(kyc.getEmail())
-                .clientIdNumber(kyc.getIdNumber() != null ? kyc.getIdNumber() : "N/A")
+                .clientName(StringUtils.isNotBlank(kyc.getFullName()) ? kyc.getFullName() : "N/A")
+                .clientPhone(StringUtils.isNotBlank(kyc.getPhoneNumber()) ? kyc.getPhoneNumber() : "N/A")
+                .clientEmail(StringUtils.isNotBlank(kyc.getEmail()) ? kyc.getEmail() : "N/A")
+                .clientIdNumber(StringUtils.isNotBlank(kyc.getIdNumber()) ? kyc.getIdNumber() : "N/A")
                 .status("draft")
                 .insuranceData(DraftQuoteInsuranceData.builder()
                         .subclass("private")
@@ -157,9 +213,9 @@ public class MotorQuoteMapper {
                         .status("draft")
                         .client(QuoteClientDetails.builder()
                                 .type("individual")
-                                .name(kyc.getFullName())
-                                .phone(kyc.getPhoneNumber())
-                                .email(kyc.getEmail())
+                                .name(StringUtils.isNotBlank(kyc.getFullName()) ? kyc.getFullName() : "N/A")
+                                .phone(StringUtils.isNotBlank(kyc.getPhoneNumber()) ? kyc.getPhoneNumber() : "N/A")
+                                .email(StringUtils.isNotBlank(kyc.getEmail()) ? kyc.getEmail() : "N/A")
                                 .idNumber(kyc.getIdNumber())
                                 .kraPin(kyc.getKraPin())
                                 .city(kyc.getCity())
@@ -222,6 +278,12 @@ public class MotorQuoteMapper {
 
         if (app.getPremiumResult() != null) {
             PremiumCalculationResponse premium = deserialize(app.getPremiumResult(), PremiumCalculationResponse.class);
+            BigDecimal annualPremium = premium.getGrossPremium();
+            BigDecimal monthlyPremium = null;
+            if (annualPremium != null) {
+                monthlyPremium = annualPremium.multiply(BigDecimal.valueOf(minPaymentPercentage)).setScale(2, RoundingMode.HALF_UP);
+            }
+
             builder.premium(MotorQuoteResponse.PremiumInfo.builder()
                     .basicPremium(premium.getBasicPremium())
                     .benefitsTotal(premium.getBenefitsTotal())
@@ -229,6 +291,8 @@ public class MotorQuoteMapper {
                     .levies(premium.getLevies())
                     .stampDuty(premium.getStampDuty())
                     .grossPremium(premium.getGrossPremium())
+                    .annualPremium(annualPremium)
+                    .monthlyPremium(monthlyPremium)
                     .currency("KES")
                     .rateSetUsed(premium.getRateSetUsed())
                     .specialRateApplied(premium.isSpecialRateApplied())
