@@ -30,7 +30,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.OptimisticLockingFailureException;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -251,18 +255,32 @@ public class MotorQuoteOrchestrator {
 
                             return provider.checkPaymentStatus(statusRequest)
                                     .flatMap(res -> {
+                                        MotorQuoteStatus newStatus;
                                         if (res.getStatus() == MpesaPaymentStatus.SUCCESS) {
-                                            app.setStatus(MotorQuoteStatus.PAYMENT_SUCCESSFUL);
+                                            newStatus = MotorQuoteStatus.PAYMENT_SUCCESSFUL;
                                         } else if (res.getStatus() == MpesaPaymentStatus.FAILED) {
-                                            app.setStatus(MotorQuoteStatus.PAYMENT_FAILED);
+                                            newStatus = MotorQuoteStatus.PAYMENT_FAILED;
                                         } else {
-                                            app.setStatus(MotorQuoteStatus.PAYMENT_PENDING);
+                                            newStatus = MotorQuoteStatus.PAYMENT_PENDING;
                                         }
-                                        app.setPaymentResult(serialize(res));
-                                        app.setRawPartnerResponses(serialize(res)); // Update raw response
+
+                                        String newPaymentResult = serialize(res);
+                                        
+                                        // Optimization: Skip update if status and payment result haven't changed
+                                        if (app.getStatus() == newStatus && StringUtils.equals(app.getPaymentResult(), newPaymentResult)) {
+                                            log.debug("Payment status unchanged for quote: {}. Skipping database update.", quoteId);
+                                            return Mono.just(app);
+                                        }
+
+                                        app.setStatus(newStatus);
+                                        app.setPaymentResult(newPaymentResult);
+                                        app.setRawPartnerResponses(newPaymentResult); // Update raw response
                                         return repository.save(app);
                                     });
-                        }))
+                        })
+                        .retryWhen(Retry.backoff(3, Duration.ofMillis(100))
+                                .filter(throwable -> throwable instanceof OptimisticLockingFailureException)
+                                .doBeforeRetry(retrySignal -> log.warn("Optimistic locking failure for quote: {}. Retrying... (Attempt {})", quoteId, retrySignal.totalRetries() + 1))))
                 .map(mapper::toResponse);
     }
 
