@@ -64,12 +64,15 @@ class MotorQuoteOrchestratorTest {
     @InjectMocks
     private MotorQuoteOrchestrator orchestrator;
 
+    private ObjectMapper realObjectMapper = new ObjectMapper();
+
     private CalculateMotorPremiumRequest calculateRequest;
     private MotorQuoteApplication application;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(orchestrator, "minPaymentPercentage", 0.35);
+        ReflectionTestUtils.setField(orchestrator, "objectMapper", realObjectMapper);
         calculateRequest = CalculateMotorPremiumRequest.builder()
                 .quoteId("Q-123")
                 .partner(PartnerType.SANLAM)
@@ -141,54 +144,49 @@ class MotorQuoteOrchestratorTest {
     }
 
     @Test
-    void acceptQuote_ShouldCreateDraftQuote_WhenSupported() {
+    void acceptQuote_ShouldOnlyPersistStatus_AndNotCallPartner() {
         application.setStatus(MotorQuoteStatus.PREMIUM_CALCULATED);
         when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
         when(repository.save(any())).thenReturn(Mono.just(application));
-        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
-        when(partnerProvider.supportedCapabilities()).thenReturn(Set.of(QuoteLifecycleCapability.CREATE_DRAFT_QUOTE));
-        when(mapper.toDraftQuoteRequest(any())).thenReturn(Mono.just(DraftQuoteRequest.builder().build()));
-        
-        DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
-                .draftQuoteRef("REF-123")
-                .build();
-        when(partnerProvider.createDraftQuote(any())).thenReturn(Mono.just(draftRes));
         
         MotorQuoteResponse response = MotorQuoteResponse.builder()
                 .quoteId("Q-123")
-                .status(MotorQuoteStatus.DRAFT_QUOTE_CREATED)
+                .status(MotorQuoteStatus.QUOTE_ACCEPTED)
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
         StepVerifier.create(orchestrator.acceptQuote("Q-123")
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
-                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.DRAFT_QUOTE_CREATED)
+                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.QUOTE_ACCEPTED)
                 .verifyComplete();
 
-        verify(partnerProvider).createDraftQuote(any());
+        verify(repository).save(argThat(app -> app.getStatus() == MotorQuoteStatus.QUOTE_ACCEPTED));
+        verify(partnerProvider, never()).createDraftQuote(any());
     }
 
     @Test
-    void initiatePayment_ShouldSucceed() throws Exception {
-        application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
-        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
-        
+    void initiatePayment_ShouldSucceed_AndCreateDraftQuote() throws Exception {
+        application.setStatus(MotorQuoteStatus.QUOTE_ACCEPTED);
+        application.setKycDetails("{\"fullName\":\"John Doe\",\"phoneNumber\":\"0712345678\",\"email\":\"john@example.com\",\"idNumber\":\"12345678\"}");
+
         when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
-        when(repository.save(any())).thenReturn(Mono.just(application));
+        when(repository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
         when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
-        
+        when(partnerProvider.supportedCapabilities()).thenReturn(Set.of(QuoteLifecycleCapability.CREATE_DRAFT_QUOTE));
+        when(mapper.toDraftQuoteRequest(any())).thenReturn(Mono.just(DraftQuoteRequest.builder().build()));
+
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
                 .draftQuoteRef("REF-123")
                 .draftQuoteAmount(new BigDecimal("50000"))
                 .clientPhone("0712345678")
                 .build();
-        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        when(partnerProvider.createDraftQuote(any())).thenReturn(Mono.just(draftRes));
         
         MpesaInitiatePaymentResponse payRes = MpesaInitiatePaymentResponse.builder()
                 .checkoutId("CH-123")
                 .build();
         when(partnerProvider.initiatePayment(any())).thenReturn(Mono.just(payRes));
-        
+
         MotorQuoteResponse response = MotorQuoteResponse.builder()
                 .quoteId("Q-123")
                 .status(MotorQuoteStatus.PAYMENT_INITIATED)
@@ -196,12 +194,15 @@ class MotorQuoteOrchestratorTest {
         when(mapper.toResponse(any())).thenReturn(response);
 
         com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = new com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest();
-        
+
         StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
-                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED)
+                .assertNext(res -> {
+                    assert res.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED;
+                })
                 .verifyComplete();
 
+        verify(partnerProvider).createDraftQuote(any());
         verify(partnerProvider).initiatePayment(any());
     }
 
@@ -219,7 +220,7 @@ class MotorQuoteOrchestratorTest {
                 .draftQuoteAmount(new BigDecimal("50000"))
                 .clientPhone("0712345678")
                 .build();
-        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        // when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
         
         MpesaInitiatePaymentResponse payRes = MpesaInitiatePaymentResponse.builder()
                 .checkoutId("CH-123")
@@ -236,6 +237,7 @@ class MotorQuoteOrchestratorTest {
                 .email("test@test.com")
                 .fullName("Test User")
                 .phoneNumber("0712345678")
+                .idNumber("12345678")
                 .build();
         com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest.builder()
                 .kycDetails(kyc)
@@ -247,7 +249,6 @@ class MotorQuoteOrchestratorTest {
                 .verifyComplete();
 
         verify(mapper).updateKycDetails(eq(application), eq(kyc));
-        verify(mapper).mergeLatestKyc(any(), eq(application));
         verify(partnerProvider).initiatePayment(any());
     }
 
@@ -255,16 +256,17 @@ class MotorQuoteOrchestratorTest {
     void initiatePayment_ShouldFail_WhenAmountBelowThreshold() throws Exception {
         application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
         application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
+        application.setKycDetails("{\"fullName\":\"John Doe\",\"phoneNumber\":\"0712345678\",\"email\":\"john@example.com\",\"idNumber\":\"12345678\"}");
         
         when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
-        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        // when(objectMapper.readValue(anyString(), eq(QuoteRequest.KycDetails.class))).thenReturn(QuoteRequest.KycDetails.builder().fullName("John Doe").build());
         
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
                 .draftQuoteRef("REF-123")
                 .draftQuoteAmount(new BigDecimal("50000"))
                 .clientPhone("0712345678")
                 .build();
-        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        // when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
 
         com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest.builder()
                 .amount(10000.0) // 20% of 50000, which is below 35%
@@ -282,16 +284,17 @@ class MotorQuoteOrchestratorTest {
         ReflectionTestUtils.setField(orchestrator, "minPaymentPercentage", 0.50);
         application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
         application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
+        application.setKycDetails("{\"fullName\":\"John Doe\",\"phoneNumber\":\"0712345678\",\"email\":\"john@example.com\",\"idNumber\":\"12345678\"}");
 
         when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
-        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        // when(objectMapper.readValue(anyString(), eq(QuoteRequest.KycDetails.class))).thenReturn(QuoteRequest.KycDetails.builder().fullName("John Doe").build());
 
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
                 .draftQuoteRef("REF-123")
                 .draftQuoteAmount(new BigDecimal("50000"))
                 .clientPhone("0712345678")
                 .build();
-        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        // when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
 
         com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest initReq = com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest.builder()
                 .amount(20000.0) // 40% of 50000, which is below 50%
@@ -308,17 +311,19 @@ class MotorQuoteOrchestratorTest {
     void initiatePayment_ShouldSucceed_WhenAmountAboveThreshold() throws Exception {
         application.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
         application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\",\"draftQuoteAmount\":50000,\"clientPhone\":\"0712345678\"}");
+        application.setKycDetails("{\"fullName\":\"John Doe\",\"phoneNumber\":\"0712345678\",\"email\":\"john@example.com\",\"idNumber\":\"12345678\"}");
         
         when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
         when(repository.save(any())).thenReturn(Mono.just(application));
         when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        // when(objectMapper.readValue(anyString(), eq(QuoteRequest.KycDetails.class))).thenReturn(QuoteRequest.KycDetails.builder().fullName("John Doe").build());
         
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
                 .draftQuoteRef("REF-123")
                 .draftQuoteAmount(new BigDecimal("50000"))
                 .clientPhone("0712345678")
                 .build();
-        when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        // when(objectMapper.readValue(anyString(), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
         
         MpesaInitiatePaymentResponse payRes = MpesaInitiatePaymentResponse.builder()
                 .checkoutId("CH-123")
@@ -356,15 +361,15 @@ class MotorQuoteOrchestratorTest {
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
                 .draftQuoteRef("REF-123")
                 .build();
-        when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        // when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
         
         MpesaInitiatePaymentResponse initRes = MpesaInitiatePaymentResponse.builder()
                 .checkoutId("CH-123")
                 .build();
         // First call will fail Status check and succeed Initiation check
-        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class)))
-                .thenThrow(new RuntimeException("Not a status response"));
-        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaInitiatePaymentResponse.class))).thenReturn(initRes);
+        // when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class)))
+        //        .thenThrow(new RuntimeException("Not a status response"));
+        // when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaInitiatePaymentResponse.class))).thenReturn(initRes);
         
         MpesaPaymentStatusResponse statusRes = MpesaPaymentStatusResponse.builder()
                 .status(MpesaPaymentStatus.SUCCESS)
@@ -400,13 +405,13 @@ class MotorQuoteOrchestratorTest {
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder()
                 .draftQuoteRef("REF-123")
                 .build();
-        when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        // when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
 
         MpesaPaymentStatusResponse previousStatus = MpesaPaymentStatusResponse.builder()
                 .checkoutId("CH-123")
                 .status(MpesaPaymentStatus.PENDING)
                 .build();
-        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class))).thenReturn(previousStatus);
+        // when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class))).thenReturn(previousStatus);
 
         MpesaPaymentStatusResponse statusRes = MpesaPaymentStatusResponse.builder()
                 .status(MpesaPaymentStatus.SUCCESS)
@@ -440,10 +445,10 @@ class MotorQuoteOrchestratorTest {
         when(partnerProvider.supportedCapabilities()).thenReturn(Set.of(QuoteLifecycleCapability.ISSUE_POLICY));
 
         DraftQuoteResponse draftRes = DraftQuoteResponse.builder().draftQuoteRef("REF-123").build();
-        when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
+        // when(objectMapper.readValue(eq(application.getDraftQuoteResult()), eq(DraftQuoteResponse.class))).thenReturn(draftRes);
 
         MpesaPaymentStatusResponse paymentRes = MpesaPaymentStatusResponse.builder().status(MpesaPaymentStatus.SUCCESS).build();
-        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class))).thenReturn(paymentRes);
+        // when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MpesaPaymentStatusResponse.class))).thenReturn(paymentRes);
 
         PolicyIssuanceResult policyResult = PolicyIssuanceResult.builder()
                 .status("POLICY_ISSUED")

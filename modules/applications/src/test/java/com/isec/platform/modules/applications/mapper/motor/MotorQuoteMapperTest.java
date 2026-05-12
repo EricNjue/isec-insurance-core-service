@@ -72,8 +72,8 @@ class MotorQuoteMapperTest {
     }
 
     @Test
-    void toDraftQuoteRequest_ShouldHandleNullKyc() throws Exception {
-        application.setKycDetails(null);
+    void toDraftQuoteRequest_ShouldHandleKyc() throws Exception {
+        application.setKycDetails("{\"fullName\":\"John Doe\",\"phoneNumber\":\"0712345678\",\"email\":\"john@example.com\",\"idNumber\":\"12345678\"}");
         
         PremiumCalculationResponse premiumRes = PremiumCalculationResponse.builder()
                 .grossPremium(new BigDecimal("50000"))
@@ -83,14 +83,19 @@ class MotorQuoteMapperTest {
         when(objectMapper.readValue(anyString(), eq(PremiumCalculationResponse.class))).thenReturn(premiumRes);
         when(objectMapper.readValue(anyString(), eq(QuoteRequest.InsuranceDetails.class))).thenReturn(new QuoteRequest.InsuranceDetails());
         when(objectMapper.readValue(anyString(), eq(QuoteRequest.VehicleDetails.class))).thenReturn(new QuoteRequest.VehicleDetails());
-        // when(objectMapper.readValue((String) isNull(), eq(QuoteRequest.KycDetails.class))).thenReturn(null); // deserialize handles null
+        when(objectMapper.readValue(anyString(), eq(QuoteRequest.KycDetails.class))).thenReturn(QuoteRequest.KycDetails.builder()
+                .fullName("John Doe")
+                .phoneNumber("0712345678")
+                .email("john@example.com")
+                .idNumber("12345678")
+                .build());
         when(sanlamTokenService.resolveSanlamUserId()).thenReturn(Mono.just(528L));
 
         StepVerifier.create(mapper.toDraftQuoteRequest(application))
                 .expectNextMatches(request -> {
-                    assertEquals("N/A", request.getClientName());
-                    assertEquals("N/A", request.getClientPhone());
-                    assertEquals("N/A", request.getClientEmail());
+                    assertEquals("John Doe", request.getClientName());
+                    assertEquals("0712345678", request.getClientPhone());
+                    assertEquals("john@example.com", request.getClientEmail());
                     return true;
                 })
                 .verifyComplete();

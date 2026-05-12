@@ -202,10 +202,10 @@ public class MotorQuoteMapper {
         DraftQuoteRequest.DraftQuoteRequestBuilder builder = DraftQuoteRequest.builder()
                 .provider(app.getPartner())
                 .draftQuoteAmount(premium.getGrossPremium())
-                .clientName(StringUtils.isNotBlank(kyc.getFullName()) ? kyc.getFullName() : "N/A")
-                .clientPhone(StringUtils.isNotBlank(kyc.getPhoneNumber()) ? kyc.getPhoneNumber() : "N/A")
-                .clientEmail(StringUtils.isNotBlank(kyc.getEmail()) ? kyc.getEmail() : "N/A")
-                .clientIdNumber(StringUtils.isNotBlank(kyc.getIdNumber()) ? kyc.getIdNumber() : "N/A")
+                .clientName(kyc.getFullName())
+                .clientPhone(kyc.getPhoneNumber())
+                .clientEmail(kyc.getEmail())
+                .clientIdNumber(kyc.getIdNumber())
                 .status("draft")
                 .insuranceData(DraftQuoteInsuranceData.builder()
                         .subclass("private")
@@ -213,9 +213,9 @@ public class MotorQuoteMapper {
                         .status("draft")
                         .client(QuoteClientDetails.builder()
                                 .type("individual")
-                                .name(StringUtils.isNotBlank(kyc.getFullName()) ? kyc.getFullName() : "N/A")
-                                .phone(StringUtils.isNotBlank(kyc.getPhoneNumber()) ? kyc.getPhoneNumber() : "N/A")
-                                .email(StringUtils.isNotBlank(kyc.getEmail()) ? kyc.getEmail() : "N/A")
+                                .name(kyc.getFullName())
+                                .phone(kyc.getPhoneNumber())
+                                .email(kyc.getEmail())
                                 .idNumber(kyc.getIdNumber())
                                 .kraPin(kyc.getKraPin())
                                 .city(kyc.getCity())
@@ -381,7 +381,7 @@ public class MotorQuoteMapper {
         return actions;
     }
 
-    private <T> T deserialize(String json, Class<T> clazz) {
+    public <T> T deserialize(String json, Class<T> clazz) {
         if (json == null) return null;
         try {
             return objectMapper.readValue(json, clazz);

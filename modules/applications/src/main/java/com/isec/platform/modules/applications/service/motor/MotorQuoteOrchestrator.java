@@ -8,6 +8,7 @@ import com.isec.platform.common.multitenancy.TenantContext;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteApplication;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
 import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
+import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
 import com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest;
@@ -25,6 +26,7 @@ import com.isec.platform.modules.integrations.quote.provider.PartnerQuoteProvide
 import com.isec.platform.modules.integrations.quote.provider.QuoteLifecycleCapability;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -119,27 +121,9 @@ public class MotorQuoteOrchestrator {
                                 return Mono.error(new BusinessException("Invalid status for quote acceptance: " + app.getStatus()));
                             }
                             
-                            // Synchronize on quoteId string to prevent concurrent creation for the same quoteId in the same JVM.
-                            // For distributed locking, a Redis lock would be preferred.
-                            synchronized (quoteId.intern()) {
-                                app.setStatus(MotorQuoteStatus.QUOTE_ACCEPTED);
-                                return repository.save(app);
-                            }
+                            app.setStatus(MotorQuoteStatus.QUOTE_ACCEPTED);
+                            return repository.save(app);
                         }))
-                .flatMap(app -> {
-                    PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
-                    if (provider.supportedCapabilities().contains(QuoteLifecycleCapability.CREATE_DRAFT_QUOTE)) {
-                        return mapper.toDraftQuoteRequest(app)
-                                .flatMap(provider::createDraftQuote)
-                                .flatMap(res -> {
-                                    app.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
-                                    app.setDraftQuoteResult(serialize(res));
-                                    app.setRawPartnerResponses(serialize(res)); // Update raw response
-                                    return repository.save(app);
-                                });
-                    }
-                    return Mono.just(app);
-                })
                 .map(mapper::toResponse);
     }
 
@@ -155,37 +139,90 @@ public class MotorQuoteOrchestrator {
                                 app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
                                 return Mono.error(new BusinessException("Cannot initiate payment for an already issued policy or one in progress of issuance."));
                             }
-                            if (request.getKycDetails() != null) {
+                            
+                            // 1. Validate KYC/client details presence
+                            if (request.getKycDetails() == null) {
+                                // Try to see if we already have them
+                                QuoteRequest.KycDetails existingKyc = deserialize(app.getKycDetails(), QuoteRequest.KycDetails.class);
+                                if (existingKyc == null || StringUtils.isBlank(existingKyc.getFullName())) {
+                                    return Mono.error(new BusinessException("KYC details are required before initiating payment."));
+                                }
+                            } else {
+                                // Validate required fields in request KYC
+                                validateKyc(request.getKycDetails());
                                 mapper.updateKycDetails(app, request.getKycDetails());
                             }
-                            DraftQuoteResponse draft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
-                            mapper.mergeLatestKyc(draft, app);
-                            app.setDraftQuoteResult(serialize(draft));
-                            
-                            if (draft == null || draft.getDraftQuoteRef() == null) {
-                                return Mono.error(new BusinessException("Draft quote reference missing. Acceptance required."));
-                            }
 
-                            PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
+                            return createDraftQuoteIfMissing(app)
+                                    .flatMap(appWithDraft -> {
+                                        DraftQuoteResponse draft = deserialize(appWithDraft.getDraftQuoteResult(), DraftQuoteResponse.class);
+                                        if (draft == null || draft.getDraftQuoteRef() == null) {
+                                            return Mono.error(new BusinessException("Draft quote reference missing. Failed to create draft quote with partner."));
+                                        }
 
-                            double requestAmount = getRequestAmount(request, draft);
+                                        PartnerQuoteProvider provider = partnerFactory.getProvider(appWithDraft.getPartner());
+                                        double requestAmount = getRequestAmount(request, draft);
 
-                            MpesaInitiatePaymentRequest initRequest = MpesaInitiatePaymentRequest.builder()
-                                    .partner(MpesaProviderType.valueOf(app.getPartner().name()))
-                                    .quoteRef(draft.getDraftQuoteRef())
-                                    .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : draft.getClientPhone())
-                                    .amount(requestAmount)
-                                    .build();
+                                        MpesaInitiatePaymentRequest initRequest = MpesaInitiatePaymentRequest.builder()
+                                                .partner(MpesaProviderType.valueOf(appWithDraft.getPartner().name()))
+                                                .quoteRef(draft.getDraftQuoteRef())
+                                                .phoneNumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : draft.getClientPhone())
+                                                .amount(requestAmount)
+                                                .build();
 
-                            return provider.initiatePayment(initRequest)
-                                    .flatMap(res -> {
-                                        app.setStatus(MotorQuoteStatus.PAYMENT_INITIATED);
-                                        app.setPaymentResult(serialize(res));
-                                        app.setRawPartnerResponses(serialize(res)); // Update raw response
-                                        return repository.save(app);
+                                        return provider.initiatePayment(initRequest)
+                                                .flatMap(res -> {
+                                                    appWithDraft.setStatus(MotorQuoteStatus.PAYMENT_INITIATED);
+                                                    appWithDraft.setPaymentResult(serialize(res));
+                                                    appWithDraft.setRawPartnerResponses(serialize(res));
+                                                    return repository.save(appWithDraft);
+                                                });
                                     });
                         }))
                 .map(mapper::toResponse);
+    }
+
+    private void validateKyc(QuoteRequest.KycDetails kyc) {
+        if (StringUtils.isBlank(kyc.getFullName())) {
+            throw new BusinessException("Client name must not be blank");
+        }
+        if (StringUtils.isBlank(kyc.getPhoneNumber())) {
+            throw new BusinessException("Client phone number must not be blank");
+        }
+        if (StringUtils.isBlank(kyc.getEmail())) {
+            throw new BusinessException("Client email must not be blank");
+        }
+        if (StringUtils.isBlank(kyc.getIdNumber())) {
+            throw new BusinessException("Client ID number must not be blank");
+        }
+    }
+
+    private Mono<MotorQuoteApplication> createDraftQuoteIfMissing(MotorQuoteApplication app) {
+        if (app.getStatus() == MotorQuoteStatus.DRAFT_QUOTE_CREATED || 
+            app.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED ||
+            app.getStatus() == MotorQuoteStatus.PAYMENT_PENDING ||
+            app.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
+            
+            DraftQuoteResponse existing = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
+            if (existing != null && existing.getDraftQuoteRef() != null) {
+                log.info("Draft quote already exists for quote: {}. Reusing reference: {}", app.getQuoteId(), existing.getDraftQuoteRef());
+                return Mono.just(app);
+            }
+        }
+
+        PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
+        if (provider.supportedCapabilities().contains(QuoteLifecycleCapability.CREATE_DRAFT_QUOTE)) {
+            log.info("Creating Sanlam draft quote for quote: {}", app.getQuoteId());
+            return mapper.toDraftQuoteRequest(app)
+                    .flatMap(provider::createDraftQuote)
+                    .flatMap(res -> {
+                        app.setStatus(MotorQuoteStatus.DRAFT_QUOTE_CREATED);
+                        app.setDraftQuoteResult(serialize(res));
+                        app.setRawPartnerResponses(serialize(res));
+                        return repository.save(app);
+                    });
+        }
+        return Mono.just(app);
     }
 
     private double getRequestAmount(MpesaInitiationRequest request, DraftQuoteResponse draft) {
@@ -337,7 +374,7 @@ public class MotorQuoteOrchestrator {
                 .build();
     }
 
-    private String serialize(Object obj) {
+    public String serialize(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
         } catch (JsonProcessingException e) {
@@ -345,7 +382,7 @@ public class MotorQuoteOrchestrator {
         }
     }
 
-    private <T> T deserialize(String json, Class<T> clazz) {
+    public <T> T deserialize(String json, Class<T> clazz) {
         if (json == null) return null;
         try {
             return objectMapper.readValue(json, clazz);
