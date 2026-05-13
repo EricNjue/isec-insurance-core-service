@@ -62,8 +62,8 @@ public class MotorQuoteOrchestrator {
                 .switchIfEmpty(Mono.error(new BusinessException("Missing required X-Tenant-Id header")))
                 .flatMap(tenantId -> repository.findByQuoteId(request.getQuoteId())
                         .flatMap(existing -> {
-                            if (existing.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
-                                existing.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                            if (existing.getStatus() == MotorQuoteStatus.POLICY_ISSUED ||
+                                    existing.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
                                 return Mono.error(new BusinessException("Cannot recalculate premium for an already issued policy or one in progress of issuance."));
                             }
                             mapper.updateEntity(existing, request);
@@ -117,14 +117,14 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
-                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
-                                app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED ||
+                                    app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
                                 return Mono.error(new BusinessException("Cannot accept quote for an already issued policy or one in progress of issuance."));
                             }
                             if (app.getStatus() != MotorQuoteStatus.PREMIUM_CALCULATED && app.getStatus() != MotorQuoteStatus.QUOTE_ACCEPTED && app.getStatus() != MotorQuoteStatus.DRAFT_QUOTE_CREATED) {
                                 return Mono.error(new BusinessException("Invalid status for quote acceptance: " + app.getStatus()));
                             }
-                            
+
                             app.setStatus(MotorQuoteStatus.QUOTE_ACCEPTED);
                             return repository.save(app);
                         }))
@@ -139,11 +139,11 @@ public class MotorQuoteOrchestrator {
                         .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
-                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED || 
-                                app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED ||
+                                    app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
                                 return Mono.error(new BusinessException("Cannot initiate payment for an already issued policy or one in progress of issuance."));
                             }
-                            
+
                             // 1. Validate KYC/client details presence
                             if (request.getKycDetails() == null) {
                                 // Try to see if we already have them
@@ -202,11 +202,11 @@ public class MotorQuoteOrchestrator {
     }
 
     private Mono<MotorQuoteApplication> createDraftQuoteIfMissing(MotorQuoteApplication app) {
-        if (app.getStatus() == MotorQuoteStatus.DRAFT_QUOTE_CREATED || 
-            app.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED ||
-            app.getStatus() == MotorQuoteStatus.PAYMENT_PENDING ||
-            app.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
-            
+        if (app.getStatus() == MotorQuoteStatus.DRAFT_QUOTE_CREATED ||
+                app.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED ||
+                app.getStatus() == MotorQuoteStatus.PAYMENT_PENDING ||
+                app.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
+
             DraftQuoteResponse existing = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
             if (existing != null && existing.getDraftQuoteRef() != null) {
                 log.info("Draft quote already exists for quote: {}. Reusing reference: {}", app.getQuoteId(), existing.getDraftQuoteRef());
@@ -262,14 +262,8 @@ public class MotorQuoteOrchestrator {
 
                             return provider.checkPaymentStatus(statusRequest)
                                     .flatMap(res -> {
-                                        MotorQuoteStatus newStatus;
-                                        if (res.getStatus() == MpesaPaymentStatus.SUCCESS) {
-                                            newStatus = MotorQuoteStatus.PAYMENT_SUCCESSFUL;
-                                        } else if (res.getStatus() == MpesaPaymentStatus.FAILED) {
-                                            newStatus = MotorQuoteStatus.PAYMENT_FAILED;
-                                        } else {
-                                            newStatus = MotorQuoteStatus.PAYMENT_PENDING;
-                                        }
+                                        log.info("Payment status response for quote {}: {}", quoteId, serialize(res));
+                                        MotorQuoteStatus newStatus = getMotorQuoteStatus(res);
 
                                         String newPaymentResult = serialize(res);
 
@@ -297,6 +291,18 @@ public class MotorQuoteOrchestrator {
                                 .filter(throwable -> throwable instanceof OptimisticLockingFailureException)
                                 .doBeforeRetry(retrySignal -> log.warn("Optimistic locking failure for quote: {}. Retrying... (Attempt {})", quoteId, retrySignal.totalRetries() + 1))))
                 .map(mapper::toResponse);
+    }
+
+    private static MotorQuoteStatus getMotorQuoteStatus(MpesaPaymentStatusResponse res) {
+        MotorQuoteStatus newStatus;
+        if (res.getStatus() == MpesaPaymentStatus.SUCCESS) {
+            newStatus = MotorQuoteStatus.PAYMENT_SUCCESSFUL;
+        } else if (res.getStatus() == MpesaPaymentStatus.FAILED) {
+            newStatus = MotorQuoteStatus.PAYMENT_FAILED;
+        } else {
+            newStatus = MotorQuoteStatus.PAYMENT_PENDING;
+        }
+        return newStatus;
     }
 
     public Mono<MotorQuoteResponse> getQuoteApplication(String quoteId) {
