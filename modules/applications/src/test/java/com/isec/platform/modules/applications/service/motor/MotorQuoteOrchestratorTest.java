@@ -419,10 +419,19 @@ class MotorQuoteOrchestratorTest {
     }
 
     @Test
-    void checkPaymentStatus_ShouldNotTriggerPolicyIssuance_IfAlreadyIssued() throws Exception {
+    void checkPaymentStatus_ShouldStillCheckProvider_EvenIfPolicyAlreadyIssued() throws Exception {
         application.setStatus(MotorQuoteStatus.POLICY_ISSUED);
+        application.setDraftQuoteResult("{\"draftQuoteRef\":\"REF-123\"}");
+        application.setPaymentResult("{\"checkoutId\":\"CH-123\",\"status\":\"SUCCESS\"}");
 
         when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+
+        MpesaPaymentStatusResponse statusRes = MpesaPaymentStatusResponse.builder()
+                .status(MpesaPaymentStatus.SUCCESS)
+                .checkoutId("CH-123")
+                .build();
+        when(partnerProvider.checkPaymentStatus(any())).thenReturn(Mono.just(statusRes));
 
         MotorQuoteResponse response = MotorQuoteResponse.builder()
                 .quoteId("Q-123")
@@ -435,7 +444,9 @@ class MotorQuoteOrchestratorTest {
                 .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.POLICY_ISSUED)
                 .verifyComplete();
 
-        verify(partnerProvider, never()).checkPaymentStatus(any());
+        // Verify that checkPaymentStatus WAS called despite POLICY_ISSUED status
+        verify(partnerProvider).checkPaymentStatus(argThat(req -> req.getCheckoutId().equals("CH-123")));
+        // Verify that issuePolicy was NOT called again
         verify(partnerProvider, never()).issuePolicy(anyString(), any(), any());
     }
 
