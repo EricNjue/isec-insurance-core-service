@@ -1,0 +1,86 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260513-create-partner-payment-accounts
+      author: Junie
+      changes:
+        - createTable:
+            tableName: partner_payment_accounts
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: partner_code
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payment_provider
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payment_method
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: account_type
+                  type: VARCHAR(50)
+              - column:
+                  name: business_number
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: account_name
+                  type: VARCHAR(100)
+              - column:
+                  name: currency
+                  type: VARCHAR(10)
+                  defaultValue: "KES"
+              - column:
+                  name: environment
+                  type: VARCHAR(20)
+                  defaultValue: "UAT"
+              - column:
+                  name: is_default
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+              - column:
+                  name: metadata
+                  type: JSONB
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: tenant_id
+                  type: VARCHAR(50)
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+  - changeSet:
+      id: 20260513-add-unique-constraint-partner-payment-accounts
+      author: Junie
+      changes:
+        - addUniqueConstraint:
+            columnNames: partner_code, payment_provider, payment_method, environment, is_default, is_active
+            constraintName: uk_partner_payment_account_default
+            tableName: partner_payment_accounts

@@ -2,6 +2,7 @@ package com.isec.platform.modules.applications.dto.motor;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
+import com.isec.platform.modules.applications.domain.motor.PaymentMethod;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus;
 import com.isec.platform.modules.integrations.premium.model.PremiumBenefitBreakdown;
@@ -30,6 +31,8 @@ public class MotorQuoteResponse {
     private PremiumInfo premium;
     private DraftQuoteInfo draftQuote;
     private PaymentInfo payment;
+    private ManualPaymentInstructions manualPayment;
+    private PaymentMethod defaultPaymentMethod;
     private PolicyInfo policy;
     private List<String> nextActions;
 

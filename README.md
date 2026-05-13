@@ -106,8 +106,8 @@ The platform implements a partner-agnostic orchestrator for the motor insurance 
 | :--- | :--- | :--- | :--- |
 | 1. Calculate | `/api/v1/motor/quotes/calculate-premium` | POST | Entry point. Validates request, upserts quote, and calls partner premium API. |
 | 2. Accept | `/api/v1/motor/quotes/{quoteId}/accept` | POST | User accepts premium. Transitions to `QUOTE_ACCEPTED` and creates partner draft. |
-| 3. Pay | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/initiate` | POST | Initiates M-Pesa STK Push. Accepts optional `kycDetails` for late registration. |
-| 4. Status | `/api/v1/motor/quotes/{quoteId}/payments/mpesa/status` | GET | Polls or checks for payment confirmation and updates quote state. |
+| 3. Pay | `/api/v1/motor/quotes/{quoteId}/payments/initiate` | POST | Initiates M-Pesa STK Push by default and returns manual PayBill instructions. |
+| 4. Status | `/api/v1/motor/quotes/{quoteId}/payments/status` | GET | Verifies payment via STK status (default) or manual receipt verification. |
 | 5. View | `/api/v1/motor/quotes/{quoteId}` | GET | Returns full canonical state of the quote journey and `nextActions`. |
 | 6. Issue | `/api/v1/motor/quotes/{quoteId}/issue-policy` | POST | Finalizes policy after payment, triggers issuance, and sends email. |
 
@@ -122,12 +122,18 @@ The orchestrator enforces a strict state machine to ensure integrity:
 *   **QUOTE_ACCEPTED**: Intermediate state after user confirmation.
 *   **DRAFT_QUOTE_CREATED**: Partner-side draft quote generated (if supported).
 *   **PAYMENT_INITIATED**: STK Push request sent successfully.
-*   **PAYMENT_PENDING**: Awaiting callback or verification.
+*   **PAYMENT_PENDING**: Awaiting callback or verification (Internal status).
 *   **PAYMENT_SUCCESSFUL**: Payment confirmed; ready for issuance.
 *   **PAYMENT_FAILED**: Payment rejected or timed out.
 *   **POLICY_ISSUANCE_IN_PROGRESS**: Final step triggered.
 *   **POLICY_ISSUED**: Final policy generated and sent.
 *   **POLICY_ISSUANCE_FAILED**: Error during final issuance steps.
+
+#### Note on Status Nomenclature:
+*   **PAYMENT_PENDING** (Internal): Used by our orchestrator to track that a payment process is active and we are awaiting confirmation.
+*   **PENDING_PAYMENT** (Partner/External): Used in `DraftQuoteStatus` to represent the status of the quote in the partner's system (e.g., Sanlam) before payment is attached.
+
+---
 
 ### Persistence & Database
 
@@ -301,13 +307,50 @@ curl -X POST http://localhost:8080/api/v1/motor/quotes/Q-12345/payments/initiate
     }
   }'
 ```
+Response includes both STK push info and manual PayBill instructions.
+
+---
+
+## 13. Example Request (Check Payment Status - STK)
+```bash
+curl -X GET http://localhost:8080/api/v1/motor/quotes/Q-12345/payments/status?method=MPESA_STK
+```
+
+---
+
+## 14. Example Request (Check Payment Status - Manual PayBill)
+```bash
+curl -X GET http://localhost:8080/api/v1/motor/quotes/Q-12345/payments/status?method=MPESA_PAYBILL&receipt=UEDEM48QTT
+```
+
+---
+
+## 15. Partner Payment Accounts & Admin CRUD
+To support manual PayBill instructions, the platform maintains DB-backed partner payment account configurations.
+
+### Configuration Resolution
+The system resolves the default active account for a partner based on:
+- `partnerCode`
+- `paymentProvider` (e.g., MPESA)
+- `paymentMethod` (e.g., MPESA_PAYBILL)
+- `environment` (UAT/PROD - configured via `app.payment.environment`)
+
+### Admin APIs
+Admin users can manage these configurations via:
+- `GET /api/v1/admin/partner-payment-accounts` - List accounts.
+- `POST /api/v1/admin/partner-payment-accounts` - Create new account.
+- `PUT /api/v1/admin/partner-payment-accounts/{id}` - Update account.
+- `DELETE /api/v1/admin/partner-payment-accounts/{id}` - Delete account.
+
+Requires `ROLE_ADMIN`.
 
 ---
 
 ## 13. Payment & Certificate Flow
-- User initiates STK Push.
-- System records payment as `PENDING`.
-- Safaricom sends callback; System updates balance and records receipt.
+- User initiates STK Push or follows manual PayBill instructions.
+- System records internal status as `PAYMENT_PENDING`.
+- For STK: Safaricom sends callback; System updates balance and records receipt.
+- For Manual: Client calls status endpoint with receipt; System verifies with partner API.
 - If payment reaches 35%, Month 1 certificate is unlocked.
 
 ---

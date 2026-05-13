@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteApplication;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
+import com.isec.platform.modules.applications.domain.motor.PaymentMethod;
+import com.isec.platform.modules.applications.dto.motor.MotorPaymentResult;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationResponse;
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteRequest;
@@ -20,10 +22,11 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MotorQuoteMapperTest {
@@ -99,5 +102,31 @@ class MotorQuoteMapperTest {
                     return true;
                 })
                 .verifyComplete();
+    }
+    @Test
+    void toResponse_ShouldIncludeManualPaymentInstructions() throws Exception {
+        application.setPaymentResult("{\"paymentMethod\":\"MPESA_STK\",\"checkoutId\":\"ws_123\",\"instructions\":[\"Go to M-Pesa\"]}");
+        application.setPremiumResult(null);
+        application.setInsuranceDetails(null);
+        application.setVehicleDetails(null);
+        application.setKycDetails(null);
+        
+        MotorPaymentResult paymentResult = MotorPaymentResult.builder()
+                .paymentMethod(PaymentMethod.MPESA_STK)
+                .checkoutId("ws_123")
+                .instructions(List.of("Go to M-Pesa"))
+                .amount(new BigDecimal("50000"))
+                .businessNumber("7146151")
+                .accountNumber("KDW 123T")
+                .build();
+
+        when(objectMapper.readValue(eq(application.getPaymentResult()), eq(MotorPaymentResult.class))).thenReturn(paymentResult);
+
+        MotorQuoteResponse response = mapper.toResponse(application);
+
+        assertNotNull(response.getManualPayment());
+        assertEquals("7146151", response.getManualPayment().getBusinessNumber());
+        assertEquals("KDW 123T", response.getManualPayment().getAccountNumber());
+        assertFalse(response.getManualPayment().getInstructions().isEmpty());
     }
 }

@@ -7,17 +7,19 @@ import com.isec.platform.common.exception.ResourceNotFoundException;
 import com.isec.platform.common.multitenancy.TenantContext;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteApplication;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
+import com.isec.platform.modules.applications.domain.motor.PaymentMethod;
+import com.isec.platform.modules.applications.domain.motor.PaymentVerificationMode;
 import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
+import com.isec.platform.modules.applications.dto.motor.MotorPaymentResult;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
 import com.isec.platform.modules.applications.dto.motor.MpesaInitiationRequest;
 import com.isec.platform.modules.applications.mapper.motor.MotorQuoteMapper;
 import com.isec.platform.modules.applications.repository.motor.MotorQuoteRepository;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaCheckStatusRequest;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentRequest;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
+import com.isec.platform.modules.integrations.mpesa.model.*;
+import com.isec.platform.modules.integrations.mpesa.provider.MpesaPaymentProvider;
+import com.isec.platform.modules.integrations.mpesa.provider.MpesaProviderFactory;
 import com.isec.platform.modules.integrations.mpesa.provider.MpesaProviderType;
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteResponse;
 import com.isec.platform.modules.integrations.quote.model.DraftQuoteStatus;
@@ -34,6 +36,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 
 @Service
@@ -44,6 +47,9 @@ public class MotorQuoteOrchestrator {
     private final MotorQuoteRepository repository;
     private final MotorQuoteMapper mapper;
     private final PartnerQuoteProviderFactory partnerFactory;
+    private final MpesaProviderFactory mpesaProviderFactory;
+    private final PartnerPaymentAccountService paymentAccountService;
+    private final ManualPaymentInstructionService manualPaymentInstructionService;
     private final ObjectMapper objectMapper;
     private final ReactiveRedisTemplate<String, Object> redisTemplate;
 
@@ -174,12 +180,40 @@ public class MotorQuoteOrchestrator {
                                                 .amount(requestAmount)
                                                 .build();
 
-                                        return provider.initiatePayment(initRequest)
-                                                .flatMap(res -> {
-                                                    appWithDraft.setStatus(MotorQuoteStatus.PAYMENT_INITIATED);
-                                                    appWithDraft.setPaymentResult(serialize(res));
-                                                    appWithDraft.setRawPartnerResponses(serialize(res));
-                                                    return repository.save(appWithDraft);
+                                        // Get manual instructions
+                                        return paymentAccountService.getDefaultActiveAccount(appWithDraft.getPartner(), "MPESA", PaymentMethod.MPESA_PAYBILL)
+                                                .flatMap(account -> {
+                                                    QuoteRequest.VehicleDetails vehicle = deserialize(appWithDraft.getVehicleDetails(), QuoteRequest.VehicleDetails.class);
+                                                    String accountNumber = vehicle != null && vehicle.getLicensePlateNumber() != null ? 
+                                                            vehicle.getLicensePlateNumber() : draft.getDraftQuoteRef();
+                                                    
+                                                    var manualInstructions = manualPaymentInstructionService.getInstructions(
+                                                            PaymentMethod.MPESA_PAYBILL, 
+                                                            account.getBusinessNumber(), 
+                                                            accountNumber, 
+                                                            BigDecimal.valueOf(requestAmount), 
+                                                            "KES"
+                                                    );
+
+                                                    return provider.initiatePayment(initRequest)
+                                                            .flatMap(res -> {
+                                                                MotorPaymentResult result = MotorPaymentResult.builder()
+                                                                        .paymentMethod(PaymentMethod.MPESA_STK)
+                                                                        .verificationMode(PaymentVerificationMode.STK_STATUS)
+                                                                        .status(getMotorQuoteStatusFromPaymentStatus(res.getStatus()))
+                                                                        .checkoutId(res.getCheckoutId())
+                                                                        .amount(BigDecimal.valueOf(requestAmount))
+                                                                        .businessNumber(account.getBusinessNumber())
+                                                                        .accountNumber(accountNumber)
+                                                                        .instructions(manualInstructions.getInstructions())
+                                                                        .rawResponse(serialize(res))
+                                                                        .build();
+
+                                                                appWithDraft.setStatus(MotorQuoteStatus.PAYMENT_INITIATED);
+                                                                appWithDraft.setPaymentResult(serialize(result));
+                                                                appWithDraft.setRawPartnerResponses(serialize(res));
+                                                                return repository.save(appWithDraft);
+                                                            });
                                                 });
                                     });
                         }))
@@ -242,8 +276,8 @@ public class MotorQuoteOrchestrator {
         return requestAmount;
     }
 
-    public Mono<MotorQuoteResponse> checkPaymentStatus(String quoteId) {
-        log.info("Checking payment status for quote: {}", quoteId);
+    public Mono<MotorQuoteResponse> checkPaymentStatus(String quoteId, PaymentMethod method, String receipt) {
+        log.info("Checking payment status for quote: {}, method: {}, receipt: {}", quoteId, method, receipt);
         return TenantContext.getTenantId()
                 .switchIfEmpty(Mono.error(new BusinessException("Missing required X-Tenant-Id header")))
                 .flatMap(tenantId -> repository.findByQuoteId(quoteId)
@@ -251,44 +285,19 @@ public class MotorQuoteOrchestrator {
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
 
-                            // If issuance is in progress, skip the check to avoid potential state conflicts during update
                             if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
                                 log.info("Policy issuance in progress for quote: {}. Skipping payment status check.", quoteId);
                                 return Mono.just(app);
                             }
 
-                            MpesaCheckStatusRequest statusRequest = buildCheckStatusRequest(app);
-                            PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
-
-                            return provider.checkPaymentStatus(statusRequest)
-                                    .flatMap(res -> {
-                                        log.info("Payment status response for quote {}: {}", quoteId, serialize(res));
-                                        MotorQuoteStatus newStatus = getMotorQuoteStatus(res);
-
-                                        String newPaymentResult = serialize(res);
-
-                                        // Optimization: Skip update if status and payment result haven't changed
-                                        // OR if policy is already issued, we don't want to overwrite the status back to PAYMENT_SUCCESSFUL
-                                        if ((app.getStatus() == newStatus && StringUtils.equals(app.getPaymentResult(), newPaymentResult)) ||
-                                                (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED && newStatus == MotorQuoteStatus.PAYMENT_SUCCESSFUL)) {
-                                            log.debug("Payment status check completed for quote: {}. No status update required (Current status: {}).", quoteId, app.getStatus());
-                                            return Mono.just(app);
-                                        }
-
-                                        app.setStatus(newStatus);
-                                        app.setPaymentResult(newPaymentResult);
-                                        app.setRawPartnerResponses(newPaymentResult); // Update raw response
-                                        return repository.save(app);
-                                    })
-                                    .flatMap(updatedApp -> {
-                                        // Trigger policy issuance internally if payment is successful
-                                        if (updatedApp.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
-                                            log.info("Payment successful for quote: {}. Triggering automatic policy issuance.", quoteId);
-                                            return issuePolicyInternal(updatedApp)
-                                                    .doOnNext(finalApp -> log.info("Automatic policy issuance completed for quote: {}. Final status: {}", quoteId, finalApp.getStatus()));
-                                        }
-                                        return Mono.just(updatedApp);
-                                    });
+                            if (method == PaymentMethod.MPESA_PAYBILL) {
+                                if (StringUtils.isBlank(receipt)) {
+                                    return Mono.error(new BusinessException("Receipt is required for MPESA_PAYBILL verification"));
+                                }
+                                return verifyPaybillReceipt(app, receipt);
+                            } else {
+                                return checkStkPushStatus(app);
+                            }
                         })
                         .retryWhen(Retry.backoff(3, Duration.ofMillis(100))
                                 .filter(throwable -> throwable instanceof OptimisticLockingFailureException)
@@ -296,16 +305,126 @@ public class MotorQuoteOrchestrator {
                 .map(mapper::toResponse);
     }
 
-    private static MotorQuoteStatus getMotorQuoteStatus(MpesaPaymentStatusResponse res) {
-        MotorQuoteStatus newStatus;
-        if (res.getStatus() == MpesaPaymentStatus.SUCCESS) {
-            newStatus = MotorQuoteStatus.PAYMENT_SUCCESSFUL;
-        } else if (res.getStatus() == MpesaPaymentStatus.FAILED) {
-            newStatus = MotorQuoteStatus.PAYMENT_FAILED;
-        } else {
-            newStatus = MotorQuoteStatus.PAYMENT_PENDING;
+    private Mono<MotorQuoteApplication> checkStkPushStatus(MotorQuoteApplication app) {
+        MpesaCheckStatusRequest statusRequest = buildCheckStatusRequest(app);
+        PartnerQuoteProvider provider = partnerFactory.getProvider(app.getPartner());
+
+        return provider.checkPaymentStatus(statusRequest)
+                .flatMap(res -> {
+                    MotorQuoteStatus newStatus = getMotorQuoteStatus(res);
+                    
+                    // Preserve existing manual info if present
+                    MotorPaymentResult existingResult = deserialize(app.getPaymentResult(), MotorPaymentResult.class);
+                    MotorPaymentResult result = MotorPaymentResult.builder()
+                            .paymentMethod(PaymentMethod.MPESA_STK)
+                            .verificationMode(PaymentVerificationMode.STK_STATUS)
+                            .status(newStatus)
+                            .checkoutId(res.getCheckoutId())
+                            .receipt(res.getReceiptNumber())
+                            .rawResponse(serialize(res))
+                            .amount(existingResult != null ? existingResult.getAmount() : null)
+                            .businessNumber(existingResult != null ? existingResult.getBusinessNumber() : null)
+                            .accountNumber(existingResult != null ? existingResult.getAccountNumber() : null)
+                            .instructions(existingResult != null ? existingResult.getInstructions() : null)
+                            .build();
+
+                    String serializedResult = serialize(result);
+                    if ((app.getStatus() == newStatus && StringUtils.equals(app.getPaymentResult(), serializedResult)) ||
+                            (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED && newStatus == MotorQuoteStatus.PAYMENT_SUCCESSFUL)) {
+                        return Mono.just(app);
+                    }
+
+                    app.setStatus(newStatus);
+                    app.setPaymentResult(serializedResult);
+                    app.setRawPartnerResponses(serialize(res));
+                    return repository.save(app);
+                })
+                .flatMap(this::triggerAutomaticPolicyIssuance);
+    }
+
+    private Mono<MotorQuoteApplication> verifyPaybillReceipt(MotorQuoteApplication app, String receipt) {
+        DraftQuoteResponse draft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
+        if (draft == null || draft.getDraftQuoteRef() == null) {
+            return Mono.error(new BusinessException("Draft quote reference missing for receipt verification"));
         }
-        return newStatus;
+
+        MpesaVerifyReceiptRequest verifyRequest = MpesaVerifyReceiptRequest.builder()
+                .quoteRef(draft.getDraftQuoteRef())
+                .receipt(receipt)
+                .numberOfInstallments(1) // Default to 1
+                .build();
+
+        MpesaPaymentProvider mpesaProvider = mpesaProviderFactory.getProvider(MpesaProviderType.valueOf(app.getPartner().name()));
+
+        return mpesaProvider.verifyReceiptAndMap(verifyRequest)
+                .flatMap(res -> {
+                    MotorQuoteStatus newStatus = getMotorQuoteStatus(res);
+                    
+                    MotorPaymentResult existingResult = deserialize(app.getPaymentResult(), MotorPaymentResult.class);
+                    
+                    MotorPaymentResult result = MotorPaymentResult.builder()
+                            .paymentMethod(PaymentMethod.MPESA_PAYBILL)
+                            .verificationMode(PaymentVerificationMode.RECEIPT_VERIFICATION)
+                            .status(newStatus)
+                            .receipt(receipt)
+                            .amount(res.getAmount() != null ? BigDecimal.valueOf(res.getAmount()) : (existingResult != null ? existingResult.getAmount() : null))
+                            .paidAt(res.getPaidAt())
+                            .checkoutId(res.getCheckoutId())
+                            .rawResponse(serialize(res))
+                            .businessNumber(existingResult != null ? existingResult.getBusinessNumber() : null)
+                            .accountNumber(existingResult != null ? existingResult.getAccountNumber() : null)
+                            .instructions(existingResult != null ? existingResult.getInstructions() : null)
+                            .build();
+
+                    app.setStatus(newStatus);
+                    app.setPaymentResult(serialize(result)); // Keep MotorPaymentResult as the primary result
+                    app.setRawPartnerResponses(serialize(res));
+                    
+                    // We also need to store the Manual Payment specific info somewhere if we want to keep it, 
+                    // but MpesaPaymentStatusResponse should have enough (receipt, amount, paidAt).
+                    // If we need the full MotorPaymentResult, we should probably change issuePolicyInternal to handle it.
+                    
+                    return repository.save(app);
+                })
+                .flatMap(this::triggerAutomaticPolicyIssuance);
+    }
+
+    private Mono<MotorQuoteApplication> triggerAutomaticPolicyIssuance(MotorQuoteApplication app) {
+        if (app.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
+            log.info("Payment successful for quote: {}. Triggering automatic policy issuance.", app.getQuoteId());
+            return issuePolicyInternal(app)
+                    .doOnNext(finalApp -> log.info("Automatic policy issuance completed for quote: {}. Final status: {}", app.getQuoteId(), finalApp.getStatus()));
+        }
+        return Mono.just(app);
+    }
+
+    private MotorQuoteStatus getMotorQuoteStatus(MpesaPaymentStatusResponse res) {
+        return getMotorQuoteStatusFromPaymentStatus(res.getStatus());
+    }
+
+    private MpesaPaymentStatus getMpesaPaymentStatus(MotorQuoteStatus status) {
+        if (status == null) return null;
+        try {
+            return MpesaPaymentStatus.valueOf(status.name());
+        } catch (Exception e) {
+            // Map common MotorQuoteStatus to MpesaPaymentStatus
+            return switch (status) {
+                case PAYMENT_SUCCESSFUL -> MpesaPaymentStatus.SUCCESS;
+                case PAYMENT_FAILED -> MpesaPaymentStatus.FAILED;
+                case PAYMENT_INITIATED, PAYMENT_PENDING -> MpesaPaymentStatus.PENDING;
+                default -> MpesaPaymentStatus.UNKNOWN;
+            };
+        }
+    }
+
+    private MotorQuoteStatus getMotorQuoteStatusFromPaymentStatus(MpesaPaymentStatus status) {
+        if (status == MpesaPaymentStatus.SUCCESS) {
+            return MotorQuoteStatus.PAYMENT_SUCCESSFUL;
+        } else if (status == MpesaPaymentStatus.FAILED) {
+            return MotorQuoteStatus.PAYMENT_FAILED;
+        } else {
+            return MotorQuoteStatus.PAYMENT_PENDING;
+        }
     }
 
     public Mono<MotorQuoteResponse> getQuoteApplication(String quoteId) {
@@ -316,9 +435,14 @@ public class MotorQuoteOrchestrator {
 
     public Mono<MotorQuoteResponse> issuePolicy(String quoteId) {
         log.info("Starting policy issuance for quoteId: {}", quoteId);
-        return repository.findByQuoteId(quoteId)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
-                .flatMap(this::issuePolicyInternal)
+        return TenantContext.getTenantId()
+                .switchIfEmpty(Mono.error(new BusinessException("Missing required X-Tenant-Id header")))
+                .flatMap(tenantId -> repository.findByQuoteId(quoteId)
+                        .switchIfEmpty(Mono.error(new ResourceNotFoundException("MotorQuoteApplication", quoteId)))
+                        .flatMap(app -> {
+                            app.setTenantId(tenantId);
+                            return issuePolicyInternal(app);
+                        }))
                 .map(mapper::toResponse);
     }
 
@@ -342,7 +466,7 @@ public class MotorQuoteOrchestrator {
 
                     DraftQuoteResponse draftQuote = deserialize(savedApp.getDraftQuoteResult(), DraftQuoteResponse.class);
                     mapper.mergeLatestKyc(draftQuote, savedApp);
-                    MpesaPaymentStatusResponse paymentStatus = deserialize(savedApp.getPaymentResult(), MpesaPaymentStatusResponse.class);
+                    MpesaPaymentStatusResponse paymentStatus = resolvePaymentStatus(savedApp);
 
                     return provider.issuePolicy(savedApp.getQuoteId(), draftQuote, paymentStatus)
                             .flatMap(result -> {
@@ -388,20 +512,74 @@ public class MotorQuoteOrchestrator {
                 });
     }
 
+    private MpesaPaymentStatusResponse resolvePaymentStatus(MotorQuoteApplication app) {
+        String json = app.getPaymentResult();
+        if (json == null) return null;
+
+        // Try as MpesaPaymentStatusResponse first
+        MpesaPaymentStatusResponse statusRes = deserialize(json, MpesaPaymentStatusResponse.class);
+        if (statusRes != null && statusRes.getStatus() != null) {
+            return statusRes;
+        }
+
+        // Try as MotorPaymentResult and map it
+        MotorPaymentResult motorRes = deserialize(json, MotorPaymentResult.class);
+        if (motorRes != null) {
+            return MpesaPaymentStatusResponse.builder()
+                    .provider(MpesaProviderType.valueOf(app.getPartner().name()))
+                    .status(getMpesaPaymentStatus(motorRes.getStatus()))
+                    .message("Resolved from MotorPaymentResult")
+                    .receiptNumber(motorRes.getReceipt())
+                    .amount(motorRes.getAmount() != null ? motorRes.getAmount().doubleValue() : 0.0)
+                    .paidAt(motorRes.getPaidAt())
+                    .checkoutId(motorRes.getCheckoutId() != null ? motorRes.getCheckoutId() : "MANUAL_" + app.getQuoteId())
+                    .rawResponse(motorRes.getRawResponse())
+                    .build();
+        }
+
+        // Try as Initiation response as fallback
+        try {
+            com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse initRes =
+                    objectMapper.readValue(json, com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse.class);
+            if (initRes != null && initRes.getStatus() != null) {
+                return MpesaPaymentStatusResponse.builder()
+                        .provider(initRes.getProvider())
+                        .status(initRes.getStatus())
+                        .message(initRes.getMessage())
+                        .checkoutId(initRes.getCheckoutId())
+                        .rawResponse(initRes.getRawResponse())
+                        .build();
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+
+        return null;
+    }
+
     private MpesaCheckStatusRequest buildCheckStatusRequest(MotorQuoteApplication app) {
         DraftQuoteResponse draft = deserialize(app.getDraftQuoteResult(), DraftQuoteResponse.class);
         String checkoutId = null;
-        try {
-            // Try as Status response first (most recent)
-            MpesaPaymentStatusResponse statusRes = objectMapper.readValue(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
-            checkoutId = statusRes.getCheckoutId();
-        } catch (Exception e) {
-            // Ignore and try Initiation response
+
+        // Try to resolve from MotorPaymentResult first (New structure)
+        MotorPaymentResult motorRes = deserialize(app.getPaymentResult(), MotorPaymentResult.class);
+        if (motorRes != null && motorRes.getCheckoutId() != null) {
+            checkoutId = motorRes.getCheckoutId();
         }
 
         if (checkoutId == null) {
             try {
-                // Try as Initiation response
+                // Try as Status response (legacy/fallback)
+                MpesaPaymentStatusResponse statusRes = objectMapper.readValue(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
+                checkoutId = statusRes.getCheckoutId();
+            } catch (Exception e) {
+                // Ignore and try Initiation response
+            }
+        }
+
+        if (checkoutId == null) {
+            try {
+                // Try as Initiation response (legacy/fallback)
                 com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse initRes =
                         objectMapper.readValue(app.getPaymentResult(), com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse.class);
                 checkoutId = initRes.getCheckoutId();

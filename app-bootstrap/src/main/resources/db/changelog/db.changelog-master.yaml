@@ -81,3 +81,9 @@ databaseChangeLog:
       file: db/changelog/modules/40-motor-quotes-policy-issuance.yaml
   - include:
       file: db/changelog/modules/41-motor-quotes-dmvic-check.yaml
+  - include:
+      file: db/changelog/modules/42-partner-payment-accounts.yaml
+  - include:
+      file: db/changelog/modules/43-seed-sanlam-payment-accounts.yaml
+  - include:
+      file: db/changelog/modules/44-add-version-to-partner-payment-accounts.yaml

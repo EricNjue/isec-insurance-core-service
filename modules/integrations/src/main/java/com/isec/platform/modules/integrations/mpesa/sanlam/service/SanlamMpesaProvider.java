@@ -1,10 +1,7 @@
 package com.isec.platform.modules.integrations.mpesa.sanlam.service;
 
 import com.isec.platform.common.exception.BusinessException;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaCheckStatusRequest;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentRequest;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse;
-import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
+import com.isec.platform.modules.integrations.mpesa.model.*;
 import com.isec.platform.modules.integrations.mpesa.provider.MpesaPaymentProvider;
 import com.isec.platform.modules.integrations.mpesa.provider.MpesaProviderType;
 import com.isec.platform.modules.integrations.mpesa.sanlam.client.SanlamMpesaClient;
@@ -67,6 +64,23 @@ public class SanlamMpesaProvider implements MpesaPaymentProvider {
                 .map(res -> mapper.toMpesaPaymentStatusResponse(res, request.getCheckoutId()))
                 .doOnNext(res -> log.info("[{}] Status check for quoteRef: {}, checkoutId: {}, status: {}",
                         providerType(), request.getQuoteRef(), request.getCheckoutId(), res.getStatus()));
+    }
+
+    @Override
+    public Mono<MpesaVerifyReceiptResponse> verifyReceipt(MpesaVerifyReceiptRequest request) {
+        Assert.notNull(request.getQuoteRef(), "quoteRef must not be null");
+        Assert.notNull(request.getReceipt(), "receipt must not be null");
+
+        log.info("[{}] Verifying receipt for quoteRef: {}, receipt: {}",
+                providerType(), request.getQuoteRef(), request.getReceipt());
+
+        return mpesaClient.verifyReceipt(request);
+    }
+
+    @Override
+    public Mono<MpesaPaymentStatusResponse> verifyReceiptAndMap(MpesaVerifyReceiptRequest request) {
+        return verifyReceipt(request)
+                .map(res -> mapper.toMpesaPaymentStatusResponse(res, request.getQuoteRef()));
     }
 
     private void validateInitiateRequest(MpesaInitiatePaymentRequest request) {
