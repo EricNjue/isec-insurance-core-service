@@ -5,10 +5,12 @@ import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResp
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentRequest;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse;
 import com.isec.platform.modules.integrations.mpesa.provider.MpesaProviderType;
+import com.isec.platform.modules.integrations.mpesa.model.MpesaVerifyReceiptResponse;
 import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkPushRequest;
 import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkPushResponse;
 import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkStatusRequest;
 import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkStatusResponse;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -49,6 +51,25 @@ public class SanlamMpesaMapper {
                 .amount(response.getAmount())
                 .paidAt(response.getPaidAt())
                 .checkoutId(checkoutId)
+                .rawResponse(response.getRaw())
+                .build();
+    }
+
+    public MpesaPaymentStatusResponse toMpesaPaymentStatusResponse(MpesaVerifyReceiptResponse response, String quoteRef) {
+        String receipt = null;
+        if (response.getRaw() != null && response.getRaw().get("receipt") instanceof Map) {
+            Map<?, ?> receiptMap = (Map<?, ?>) response.getRaw().get("receipt");
+            receipt = (String) receiptMap.get("mpesa_receipt_number");
+        }
+
+        return MpesaPaymentStatusResponse.builder()
+                .provider(MpesaProviderType.SANLAM)
+                .status("success".equalsIgnoreCase(response.getStatus()) ? MpesaPaymentStatus.SUCCESS : MpesaPaymentStatus.FAILED)
+                .message(response.getMessage())
+                .receiptNumber(receipt)
+                .amount(response.getAmount() != null ? response.getAmount().doubleValue() : 0.0)
+                .paidAt(response.getPaidAt())
+                .checkoutId("MANUAL_" + quoteRef)
                 .rawResponse(response.getRaw())
                 .build();
     }

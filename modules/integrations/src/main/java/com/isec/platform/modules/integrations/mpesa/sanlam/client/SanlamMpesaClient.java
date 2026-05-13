@@ -1,5 +1,7 @@
 package com.isec.platform.modules.integrations.mpesa.sanlam.client;
 
+import com.isec.platform.modules.integrations.mpesa.model.MpesaVerifyReceiptRequest;
+import com.isec.platform.modules.integrations.mpesa.model.MpesaVerifyReceiptResponse;
 import com.isec.platform.modules.integrations.sanlam.client.SanlamClient;
 import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkPushRequest;
 import com.isec.platform.modules.integrations.mpesa.sanlam.dto.SanlamStkStatusRequest;
@@ -35,6 +37,9 @@ public class SanlamMpesaClient {
 
     @Value("${integrations.mpesa.sanlam.stk-status-path}")
     private String stkStatusPath;
+
+    @Value("${integrations.mpesa.sanlam.verify-receipt-path}")
+    private String verifyReceiptPath;
 
     @Value("${integrations.mpesa.sanlam.timeout:5s}")
     private Duration timeout;
@@ -94,6 +99,35 @@ public class SanlamMpesaClient {
                                 }
                             })
                             .doOnError(error -> log.error("Sanlam M-Pesa STK status check failed for {}: {}", request.getCheckoutId(), error.getMessage()));
+                });
+    }
+
+    public Mono<MpesaVerifyReceiptResponse> verifyReceipt(MpesaVerifyReceiptRequest request) {
+        return sanlamClient.getAccessToken()
+                .flatMap(token -> {
+                    String url = baseUrl + verifyReceiptPath;
+                    HttpClientOptions options = HttpClientOptions.builder()
+                            .timeout(timeout)
+                            .retrySpec(Retry.backoff(3, Duration.ofSeconds(1)))
+                            .headers(headers -> headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                            .build();
+
+                    try {
+                        log.info("Verifying Sanlam M-Pesa receipt for quote_ref: {}, receipt: {} with payload: {}", 
+                                request.getQuoteRef(), request.getReceipt(), objectMapper.writeValueAsString(request));
+                    } catch (Exception e) {
+                        log.info("Verifying Sanlam M-Pesa receipt for quote_ref: {}, receipt: {}", request.getQuoteRef(), request.getReceipt());
+                    }
+                    return httpClient.post(url, request, MpesaVerifyReceiptResponse.class, options)
+                            .doOnNext(response -> {
+                                try {
+                                    log.info("Sanlam M-Pesa receipt verification response for {}: {}", 
+                                            request.getReceipt(), objectMapper.writeValueAsString(response));
+                                } catch (Exception e) {
+                                    log.info("Sanlam M-Pesa receipt verification response for {}: {}", request.getReceipt(), response.getStatus());
+                                }
+                            })
+                            .doOnError(error -> log.error("Sanlam M-Pesa receipt verification failed for {}: {}", request.getReceipt(), error.getMessage()));
                 });
     }
 }

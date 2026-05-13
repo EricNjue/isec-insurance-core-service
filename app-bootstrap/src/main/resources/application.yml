@@ -118,6 +118,7 @@ integrations:
       base-url: ${SANLAM_MPESA_BASE_URL:https://giapiuat-fhapb9ebcvbke6h5.a03.azurefd.net}
       stk-push-path: ${SANLAM_MPESA_STK_PUSH_PATH:/external_apis/mpesa/stk-push-request}
       stk-status-path: ${SANLAM_MPESA_STK_STATUS_PATH:/external_apis/mpesa/stk-push-status}
+      verify-receipt-path: ${SANLAM_MPESA_VERIFY_RECEIPT_PATH:/external_apis/mpesa/verify-receipt}
       timeout: ${SANLAM_MPESA_TIMEOUT:5s}
 
   premium:
@@ -180,3 +181,7 @@ rating:
 
 server:
   port: ${SERVER_PORT:8080}
+
+app:
+  payment:
+    environment: ${PAYMENT_ENVIRONMENT:UAT}

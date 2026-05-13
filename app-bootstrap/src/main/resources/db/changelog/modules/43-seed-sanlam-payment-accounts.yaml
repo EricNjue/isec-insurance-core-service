@@ -1,0 +1,31 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260513-seed-sanlam-mpesa-paybill
+      author: Junie
+      changes:
+        - insert:
+            tableName: partner_payment_accounts
+            columns:
+              - column: { name: id, value: "550e8400-e29b-41d4-a716-446655440000" }
+              - column: { name: partner_code, value: "SANLAM" }
+              - column: { name: payment_provider, value: "MPESA" }
+              - column: { name: payment_method, value: "MPESA_PAYBILL" }
+              - column: { name: business_number, value: "7146151" }
+              - column: { name: currency, value: "KES" }
+              - column: { name: environment, value: "UAT" }
+              - column: { name: is_default, valueBoolean: true }
+              - column: { name: is_active, valueBoolean: true }
+              - column: { name: created_at, valueComputed: "NOW()" }
+        - insert:
+            tableName: partner_payment_accounts
+            columns:
+              - column: { name: id, value: "550e8400-e29b-41d4-a716-446655440001" }
+              - column: { name: partner_code, value: "SANLAM" }
+              - column: { name: payment_provider, value: "MPESA" }
+              - column: { name: payment_method, value: "MPESA_PAYBILL" }
+              - column: { name: business_number, value: "7146151" }
+              - column: { name: currency, value: "KES" }
+              - column: { name: environment, value: "PROD" }
+              - column: { name: is_default, valueBoolean: true }
+              - column: { name: is_active, valueBoolean: true }
+              - column: { name: created_at, valueComputed: "NOW()" }

@@ -5,12 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isec.platform.common.exception.BusinessException;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteApplication;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
+import com.isec.platform.modules.applications.domain.motor.PaymentMethod;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
+import com.isec.platform.modules.applications.dto.motor.ManualPaymentInstructions;
+import com.isec.platform.modules.applications.dto.motor.MotorPaymentResult;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
 import com.isec.platform.modules.applications.utils.DateParsingUtil;
 import com.isec.platform.modules.integrations.common.dto.DoubleInsuranceCheckResponse;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaInitiatePaymentResponse;
+import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatus;
 import com.isec.platform.modules.integrations.mpesa.model.MpesaPaymentStatusResponse;
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationRequest;
 import com.isec.platform.modules.integrations.premium.model.PremiumCalculationResponse;
@@ -312,27 +316,52 @@ public class MotorQuoteMapper {
 
         if (app.getPaymentResult() != null) {
             try {
-                // Try as Status response first
-                MpesaPaymentStatusResponse status = objectMapper.readValue(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
-                if (status.getCheckoutId() != null && status.getStatus() != null) {
+                // Try as MotorPaymentResult first (New structure)
+                MotorPaymentResult paymentResult = objectMapper.readValue(app.getPaymentResult(), MotorPaymentResult.class);
+                if (paymentResult.getPaymentMethod() != null) {
                     builder.payment(MotorQuoteResponse.PaymentInfo.builder()
-                            .checkoutId(status.getCheckoutId())
-                            .status(status.getStatus())
-                            .message(status.getMessage())
-                            .receiptNumber(status.getReceiptNumber())
+                            .checkoutId(paymentResult.getCheckoutId())
+                            .status(getMpesaPaymentStatus(paymentResult.getStatus()))
+                            .receiptNumber(paymentResult.getReceipt())
                             .build());
+                    
+                    if (paymentResult.getInstructions() != null && !paymentResult.getInstructions().isEmpty()) {
+                        builder.manualPayment(ManualPaymentInstructions.builder()
+                                .paymentMethod(paymentResult.getPaymentMethod())
+                                .businessNumber(paymentResult.getBusinessNumber())
+                                .accountNumber(paymentResult.getAccountNumber())
+                                .amount(paymentResult.getAmount())
+                                .currency("KES") // Assuming KES for now
+                                .instructions(paymentResult.getInstructions())
+                                .build());
+                    }
                 } else {
-                    // Try as Initiation response
-                    MpesaInitiatePaymentResponse init = objectMapper.readValue(app.getPaymentResult(), MpesaInitiatePaymentResponse.class);
-                    builder.payment(MotorQuoteResponse.PaymentInfo.builder()
-                            .checkoutId(init.getCheckoutId())
-                            .status(init.getStatus())
-                            .message(init.getMessage())
-                            .build());
+                    // Legacy structure support
+                    // Try as Status response first
+                    MpesaPaymentStatusResponse status = objectMapper.readValue(app.getPaymentResult(), MpesaPaymentStatusResponse.class);
+                    if (status.getCheckoutId() != null && status.getStatus() != null) {
+                        builder.payment(MotorQuoteResponse.PaymentInfo.builder()
+                                .checkoutId(status.getCheckoutId())
+                                .status(status.getStatus())
+                                .message(status.getMessage())
+                                .receiptNumber(status.getReceiptNumber())
+                                .build());
+                    } else {
+                        // Try as Initiation response
+                        MpesaInitiatePaymentResponse init = objectMapper.readValue(app.getPaymentResult(), MpesaInitiatePaymentResponse.class);
+                        builder.payment(MotorQuoteResponse.PaymentInfo.builder()
+                                .checkoutId(init.getCheckoutId())
+                                .status(init.getStatus())
+                                .message(init.getMessage())
+                                .build());
+                    }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.warn("Failed to map payment result for quoteId: {}. Error: {}", app.getQuoteId(), e.getMessage());
             }
         }
+
+        builder.defaultPaymentMethod(PaymentMethod.MPESA_STK);
 
         if (app.getPolicyIssuanceResult() != null) {
             PolicyIssuanceResult policy = deserialize(app.getPolicyIssuanceResult(), PolicyIssuanceResult.class);
@@ -379,6 +408,21 @@ public class MotorQuoteMapper {
                 break;
         }
         return actions;
+    }
+
+    private MpesaPaymentStatus getMpesaPaymentStatus(MotorQuoteStatus status) {
+        if (status == null) return null;
+        try {
+            return MpesaPaymentStatus.valueOf(status.name());
+        } catch (Exception e) {
+            // Map common MotorQuoteStatus to MpesaPaymentStatus
+            return switch (status) {
+                case PAYMENT_SUCCESSFUL -> MpesaPaymentStatus.SUCCESS;
+                case PAYMENT_FAILED -> MpesaPaymentStatus.FAILED;
+                case PAYMENT_INITIATED, PAYMENT_PENDING -> MpesaPaymentStatus.PENDING;
+                default -> MpesaPaymentStatus.UNKNOWN;
+            };
+        }
     }
 
     public <T> T deserialize(String json, Class<T> clazz) {

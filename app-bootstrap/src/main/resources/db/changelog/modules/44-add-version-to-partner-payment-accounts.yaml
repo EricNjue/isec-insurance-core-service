@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260513-add-version-to-partner-payment-accounts
+      author: Junie
+      preConditions:
+        - onFail: MARK_RAN
+          not:
+            columnExists:
+              tableName: partner_payment_accounts
+              columnName: version
+      changes:
+        - addColumn:
+            tableName: partner_payment_accounts
+            columns:
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0

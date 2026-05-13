@@ -1,11 +1,16 @@
 package com.isec.platform.modules.applications.service.motor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.isec.platform.modules.applications.domain.motor.PaymentMethod;
+import com.isec.platform.modules.applications.domain.motor.PartnerPaymentAccount;
+import com.isec.platform.modules.integrations.mpesa.provider.MpesaProviderFactory;
+import com.isec.platform.modules.integrations.mpesa.provider.MpesaPaymentProvider;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteApplication;
 import com.isec.platform.modules.applications.domain.motor.MotorQuoteStatus;
 import com.isec.platform.modules.applications.dto.InitiateQuoteResponse;
 import com.isec.platform.modules.applications.dto.QuoteRequest;
 import com.isec.platform.modules.applications.dto.motor.CalculateMotorPremiumRequest;
+import com.isec.platform.modules.applications.dto.motor.ManualPaymentInstructions;
 import com.isec.platform.modules.applications.dto.motor.MotorQuoteResponse;
 import com.isec.platform.modules.applications.mapper.motor.MotorQuoteMapper;
 import com.isec.platform.modules.applications.repository.motor.MotorQuoteRepository;
@@ -53,6 +58,12 @@ class MotorQuoteOrchestratorTest {
     @Mock
     private PartnerQuoteProviderFactory partnerFactory;
     @Mock
+    private MpesaProviderFactory mpesaProviderFactory;
+    @Mock
+    private PartnerPaymentAccountService paymentAccountService;
+    @Mock
+    private ManualPaymentInstructionService manualPaymentInstructionService;
+    @Mock
     private PartnerQuoteProvider partnerProvider;
     @Mock
     private ObjectMapper objectMapper;
@@ -73,6 +84,17 @@ class MotorQuoteOrchestratorTest {
     void setUp() {
         ReflectionTestUtils.setField(orchestrator, "minPaymentPercentage", 0.35);
         ReflectionTestUtils.setField(orchestrator, "objectMapper", realObjectMapper);
+
+        PartnerPaymentAccount account = PartnerPaymentAccount.builder()
+                .businessNumber("7146151")
+                .build();
+        lenient().when(paymentAccountService.getDefaultActiveAccount(any(), anyString(), any())).thenReturn(Mono.just(account));
+        
+        lenient().when(manualPaymentInstructionService.getInstructions(any(), anyString(), anyString(), any(), anyString()))
+                .thenReturn(com.isec.platform.modules.applications.dto.motor.ManualPaymentInstructions.builder()
+                        .instructions(java.util.List.of("Go to <b>M-Pesa</b>"))
+                        .build());
+
         calculateRequest = CalculateMotorPremiumRequest.builder()
                 .quoteId("Q-123")
                 .partner(PartnerType.SANLAM)
@@ -190,6 +212,9 @@ class MotorQuoteOrchestratorTest {
         MotorQuoteResponse response = MotorQuoteResponse.builder()
                 .quoteId("Q-123")
                 .status(MotorQuoteStatus.PAYMENT_INITIATED)
+                .manualPayment(ManualPaymentInstructions.builder()
+                        .instructions(java.util.List.of("Go to <b>M-Pesa</b>"))
+                        .build())
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
@@ -199,6 +224,8 @@ class MotorQuoteOrchestratorTest {
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .assertNext(res -> {
                     assert res.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED;
+                    assert res.getManualPayment() != null;
+                    assert res.getManualPayment().getInstructions().get(0).equals("Go to <b>M-Pesa</b>");
                 })
                 .verifyComplete();
 
@@ -230,6 +257,9 @@ class MotorQuoteOrchestratorTest {
         MotorQuoteResponse response = MotorQuoteResponse.builder()
                 .quoteId("Q-123")
                 .status(MotorQuoteStatus.PAYMENT_INITIATED)
+                .manualPayment(ManualPaymentInstructions.builder()
+                        .instructions(java.util.List.of("Go to <b>M-Pesa</b>"))
+                        .build())
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
@@ -333,6 +363,9 @@ class MotorQuoteOrchestratorTest {
         MotorQuoteResponse response = MotorQuoteResponse.builder()
                 .quoteId("Q-123")
                 .status(MotorQuoteStatus.PAYMENT_INITIATED)
+                .manualPayment(ManualPaymentInstructions.builder()
+                        .instructions(java.util.List.of("Go to <b>M-Pesa</b>"))
+                        .build())
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
@@ -342,7 +375,7 @@ class MotorQuoteOrchestratorTest {
         
         StepVerifier.create(orchestrator.initiatePayment("Q-123", initReq)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
-                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED)
+                .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.PAYMENT_INITIATED && res.getManualPayment() != null)
                 .verifyComplete();
 
         verify(partnerProvider).initiatePayment(argThat(req -> req.getAmount() == 20000.0));
@@ -378,7 +411,7 @@ class MotorQuoteOrchestratorTest {
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
-        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123")
+        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123", PaymentMethod.MPESA_STK, null)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.POLICY_ISSUED)
                 .verifyComplete();
@@ -409,7 +442,7 @@ class MotorQuoteOrchestratorTest {
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
-        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123")
+        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123", PaymentMethod.MPESA_STK, null)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.PAYMENT_FAILED)
                 .verifyComplete();
@@ -439,7 +472,7 @@ class MotorQuoteOrchestratorTest {
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
-        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123")
+        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123", PaymentMethod.MPESA_STK, null)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.POLICY_ISSUED)
                 .verifyComplete();
@@ -469,7 +502,7 @@ class MotorQuoteOrchestratorTest {
 
         when(partnerProvider.issuePolicy(anyString(), any(), any())).thenReturn(Mono.error(new RuntimeException("Issuance failed")));
 
-        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123")
+        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123", PaymentMethod.MPESA_STK, null)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectError(RuntimeException.class)
                 .verify();
@@ -508,7 +541,7 @@ class MotorQuoteOrchestratorTest {
                 .build();
         when(mapper.toResponse(any())).thenReturn(response);
 
-        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123")
+        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123", PaymentMethod.MPESA_STK, null)
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectNextMatches(res -> res.getStatus() == MotorQuoteStatus.POLICY_ISSUED)
                 .verifyComplete();
@@ -608,5 +641,45 @@ class MotorQuoteOrchestratorTest {
                 .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
                 .expectErrorMatches(e -> e instanceof BusinessException && e.getMessage().contains("Cannot recalculate premium for an already issued policy or one in progress of issuance"))
                 .verify();
+    }
+    @Test
+    void checkPaymentStatus_ShouldVerifyPaybillReceipt() throws Exception {
+        application.setStatus(MotorQuoteStatus.PAYMENT_PENDING);
+        application.setDraftQuoteResult(realObjectMapper.writeValueAsString(DraftQuoteResponse.builder().draftQuoteRef("REF-123").build()));
+        
+        when(repository.findByQuoteId("Q-123")).thenReturn(Mono.just(application));
+        when(repository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        
+        when(partnerFactory.getProvider(any())).thenReturn(partnerProvider);
+        when(partnerProvider.supportedCapabilities()).thenReturn(Set.of(QuoteLifecycleCapability.ISSUE_POLICY));
+        
+        MpesaPaymentProvider mpesaProvider = mock(MpesaPaymentProvider.class);
+        when(mpesaProviderFactory.getProvider(any())).thenReturn(mpesaProvider);
+        
+        MpesaPaymentStatusResponse statusRes = MpesaPaymentStatusResponse.builder()
+                .status(MpesaPaymentStatus.SUCCESS)
+                .amount(50000.0)
+                .paidAt("2026-05-13 10:44:55")
+                .receiptNumber("UEDEM48QTT")
+                .checkoutId("MANUAL_UEDEM48QTT")
+                .build();
+        when(mpesaProvider.verifyReceiptAndMap(any())).thenReturn(Mono.just(statusRes));
+
+        MotorQuoteResponse quoteResponse = MotorQuoteResponse.builder()
+                .quoteId("Q-123")
+                .status(MotorQuoteStatus.PAYMENT_SUCCESSFUL)
+                .build();
+        when(mapper.toResponse(any())).thenReturn(quoteResponse);
+        
+        when(partnerProvider.issuePolicy(anyString(), any(), any())).thenReturn(Mono.just(PolicyIssuanceResult.builder().status("SUCCESS").build()));
+
+        StepVerifier.create(orchestrator.checkPaymentStatus("Q-123", PaymentMethod.MPESA_PAYBILL, "UEDEM48QTT")
+                .contextWrite(TenantContext.withTenantId("TEST-TENANT")))
+                .assertNext(res -> {
+                    assert res.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL;
+                })
+                .verifyComplete();
+        
+        verify(mpesaProvider).verifyReceiptAndMap(argThat(req -> req.getReceipt().equals("UEDEM48QTT")));
     }
 }
