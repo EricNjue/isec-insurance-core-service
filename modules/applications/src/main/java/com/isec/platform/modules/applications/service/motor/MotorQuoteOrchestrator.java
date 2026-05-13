@@ -251,10 +251,9 @@ public class MotorQuoteOrchestrator {
                         .flatMap(app -> {
                             app.setTenantId(tenantId);
 
-                            // If policy already issued or issuance in progress, just return current state
-                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED ||
-                                    app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
-                                log.info("Policy already {} for quote: {}. Skipping payment status check.", app.getStatus(), quoteId);
+                            // If issuance is in progress, skip the check to avoid potential state conflicts during update
+                            if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                log.info("Policy issuance in progress for quote: {}. Skipping payment status check.", quoteId);
                                 return Mono.just(app);
                             }
 
@@ -269,8 +268,10 @@ public class MotorQuoteOrchestrator {
                                         String newPaymentResult = serialize(res);
 
                                         // Optimization: Skip update if status and payment result haven't changed
-                                        if (app.getStatus() == newStatus && StringUtils.equals(app.getPaymentResult(), newPaymentResult)) {
-                                            log.debug("Payment status unchanged for quote: {}. Skipping database update.", quoteId);
+                                        // OR if policy is already issued, we don't want to overwrite the status back to PAYMENT_SUCCESSFUL
+                                        if ((app.getStatus() == newStatus && StringUtils.equals(app.getPaymentResult(), newPaymentResult)) ||
+                                                (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED && newStatus == MotorQuoteStatus.PAYMENT_SUCCESSFUL)) {
+                                            log.debug("Payment status check completed for quote: {}. No status update required (Current status: {}).", quoteId, app.getStatus());
                                             return Mono.just(app);
                                         }
 
