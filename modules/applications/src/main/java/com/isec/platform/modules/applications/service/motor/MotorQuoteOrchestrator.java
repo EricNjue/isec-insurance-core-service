@@ -254,6 +254,7 @@ public class MotorQuoteOrchestrator {
                             // If policy already issued or issuance in progress, just return current state
                             if (app.getStatus() == MotorQuoteStatus.POLICY_ISSUED ||
                                     app.getStatus() == MotorQuoteStatus.POLICY_ISSUANCE_IN_PROGRESS) {
+                                log.info("Policy already {} for quote: {}. Skipping payment status check.", app.getStatus(), quoteId);
                                 return Mono.just(app);
                             }
 
@@ -282,7 +283,8 @@ public class MotorQuoteOrchestrator {
                                         // Trigger policy issuance internally if payment is successful
                                         if (updatedApp.getStatus() == MotorQuoteStatus.PAYMENT_SUCCESSFUL) {
                                             log.info("Payment successful for quote: {}. Triggering automatic policy issuance.", quoteId);
-                                            return issuePolicyInternal(updatedApp);
+                                            return issuePolicyInternal(updatedApp)
+                                                    .doOnNext(finalApp -> log.info("Automatic policy issuance completed for quote: {}. Final status: {}", quoteId, finalApp.getStatus()));
                                         }
                                         return Mono.just(updatedApp);
                                     });
