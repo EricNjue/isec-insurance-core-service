@@ -327,7 +327,7 @@ public class MotorQuoteMapper {
                     
                     if (paymentResult.getInstructions() != null && !paymentResult.getInstructions().isEmpty()) {
                         builder.manualPayment(ManualPaymentInstructions.builder()
-                                .paymentMethod(paymentResult.getPaymentMethod())
+                                .paymentMethod(PaymentMethod.MPESA_PAYBILL)
                                 .businessNumber(paymentResult.getBusinessNumber())
                                 .accountNumber(paymentResult.getAccountNumber())
                                 .amount(paymentResult.getAmount())
