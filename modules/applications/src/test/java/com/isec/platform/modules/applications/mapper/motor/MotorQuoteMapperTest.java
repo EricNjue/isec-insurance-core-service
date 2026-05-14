@@ -125,6 +125,7 @@ class MotorQuoteMapperTest {
         MotorQuoteResponse response = mapper.toResponse(application);
 
         assertNotNull(response.getManualPayment());
+        assertEquals(PaymentMethod.MPESA_PAYBILL, response.getManualPayment().getPaymentMethod());
         assertEquals("7146151", response.getManualPayment().getBusinessNumber());
         assertEquals("KDW 123T", response.getManualPayment().getAccountNumber());
         assertFalse(response.getManualPayment().getInstructions().isEmpty());
